@@ -14,29 +14,33 @@ const SectionHome1 = ({imglink}) => {
   <div className="max-w-screen-xl mx-auto flex flex-col md:flex-row gap-3">
 
     {/* Left big image */}
-    <Link to={"/women"} className="relative w-full md:w-[70%] rounded-2xl overflow-hidden max-h-[600px]">
-{
-      !imglink && <Loading />
-} 
-  
-      <img
-        src={imglink }
-        alt="Main Visual"
-        className="w-full h-full object-cover rounded-2xl"
-      />
+    <Link to={"/women"} className="relative w-full md:w-[70%] rounded-2xl overflow-hidden max-h-[600px] min-h-[400px] bg-gray-800">
+      {!imglink ? (
+        <div className="w-full h-full flex items-center justify-center min-h-[400px]">
+          <Loading />
+        </div>
+      ) : (
+        <>
+          <img
+            src={imglink}
+            alt="Main Visual"
+            className="w-full h-full object-cover rounded-2xl"
+          />
+          
+          {/* Text Overlay */}
+          <div className="absolute top-8 left-6 z-10 text-white">
+            <p className="text-4xl md:text-6xl font-semibold leading-tight md:leading-[3.2rem]">
+              Color Of <br /> Summer <br /> Outfit
+            </p>
+            <button className="mt-4 px-6 py-2 bg-[#E5C870] text-black rounded-full shadow-lg text-sm md:text-base">
+              Shop the Look →
+            </button>
+          </div>
 
-      {/* Text Overlay */}
-      <div className="absolute top-8 left-6 z-10 text-white">
-        <p className="text-4xl md:text-6xl font-semibold leading-tight md:leading-[3.2rem]">
-          Color Of <br /> Summer <br /> Outfit
-        </p>
-        <button className="mt-4 px-6 py-2 bg-[#E5C870] text-black rounded-full shadow-lg text-sm md:text-base">
-          Shop the Look →
-        </button>
-      </div>
-
-      {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/30 z-0 rounded-2xl" />
+          {/* Dark Overlay */}
+          <div className="absolute inset-0 bg-black/30 z-0 rounded-2xl" />
+        </>
+      )}
     </Link>
 
     {/* Right stacked cards */}

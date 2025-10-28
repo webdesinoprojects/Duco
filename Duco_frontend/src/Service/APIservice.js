@@ -20,12 +20,13 @@ export const createOrUpdatePrice = async (data) => {
 // ✅ Added: Get price increase by location (used in Cart.jsx)
 export const getUpdatePricesByLocation = async (location) => {
   try {
+    console.log("🌍 Checking price for location:", location);
     const res = await axios.post(
       `${API_BASE}money/get_location_increase`,
       { location },
       { headers: { "Content-Type": "application/json" } }
     );
-    return res.data; // expected: { success: true, percentage, currency, ... }
+    return res.data; // expected: { success, percentage, currency, ... }
   } catch (err) {
     console.error("Error fetching location-based prices:", err);
     return null;

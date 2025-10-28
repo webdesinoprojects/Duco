@@ -16,7 +16,7 @@ import React, { useEffect, useMemo, useState } from "react";
  * 3) Drop this component in your React app (e.g., <App/>). Tailwind must be configured.
  */
 
-const API_BASE = "https://duco-backend.onrender.com"; // leave empty to call same-origin; set to "http://localhost:5000" if needed
+const API_BASE = "http://localhost:3000"; // leave empty to call same-origin; set to "http://localhost:5000" if needed
 
 const initialShape = {
   company: {

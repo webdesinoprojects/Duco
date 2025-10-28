@@ -1,7 +1,7 @@
 // src/Service/authService.js
-import axios from "axios";
+import axios from 'axios';
 
-const BASE_URL = "http://localhost:3000/user"; // update with your actual backend base URL
+const BASE_URL = 'http://localhost:3000/user'; // update with your actual backend base URL
 
 // 1. Send OTP to Gmail
 export const sendOtpToEmail = async ({ email }) => {
@@ -19,8 +19,8 @@ export const addAddressToUser = async ({ userId, address }) => {
   console.log("Adding address for user:", userId, "Address:", address);
   try {
     const response = await axios.post(`${BASE_URL}/add-address`, {
-      userId: userId,
-      newAddress: address,
+     userId: userId,
+     newAddress: address
     });
 
     return response.data;
@@ -28,3 +28,4 @@ export const addAddressToUser = async ({ userId, address }) => {
     throw error.response?.data || { message: "Failed to add address" };
   }
 };
+

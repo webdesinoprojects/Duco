@@ -1,23 +1,36 @@
-import React, { useEffect, useState } from "react";
-import SectionHome1 from "../Components/SectionHome1.jsx";
-import SectionHome2 from "../Components/SectionHome2.jsx";
-import SectionHome3 from "../Components/SectionHome3.jsx";
-import TrendingHome from "../Components/TrendingHome.jsx";
-import BannerHome from "../Components/BannerHome.jsx";
-import axios from "axios";
-import { usePriceContext } from "../ContextAPI/PriceContext.jsx";
+import React, { useEffect, useState } from 'react';
+import SectionHome1 from '../Components/SectionHome1.jsx';
+import SectionHome2 from '../Components/SectionHome2.jsx';
+import SectionHome3 from '../Components/SectionHome3.jsx';
+import TrendingHome from '../Components/TrendingHome.jsx';
+import BannerHome from '../Components/BannerHome.jsx';
+import axios from 'axios';
+import { usePriceContext } from '../ContextAPI/PriceContext.jsx';
 
 const continentMapping = {
-  IN: "Asia",
-  US: "North America",
-  GB: "Europe",
-  AU: "Australia",
+  "IN": "Asia",
+  "US": "North America",
+  "CA": "North America",
+  "GB": "Europe",
+  "DE": "Europe",
+  "FR": "Europe",
+  "NL": "Europe", // Netherlands (Amsterdam)
+  "ES": "Europe",
+  "IT": "Europe",
+  "AU": "Australia",
+  "NZ": "Australia",
+  "CN": "Asia",
+  "JP": "Asia",
+  "KR": "Asia",
+  "SG": "Asia",
+  "AE": "Asia", // UAE
+  "SA": "Asia", // Saudi Arabia
 };
 
 const Home = () => {
   const { setLocation } = usePriceContext();
   const [banner, setBanner] = useState("");
-  const [Loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // List of local videos for floating carousel
   const [videoList] = useState([
@@ -28,19 +41,27 @@ const Home = () => {
   ]);
 
   useEffect(() => {
-    axios
-      .get("https://ipapi.co/json/")
+    console.log('Home component mounted');
+    
+    axios.get("https://ipapi.co/json/")
       .then((response) => {
         const data = response.data;
-        setLocation(continentMapping[data?.country] || "Not available");
+        const mappedLocation = continentMapping[data?.country] || data?.country_name || "Asia";
+        console.log("🌍 Home detected location:", {
+          countryCode: data?.country,
+          countryName: data?.country_name,
+          mappedTo: mappedLocation
+        });
+        setLocation(mappedLocation);
       })
-      .catch(() => setLocation("Asia"));
+      .catch((err) => {
+        console.error("Failed to fetch location:", err);
+        setLocation("Asia");
+      });
 
     const fetchBanner = async () => {
       try {
-        const res = await axios.get(
-          "http://localhost:3000/api/banners"
-        );
+        const res = await axios.get("http://localhost:3000/api/banners");
         setBanner(res.data.banners?.[0]?.link || "");
       } catch (err) {
         console.error("Failed to fetch banner data:", err);
@@ -53,14 +74,10 @@ const Home = () => {
   }, [setLocation]);
 
   return (
-    <div className="h-full bg-[#0A0A0A] w-full text-white">
-      <SectionHome1 imglink={banner} Loading={Loading} />
+    <div className='h-full bg-[#0A0A0A] w-full text-white'>
+      <SectionHome1 imglink={banner} loading={loading} />
       <SectionHome2 />
-      <BannerHome
-        link={
-          "https://ik.imagekit.io/vuavxn05l/5213288.jpg?updatedAt=1757162698605"
-        }
-      />
+      <BannerHome link={"https://ik.imagekit.io/vuavxn05l/5213288.jpg?updatedAt=1757162698605"} />
       <TrendingHome />
       <SectionHome3 />
 
@@ -74,7 +91,7 @@ const Home = () => {
             <div
               key={idx}
               className="flex-shrink-0 rounded-xl overflow-hidden shadow-lg bg-gray-800"
-              style={{ width: "300px", aspectRatio: "16/9" }}
+              style={{ width: '300px', aspectRatio: '16/9' }}
             >
               <video
                 className="w-full h-full object-cover"
@@ -93,12 +110,8 @@ const Home = () => {
       {/* Tailwind animation keyframes */}
       <style jsx>{`
         @keyframes marquee {
-          0% {
-            transform: translateX(0%);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
         }
         .animate-marquee {
           display: flex;
