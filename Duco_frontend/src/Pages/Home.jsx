@@ -118,6 +118,20 @@ const Home = () => {
           gap: 24px;
           animation: marquee 20s linear infinite;
         }
+        
+        /* Faster animation for mobile devices */
+        @media (max-width: 768px) {
+          .animate-marquee {
+            animation: marquee 8s linear infinite;
+          }
+        }
+        
+        /* Even faster for very small screens */
+        @media (max-width: 480px) {
+          .animate-marquee {
+            animation: marquee 6s linear infinite;
+          }
+        }
       `}</style>
     </div>
   );

@@ -1,6 +1,7 @@
 // controllers/printroveHelper.js
 const axios = require('axios');
 const { getPrintroveToken } = require('./printroveAuth');
+const PrintroveIntegrationService = require('../Service/PrintroveIntegrationService');
 const PrintroveSyncService = require('../Service/PrintroveSyncService');
 const PrintrovePricingService = require('../Service/PrintrovePricingService');
 const PrintroveProductCreationService = require('../Service/PrintroveProductCreationService');
@@ -172,13 +173,40 @@ async function uploadDesignFromUrl(imageUrl, designName, token) {
 /* 🟢 CREATE ORDER (Corrected Format for Printrove API v1)                    */
 /* -------------------------------------------------------------------------- */
 async function createPrintroveOrder(order) {
+  const o = order.toObject ? order.toObject() : order;
+  
+  console.log('🚀 Creating Printrove order using new integration service...');
+  
+  try {
+    // Use the new integration service
+    const result = await PrintroveIntegrationService.createOrder(o);
+    return result;
+  } catch (error) {
+    console.error('❌ New integration service failed, falling back to legacy method:', error.message);
+    
+    // Fallback to legacy method
+    return await createPrintroveOrderLegacy(order);
+  }
+}
+
+// Legacy method as fallback
+async function createPrintroveOrderLegacy(order) {
   const token = await getPrintroveToken();
   const o = order.toObject ? order.toObject() : order;
 
   console.log('🔍 RAW ORDER DATA FROM FRONTEND:', {
     orderId: o._id,
     razorpayPaymentId: o.razorpayPaymentId,
-    products: o.products,
+    products: o.products?.map((p, idx) => ({
+      index: idx,
+      id: p.id || p._id,
+      name: p.name || p.products_name,
+      color: p.color,
+      quantity: p.quantity,
+      printroveVariantsBySize: p.printroveVariantsBySize,
+      printroveLineItems: p.printroveLineItems,
+      hasPrintroveMapping: !!(p.printroveVariantsBySize || p.printroveLineItems)
+    })),
     address: o.address,
     user: o.user,
     totalPay: o.totalPay,
@@ -431,12 +459,32 @@ async function createPrintroveOrder(order) {
           }
         }
 
-        // If no variant found, try to use product's printrove mapping
+        // ✅ Try to get variant ID from product's printrove mapping (from frontend)
         if (!printroveVariantId && p.printroveVariantsBySize) {
+          // Try to find variant for the specific size first
           printroveVariantId = p.printroveVariantsBySize[firstSize];
-          console.log(
-            `🔍 Found variant in product mapping: ${printroveVariantId}`
+          
+          // If not found for specific size, try any available variant
+          if (!printroveVariantId) {
+            const availableVariants = Object.values(p.printroveVariantsBySize).filter(Boolean);
+            if (availableVariants.length > 0) {
+              printroveVariantId = availableVariants[0];
+              console.log(`🔍 Using available variant from mapping: ${printroveVariantId}`);
+            }
+          } else {
+            console.log(`🔍 Found variant for size ${firstSize}: ${printroveVariantId}`);
+          }
+        }
+
+        // ✅ Try to get variant ID from printroveLineItems (from frontend)
+        if (!printroveVariantId && p.printroveLineItems) {
+          const lineItem = p.printroveLineItems.find(item => 
+            item.size === firstSize || item.printroveVariantId
           );
+          if (lineItem && lineItem.printroveVariantId) {
+            printroveVariantId = lineItem.printroveVariantId;
+            console.log(`🔍 Found variant from line items: ${printroveVariantId}`);
+          }
         }
 
         // ✅ Final fallback if no variant found
@@ -465,18 +513,18 @@ async function createPrintroveOrder(order) {
           is_plain: isPlain,
         };
 
-        // ✅ Use the correct structure for Printrove orders with valid IDs
+        // ✅ Use the correct structure for Printrove orders with actual variant IDs
         if (
           productInfo &&
           productInfo.design &&
           Object.keys(productInfo.design).length > 0
         ) {
           // For custom products with design, use product_id, design, and variant_id
-          orderProduct.product_id = 1000; // Valid product ID for your account
+          orderProduct.product_id = productInfo.productId || 1000; // Use actual product ID if available
           orderProduct.design = productInfo.design;
-          orderProduct.variant_id = 22094474; // Valid variant ID for your account
+          orderProduct.variant_id = printroveVariantId; // Use actual variant ID from frontend
           console.log(
-            `✅ Using product_id with design: ${orderProduct.product_id}`
+            `✅ Using product_id with design: ${orderProduct.product_id}, variant: ${orderProduct.variant_id}`
           );
           console.log(`✅ Including design information:`, {
             hasFront: !!productInfo.design.front,
@@ -486,8 +534,8 @@ async function createPrintroveOrder(order) {
           });
         } else if (productInfo && productInfo.productId) {
           // For plain products, use product_id and variant_id
-          orderProduct.product_id = 1000; // Valid product ID for your account
-          orderProduct.variant_id = 22094474; // Valid variant ID for your account
+          orderProduct.product_id = productInfo.productId; // Use actual product ID
+          orderProduct.variant_id = printroveVariantId; // Use actual variant ID from frontend
           console.log(
             `✅ Using product_id and variant_id: ${orderProduct.product_id}, ${orderProduct.variant_id}`
           );

@@ -8,14 +8,7 @@ import React, {
 } from "react";
 import { CartContext } from "../ContextAPI/CartContext";
 import { toPng } from "html-to-image";
-import {
-  DndContext,
-  useDraggable,
-  useSensor,
-  useSensors,
-  PointerSensor,
-  TouchSensor,
-} from "@dnd-kit/core";
+// DndKit removed - using custom drag implementation
 import { MdNavigateNext } from "react-icons/md";
 import menstshirt from "../assets/men_s_white_polo_shirt_mockup-removebg-preview.png";
 import axios from "axios";
@@ -23,34 +16,104 @@ import { createDesign, getproductssingle } from "../Service/APIservice";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { FaUpload, FaFont, FaRegKeyboard, FaTimes } from "react-icons/fa";
 
-// ======================== DRAGGABLE ITEM ========================
-const DraggableItem = ({ id, children, position = { x: 0, y: 0 } }) => {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id });
+// ======================== SIMPLE DRAGGABLE ITEM ========================
+const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 }, onPositionChange }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [currentPos, setCurrentPos] = useState(position);
+  const elementRef = useRef(null);
+
+  // Update current position when prop changes
+  useEffect(() => {
+    setCurrentPos(position);
+  }, [position]);
+
+  const handleMouseDown = useCallback((e) => {
+    console.log(`🎯 Drag start: ${id}`);
+    setIsDragging(true);
+    setStartPos({ x: e.clientX, y: e.clientY });
+    e.preventDefault();
+    e.stopPropagation();
+  }, [id]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isDragging) return;
+    
+    // Get the T-shirt container (the main design area)
+    const container = elementRef.current?.closest('.design-area-container');
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    const deltaX = e.clientX - startPos.x;
+    const deltaY = e.clientY - startPos.y;
+    
+    // Convert pixel movement to percentage
+    const deltaXPercent = (deltaX / rect.width) * 100;
+    const deltaYPercent = (deltaY / rect.height) * 100;
+    
+    // Calculate new position with constraints
+    const newPos = {
+      x: Math.max(10, Math.min(90, position.x + deltaXPercent)),
+      y: Math.max(10, Math.min(90, position.y + deltaYPercent)),
+    };
+    
+    setCurrentPos(newPos);
+  }, [isDragging, startPos, position]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDragging) return;
+    console.log(`🎯 Drag end: ${id} -> x:${currentPos.x.toFixed(1)}, y:${currentPos.y.toFixed(1)}`);
+    
+    // Update the actual position in parent state
+    onPositionChange(id, currentPos);
+    setIsDragging(false);
+  }, [isDragging, id, currentPos, onPositionChange]);
+
+  // Global mouse events
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   const style = {
     position: "absolute",
-    left: `${position.x}%`,
-    top: `${position.y}%`,
-    transform: transform
-      ? `translate(${transform.x}px, ${transform.y}px)`
-      : "translate(0, 0)",
-    cursor: "move",
-    zIndex: 20,
+    left: `${currentPos.x}%`,
+    top: `${currentPos.y}%`,
+    transform: "translate(-50%, -50%)",
+    cursor: isDragging ? "grabbing" : "grab",
+    zIndex: isDragging ? 100 : 50, // Normal z-index
     touchAction: "none",
+    userSelect: "none",
+    WebkitUserSelect: "none",
+    WebkitTouchCallout: "none",
+    WebkitUserDrag: "none",
+    pointerEvents: "auto",
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+    <div 
+      ref={elementRef}
+      style={style} 
+      onMouseDown={handleMouseDown}
+      className="custom-draggable-item"
+    >
       {children}
     </div>
   );
-};
+});
 
 // ======================== MAIN COMPONENT ========================
 const TshirtDesigner = () => {
   const { addToCart } = useContext(CartContext);
   const [isSaving, setIsSaving] = useState(false);
   const [productDetails, setProductDetails] = useState(null);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(true);
   const [additionalFiles, setAdditionalFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
   const [side, setSide] = useState("front");
@@ -62,12 +125,7 @@ const TshirtDesigner = () => {
 
   const views = ["front", "back", "left", "right"];
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 250, tolerance: 5 },
-    })
-  );
+  // Custom drag system - no sensors needed
 
   // ✅ get passed size quantities from ProductPage
   const location = useLocation();
@@ -81,12 +139,9 @@ const TshirtDesigner = () => {
   };
 
   const defaultSideState = (view) => {
-    let defaultTextPos = { x: 50, y: 100 };
-    if (view === "front") defaultTextPos = { x: 55, y: 25 };
-    else if (view === "back") defaultTextPos = { x: 42, y: 12 };
-    else if (view === "left" || view === "right")
-      defaultTextPos = { x: 45, y: 25 };
-
+    // Center position for all elements on all views - adjusted for T-shirt area
+    const centerPos = { x: 50, y: 45 }; // More centered on actual T-shirt chest area
+    
     return {
       uploadedImage: null,
       customText: "",
@@ -95,8 +150,8 @@ const TshirtDesigner = () => {
       font: "font-sans",
       imageSize: 120,
       positions: {
-        [`uploaded-image-${view}`]: { x: 50, y: 50 },
-        [`custom-text-${view}`]: defaultTextPos,
+        [`uploaded-image-${view}`]: centerPos, // Logo/image in center
+        [`custom-text-${view}`]: centerPos,    // Text in center
       },
     };
   };
@@ -123,6 +178,12 @@ const TshirtDesigner = () => {
       : `#${color}`
     : "";
 
+  // URL parameters processed
+  
+  // State for showing center guide
+  const [showCenterGuide, setShowCenterGuide] = useState(false);
+  const [cuteMessage, setCuteMessage] = useState(null);
+
   const getViewIndex = (s) =>
     ({ front: 0, back: 1, left: 2, right: 3 }[s] ?? 0);
 
@@ -138,6 +199,7 @@ const TshirtDesigner = () => {
   useEffect(() => {
     const getdata = async () => {
       try {
+        setIsLoadingProduct(true);
         const data = await getproductssingle(proid);
         console.log("PRODUCT DETAILS:", data);
         setProductDetails(data);
@@ -145,9 +207,45 @@ const TshirtDesigner = () => {
         const match = data?.image_url?.find(
           (e) => e.colorcode === colorWithHash
         );
-        setSideimage(match?.designtshirt || []);
+        
+        console.log("🎨 Color matching debug:", {
+          colorWithHash,
+          availableColors: data?.image_url?.map(img => img.colorcode),
+          match: match,
+          designtshirt: match?.designtshirt
+        });
+        
+        const designImages = match?.designtshirt || [];
+        setSideimage(designImages);
+        
+        console.log("🔄 Design images loaded:", {
+          designImages,
+          length: designImages.length,
+          front: designImages[0],
+          back: designImages[1],
+          left: designImages[2],
+          right: designImages[3]
+        });
+        
+        // If no design images available, create default views with different orientations
+        if (designImages.length === 0) {
+          console.log("⚠️ No design images found, creating default T-shirt views");
+          setSideimage([
+            menstshirt, // front
+            menstshirt, // back  
+            menstshirt, // left
+            menstshirt  // right
+          ]);
+        }
+        
+        // If no design images found, ensure we have at least the fallback
+        if (designImages.length === 0) {
+          console.log("⚠️ No design images found, using fallback T-shirt image");
+        }
       } catch (e) {
         console.error("Failed to fetch product images", e);
+      } finally {
+        setIsLoadingProduct(false);
       }
     };
     if (proid) getdata();
@@ -159,10 +257,29 @@ const TshirtDesigner = () => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setAllDesigns((prev) => ({
-        ...prev,
-        [side]: { ...prev[side], uploadedImage: reader.result },
-      }));
+      setAllDesigns((prev) => {
+        const centerPos = { x: 45, y: 55 }; // Center position on chest
+        const imageId = `uploaded-image-${side}`;
+        
+        const result = {
+          ...prev,
+          [side]: { 
+            ...prev[side], 
+            uploadedImage: reader.result,
+            // Ensure the uploaded image appears in center
+            positions: {
+              ...prev[side].positions,
+              [imageId]: centerPos,
+            }
+          },
+        };
+        
+        // Show center guide briefly when image is uploaded
+        setShowCenterGuide(true);
+        setTimeout(() => setShowCenterGuide(false), 2000);
+        
+        return result;
+      });
     };
     reader.readAsDataURL(file);
   };
@@ -177,40 +294,61 @@ const TshirtDesigner = () => {
   };
 
   const updateCurrentDesign = (property, value) => {
-    setAllDesigns((prev) => ({
-      ...prev,
-      [side]: { ...prev[side], [property]: value },
-    }));
+    setAllDesigns((prev) => {
+      const centerPos = { x: 50, y: 45 }; // Center position on T-shirt chest
+      const textId = `custom-text-${side}`;
+      
+      // If updating custom text and it's the first time adding text, center it
+      const shouldCenterText = property === 'customText' && 
+                              value && 
+                              !prev[side].customText;
+      
+      // Show center guide when text is first added
+      if (shouldCenterText) {
+        setShowCenterGuide(true);
+        setTimeout(() => setShowCenterGuide(false), 2000);
+      }
+
+      // FIXED: Always preserve existing positions, only update when centering text
+      const newPositions = shouldCenterText ? {
+        ...prev[side].positions,
+        [textId]: centerPos,
+      } : { ...prev[side].positions }; // Create new object to avoid reference issues
+
+      return {
+        ...prev,
+        [side]: { 
+          ...prev[side], 
+          [property]: value,
+          positions: newPositions,
+        },
+      };
+    });
   };
 
-  const handleDragEnd = useCallback(
-    (event) => {
-      const { active, delta } = event;
-      const id = active.id;
-      const container = designRefs[side]?.current;
-      if (!container) return;
-
-      const { offsetWidth: w, offsetHeight: h } = container;
-
-      setAllDesigns((prev) => {
-        const pos = prev[side].positions[id] || { x: 0, y: 0 };
-        return {
-          ...prev,
-          [side]: {
-            ...prev[side],
-            positions: {
-              ...prev[side].positions,
-              [id]: {
-                x: pos.x + (delta.x / w) * 100,
-                y: pos.y + (delta.y / h) * 100,
-              },
-            },
+  // Custom drag position handler
+  const handlePositionChange = useCallback((elementId, newPosition) => {
+    console.log(`🎯 Position updated: ${elementId} -> x:${newPosition.x.toFixed(1)}, y:${newPosition.y.toFixed(1)}`);
+    
+    setAllDesigns((prev) => {
+      return {
+        ...prev,
+        [side]: {
+          ...prev[side],
+          positions: {
+            ...prev[side].positions,
+            [elementId]: newPosition,
           },
-        };
-      });
-    },
-    [side]
-  );
+        },
+      };
+    });
+  }, [side]);
+
+  // Cute message handler
+  const showCuteMessage = (message, emoji = "🎉") => {
+    setCuteMessage({ text: message, emoji });
+    setTimeout(() => setCuteMessage(null), 4000); // Hide after 4 seconds
+  };
 
   // ======================== HELPER: WAIT FOR IMAGES ========================
   const waitForImages = (container) => {
@@ -542,76 +680,82 @@ if (!Object.keys(map).length) {
         rawProductData: productDetails
       });
       
-      const variantMap = buildVariantMap(productDetails);
-      console.log("🧭 Variant Map:", variantMap);
+      // ✅ Try to get Printrove mappings from API first
+      let variantMap = {};
+      try {
+        const response = await axios.get(`http://localhost:3000/api/printrove/mappings/${productDetails._id}`);
+        if (response.data.success && response.data.mapping) {
+          const mapping = response.data.mapping;
+          console.log("🎯 Found Printrove mapping:", mapping);
+          
+          // Use the mapping variants
+          mapping.variants?.forEach(variant => {
+            if (variant.isAvailable && variant.ducoSize && variant.printroveVariantId) {
+              const canonicalSize = canonSize(variant.ducoSize);
+              variantMap[canonicalSize] = variant.printroveVariantId;
+            }
+          });
+          
+          if (Object.keys(variantMap).length > 0) {
+            console.log("✅ Using Printrove API mappings:", variantMap);
+          }
+        }
+      } catch (error) {
+        console.warn("⚠️ Could not fetch Printrove mappings from API:", error.message);
+      }
+
+      // Fallback to existing buildVariantMap if no API mappings found
+      if (Object.keys(variantMap).length === 0) {
+        variantMap = buildVariantMap(productDetails);
+        console.log("🔄 Using fallback variant mapping:", variantMap);
+      }
+      
+      console.log("🧭 Final Variant Map:", variantMap);
       console.log("📦 Selected Quantities:", finalQuantities);
 
       // Build line items only for mapped sizes
-      const printroveLineItems = Object.entries(finalQuantities)
-        .filter(([size]) => !!variantMap[canonSize(size)])
-        .map(([size, qty]) => ({
-          size,
-          qty,
-          printroveVariantId: variantMap[canonSize(size)],
-        }));
+      // ✅ All line items processing moved to finalPrintroveLineItems below
 
-      const unmappedSizes = Object.keys(finalQuantities).filter(
-        (s) => !variantMap[canonSize(s)]
+      // ✅ Create line items for all sizes (with or without variant IDs)
+      const finalPrintroveLineItems = Object.entries(finalQuantities).map(
+        ([size, qty]) => {
+          const canonicalSize = canonSize(size);
+          const variantId = variantMap[canonicalSize];
+          
+          console.log(`🔍 Size mapping: ${size} -> ${canonicalSize} -> variant ${variantId || 'MISSING'}`);
+          
+          return {
+            size,
+            qty,
+            printroveVariantId: variantId || null,
+          };
+        }
       );
 
-      // Validation: Check for missing Printrove Product ID
+      // Log mapping results
+      const mappedSizes = finalPrintroveLineItems.filter(item => item.printroveVariantId);
+      const unmappedSizes = finalPrintroveLineItems.filter(item => !item.printroveVariantId);
+      
+      console.log("📊 Variant Mapping Results:", {
+        totalSizes: finalPrintroveLineItems.length,
+        mappedSizes: mappedSizes.length,
+        unmappedSizes: unmappedSizes.length,
+        variantMap,
+        finalLineItems: finalPrintroveLineItems
+      });
+
+      // ✅ Show informative messages but don't block the process
       if (!printroveProductId) {
-        console.error("❌ Missing Printrove Product ID", {
-          productDetails,
-          extractedId: printroveProductId
-        });
-        const proceed = confirm(
-          "⚠️ Printrove Product ID is missing!\n\n" +
-          "This product cannot be synced with Printrove without a Product ID.\n" +
-          "Product: " + (productDetails?.products_name || "Unknown") + "\n\n" +
-          "Do you want to add it to cart anyway?\n(You'll need to contact admin to map it before checkout)"
-        );
-        if (!proceed) {
-          setIsSaving(false);
-          return;
-        }
+        console.warn("⚠️ Missing Printrove Product ID - backend will handle fallback");
       }
 
-      if (printroveLineItems.length === 0) {
-        // ⚠️ No mapped sizes: continue (non-blocking) but flag clearly
-        console.error("❌ No mapped variant IDs for any selected sizes.", {
-          finalQuantities,
-          variantMap,
-          productDetails,
-          availableSources: {
-            variant_mapping: productDetails?.variant_mapping,
-            pricing: productDetails?.pricing,
-            colorVariants: productDetails?.image_url?.find(e => e.colorcode === colorWithHash)
-          }
-        });
-        const proceed = confirm(
-          "⚠️ No Printrove Variant IDs found!\n\n" +
-          "Selected sizes: " + Object.keys(finalQuantities).join(", ") + "\n" +
-          "Available mappings: " + Object.keys(variantMap).join(", ") + "\n\n" +
-          "This order cannot be placed with Printrove without variant IDs.\n" +
-          "Do you want to add it to cart anyway?\n(You'll need to contact admin to map variants before checkout)"
-        );
-        if (!proceed) {
-          setIsSaving(false);
-          return;
-        }
-      } else if (unmappedSizes.length) {
-        // Some mapped, some not — continue with warning
-        console.warn("⚠️ Unmapped sizes (not added to line items):", unmappedSizes);
-        alert(
-          `⚠️ Missing Printrove Variant IDs for sizes: ${unmappedSizes.join(", ")}\n\n` +
-          `Mapped sizes: ${printroveLineItems.map(li => li.size).join(", ")}\n\n` +
-          `We'll add mapped sizes to cart; please contact admin to map the rest before placing the order.`
-        );
+      if (unmappedSizes.length > 0) {
+        console.warn("⚠️ Some sizes missing variant IDs - backend will handle fallback:", 
+          unmappedSizes.map(item => item.size));
       }
 
       // Fallback single variant id from the first mapped line item (legacy field)
-      const fallbackVariantId = printroveLineItems[0]?.printroveVariantId || null;
+      const fallbackVariantId = finalPrintroveLineItems.find(item => item.printroveVariantId)?.printroveVariantId || null;
       const needsProductId = !printroveProductId;
 
       // Build cart product
@@ -623,14 +767,14 @@ if (!Object.keys(map).length) {
         printroveProductId: printroveProductId || null,
         printroveVariantId: fallbackVariantId, // legacy single
         printroveVariantsBySize: Object.fromEntries(
-          Object.keys(finalQuantities)
-            .filter((s) => !!variantMap[canonSize(s)])
-            .map((s) => [s, variantMap[canonSize(s)]])
+          finalPrintroveLineItems
+            .filter(item => item.printroveVariantId)
+            .map(item => [item.size, item.printroveVariantId])
         ),
-        printroveLineItems, // may be empty; UI should handle before placing order
+        printroveLineItems: finalPrintroveLineItems, // All line items with or without variant IDs
         printroveNeedsMapping: {
           missingProductId: needsProductId,
-          unmappedSizes,
+          unmappedSizes: finalPrintroveLineItems.filter(item => !item.printroveVariantId).map(item => item.size),
         },
         design: {
           ...allDesigns,
@@ -653,28 +797,44 @@ if (!Object.keys(map).length) {
         printroveVariantId: fallbackVariantId || null, // legacy single
         legacyVariant: fallbackVariantId,
         printroveVariantsBySize: customProduct.printroveVariantsBySize,
-        lineItems: printroveLineItems,
+        lineItems: finalPrintroveLineItems,
         needsMapping: customProduct.printroveNeedsMapping,
         quantities: finalQuantities,
-        variantMap: variantMap
+        variantMap: variantMap,
+        hasVariantMappings: Object.keys(variantMap).length > 0,
+        mappedSizesCount: finalPrintroveLineItems.filter(item => item.printroveVariantId).length,
+        totalSizesCount: finalPrintroveLineItems.length
       });
 
       // Final validation log
-      if (printroveLineItems.length > 0) {
+      const mappedItems = finalPrintroveLineItems.filter(item => item.printroveVariantId);
+      if (mappedItems.length > 0) {
         console.log("✅ Product has valid Printrove mappings:", {
           productId: printroveProductId,
-          mappedSizes: printroveLineItems.map(li => `${li.size}: ${li.printroveVariantId}`)
+          mappedSizes: mappedItems.map(li => `${li.size}: ${li.printroveVariantId}`)
         });
       } else {
-        console.warn("⚠️ Product added to cart WITHOUT Printrove mappings - admin action required");
+        console.warn("⚠️ Product added to cart WITHOUT Printrove mappings - backend will handle fallback");
       }
 
       addToCart(customProduct);
-      alert("✅ Design saved and added to cart!");
+      
+      // ✅ Show success message with variant mapping info
+      const mappedCount = finalPrintroveLineItems.filter(item => item.printroveVariantId).length;
+      const totalCount = finalPrintroveLineItems.length;
+
+      if (mappedCount === totalCount) {
+        showCuteMessage("Yay! Your awesome design is ready to rock! 🎨✨", "🛒");
+      } else if (mappedCount > 0) {
+        showCuteMessage("Sweet! Your design is in the cart and looking fabulous! 💫", "🎯");
+      } else {
+        showCuteMessage("Perfect! Your creative masterpiece is all set! 🌟", "🎨");
+      }
+
       navigate("/cart");
     } catch (error) {
       console.error("Error saving design:", error);
-      alert("Failed to save design. Try again.");
+      showCuteMessage("Oops! Something went wrong. Let's try that again! 🔄", "😅");
     } finally {
       setIsSaving(false);
     }
@@ -797,30 +957,94 @@ if (!Object.keys(map).length) {
     </div>
   );
 
+  // ======================== HELPER FUNCTIONS ========================
+  const getCenterPosition = () => ({ x: 45, y: 55 }); // Moved down to chest area
+  
+  const getElementPosition = useCallback((view, elementId) => {
+    const position = allDesigns[view]?.positions?.[elementId] || getCenterPosition();
+    return position;
+  }, [allDesigns]);
+
   // ======================== RENDER DESIGN AREA ========================
   const renderDesignArea = (view) => {
     const design = allDesigns[view];
     const isActive = view === side;
+    
+    // Debug view rendering
+    console.log(`🎨 Rendering ${view} view:`, {
+      isActive,
+      currentSide: side,
+      imageIndex: getViewIndex(view),
+      imageUrl: sideimage[getViewIndex(view)] || menstshirt
+    });
+    
     return (
       <div
         ref={designRefs[view]}
-        className={`absolute top-0 left-0 w-full h-full transition-opacity duration-300 ${
+        className={`absolute top-0 left-0 w-full h-full transition-opacity duration-300 design-area-container ${
           isActive
-            ? "relative z-10 opacity-100 pointer-events-auto"
+            ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         }`}
+        style={{ 
+          minHeight: '400px',
+          position: 'absolute', // Force absolute positioning
+          zIndex: isActive ? 10 : 1, // Ensure active view is on top
+        }}
       >
         <img
           src={sideimage[getViewIndex(view)] || menstshirt}
           alt={`${view} T-shirt`}
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+          className={`absolute inset-0 w-full h-full object-contain pointer-events-none z-0 ${
+            view === 'back' ? 'scale-x-[-1]' : // Flip horizontally for back view
+            view === 'left' ? 'rotate-[-10deg]' : // Slight rotation for left view
+            view === 'right' ? 'rotate-[10deg]' : // Slight rotation for right view
+            '' // No transform for front view
+          }`}
           crossOrigin="anonymous"
+          onError={(e) => {
+            console.error(`Failed to load T-shirt image for ${view}:`, e.target.src);
+            console.log("🔄 Falling back to default T-shirt image");
+            e.target.src = menstshirt; // Fallback to default image
+          }}
+          onLoad={(e) => {
+            console.log(`✅ T-shirt image loaded for ${view}:`, e.target.src);
+          }}
         />
-        <div className="relative w-full h-full z-10">
+        <div 
+          className="absolute inset-0 w-full h-full"
+          style={{ 
+            zIndex: 20,
+            pointerEvents: 'auto', // Allow draggable interactions
+          }}
+        >
+          {/* View Label */}
+          {isActive && (
+            <div className="absolute top-4 left-4 z-30 pointer-events-none">
+              <div className="bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                {view.charAt(0).toUpperCase() + view.slice(1)} View
+              </div>
+            </div>
+          )}
+
+          {/* Center Guide */}
+          {showCenterGuide && isActive && (
+            <div 
+              className="absolute w-3 h-3 bg-yellow-400 rounded-full animate-pulse z-30 pointer-events-none"
+              style={{ 
+                left: '50%', 
+                top: '45%', 
+                transform: 'translate(-50%, -50%)',
+                boxShadow: '0 0 15px rgba(255, 193, 7, 0.8)'
+              }}
+            />
+          )}
+          
           {design.uploadedImage && (
-            <DraggableItem
+            <CustomDraggableItem
               id={`uploaded-image-${view}`}
-              position={design.positions[`uploaded-image-${view}`]}
+              position={getElementPosition(view, `uploaded-image-${view}`)}
+              onPositionChange={handlePositionChange}
             >
               <img
                 src={design.uploadedImage}
@@ -832,29 +1056,45 @@ if (!Object.keys(map).length) {
                   height: `${
                     isMobile ? design.imageSize * 0.7 : design.imageSize
                   }px`,
+                  padding: "4px",
+                  borderRadius: "4px",
+                  backgroundColor: "rgba(255, 255, 255, 0.8)",
+                  border: "2px solid rgba(0, 0, 0, 0.2)",
+                  pointerEvents: "none", // Let parent handle events
                 }}
-                className="object-contain touch-none"
+                className="object-contain hover:shadow-lg transition-shadow duration-200"
+                draggable={false}
               />
-            </DraggableItem>
+            </CustomDraggableItem>
           )}
           {design.customText && (
-            <DraggableItem
+            <CustomDraggableItem
               id={`custom-text-${view}`}
-              position={design.positions[`custom-text-${view}`]}
+              position={getElementPosition(view, `custom-text-${view}`)}
+              onPositionChange={handlePositionChange}
             >
               <p
-                className={`select-none ${design.font} font-semibold touch-none`}
+                className={`select-none ${design.font} font-semibold hover:shadow-lg transition-shadow duration-200`}
                 style={{
                   fontSize: `${
                     isMobile ? design.textSize * 0.8 : design.textSize
                   }px`,
                   color: design.textColor,
                   whiteSpace: "nowrap",
+                  padding: "2px 4px",
+                  borderRadius: "0px",
+                  backgroundColor: "transparent", // No background
+                  border: "none", // No border
+                  textShadow: "2px 2px 4px rgba(0, 0, 0, 0.5)", // Subtle shadow for readability
+                  minWidth: "20px",
+                  minHeight: "20px",
+                  display: "inline-block",
+                  pointerEvents: "none", // Let parent handle events
                 }}
               >
                 {design.customText}
               </p>
-            </DraggableItem>
+            </CustomDraggableItem>
           )}
         </div>
       </div>
@@ -867,7 +1107,24 @@ if (!Object.keys(map).length) {
       {isSaving && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="text-white text-lg font-semibold bg-gray-800 px-6 py-3 rounded-lg shadow-lg">
-            Saving your design...
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              <span>Creating your masterpiece... ✨</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cute Message Toast */}
+      {cuteMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-bounce">
+          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-4 rounded-2xl shadow-2xl max-w-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{cuteMessage.emoji}</span>
+              <div>
+                <p className="font-semibold text-sm">{cuteMessage.text}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -885,28 +1142,41 @@ if (!Object.keys(map).length) {
         </aside>
 
         <main className="flex-1 flex items-center justify-center mt-4 lg:mt-0 relative p-4">
-          <DndContext onDragEnd={handleDragEnd} sensors={sensors}>
-            <div className="relative w-full max-w-2xl h-96 sm:h-[30rem] md:h-[38rem] rounded-3xl overflow-hidden mx-auto pt-20">
-              {/* View Switcher */}
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-                {views.map((view) => (
-                  <button
-                    key={view}
-                    onClick={() => setSide(view)}
-                    className={`px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base font-medium transition-all ${
-                      side === view
-                        ? "bg-yellow-500 text-black"
-                        : "bg-gray-800 text-white"
-                    } rounded-md`}
-                  >
-                    {view.charAt(0).toUpperCase() + view.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              {views.map((view) => renderDesignArea(view))}
+          <div className="relative w-full max-w-2xl h-96 sm:h-[30rem] md:h-[38rem] rounded-3xl mx-auto pt-20">
+            {/* View Switcher */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+              {views.map((view) => (
+                <button
+                  key={view}
+                  onClick={() => {
+                    console.log(`🔄 Switching to view: ${view}`);
+                    setSide(view);
+                  }}
+                  className={`px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base font-medium transition-all ${
+                    side === view
+                      ? "bg-yellow-500 text-black"
+                      : "bg-gray-800 text-white"
+                  } rounded-md`}
+                >
+                  {view.charAt(0).toUpperCase() + view.slice(1)}
+                </button>
+              ))}
             </div>
-          </DndContext>
+
+            {/* Loading State */}
+            {isLoadingProduct ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-3xl">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading T-shirt...</p>
+                </div>
+              </div>
+            ) : (
+              views.map((view) => (
+                <div key={view}>{renderDesignArea(view)}</div>
+              ))
+            )}
+          </div>
         </main>
       </div>
 

@@ -326,8 +326,8 @@ export default function AnalyticsDashboard() {
                     key={s}
                     onClick={() => toggleStatus(s)}
                     className={`px-3 py-1 rounded-full border ${statusFilter.includes(s)
-                        ? "bg-[#E5C870] text-black border-[#E5C870]"
-                        : "bg-transparent text-gray-300 border-[#333]"
+                      ? "bg-[#E5C870] text-black border-[#E5C870]"
+                      : "bg-transparent text-gray-300 border-[#333]"
                       }`}
                   >
                     {s}
@@ -455,14 +455,14 @@ export default function AnalyticsDashboard() {
                       <td className="px-4 py-3">
                         <span
                           className={`px-2 py-1 rounded text-xs ${o?.status === "Delivered"
-                              ? "bg-emerald-500/20 text-emerald-300"
-                              : o?.status === "Shipped"
-                                ? "bg-sky-500/20 text-sky-300"
-                                : o?.status === "Processing"
-                                  ? "bg-yellow-500/20 text-yellow-300"
-                                  : o?.status === "Pending"
-                                    ? "bg-gray-500/20 text-gray-300"
-                                    : "bg-red-500/20 text-red-300"
+                            ? "bg-emerald-500/20 text-emerald-300"
+                            : o?.status === "Shipped"
+                              ? "bg-sky-500/20 text-sky-300"
+                              : o?.status === "Processing"
+                                ? "bg-yellow-500/20 text-yellow-300"
+                                : o?.status === "Pending"
+                                  ? "bg-gray-500/20 text-gray-300"
+                                  : "bg-red-500/20 text-red-300"
                             }`}
                         >
                           {o?.status || "-"}

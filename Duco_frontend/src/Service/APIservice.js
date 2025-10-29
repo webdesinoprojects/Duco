@@ -244,8 +244,9 @@ export async function adminLogin(userid, password) {
  */
 export const getChargePlanRates = async (qty = 1) => {
   try {
-    const res = await axios.get(`${API_BASE}api/chargeplan/rates`, {
-      params: { qty },
+    const res = await axios.post(`${API_BASE}api/chargeplan/rates`, {
+      qty: qty
+    }, {
       timeout: 8000,
     });
     const data = res?.data;

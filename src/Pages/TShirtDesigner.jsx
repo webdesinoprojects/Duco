@@ -454,6 +454,25 @@ const TshirtDesigner = () => {
       }
     } catch {}
 
+    // 5) Final fallback: if no variants found, try product-level fallback
+    if (!Object.keys(map).length) {
+      const directVariant =
+        details?.printroveVariantId ||
+        details?.pricing?.[0]?.printrove_variant_id ||
+        details?.pricing?.[0]?.variant_id ||
+        details?.pricing?.[0]?.printroveVariantId;
+
+      if (directVariant) {
+        // Apply fallback variant to all common sizes
+        const commonSizes = ["XS", "S", "M", "L", "XL", "2XL", "3XL"];
+        commonSizes.forEach(size => {
+          map[size] = directVariant;
+        });
+        console.log(`✅ Applied fallback variant ${directVariant} to all sizes`);
+      }
+    }
+
+    console.log("🗺️ Final variant map:", map);
     return map;
   };
 
@@ -592,61 +611,33 @@ const TshirtDesigner = () => {
         finalQuantities,
       });
 
-      // Build line items only for mapped sizes
-      const printroveLineItems = Object.entries(finalQuantities)
-        .filter(([size]) => !!variantMap[canonSize(size)])
-        .map(([size, qty]) => ({
-          size,
-          qty,
-          printroveVariantId: variantMap[canonSize(size)],
-        }));
-
-      const unmappedSizes = Object.keys(finalQuantities).filter(
-        (s) => !variantMap[canonSize(s)]
-      );
-
-      // ✅ Use fallback variant IDs when no mapping is found
-      let finalPrintroveLineItems = printroveLineItems;
-
-      if (printroveLineItems.length === 0) {
-        // ⚠️ No mapped sizes: use fallback variant IDs
-        console.warn(
-          "⚠️ No mapped variant IDs for any selected sizes. Using fallback IDs.",
-          {
-            finalQuantities,
-            variantMap,
-          }
-        );
-
-        // Create line items with fallback variant IDs
-        finalPrintroveLineItems = Object.entries(finalQuantities).map(
-          ([size, qty]) => ({
+      // Build line items with variant IDs for all sizes
+      const finalPrintroveLineItems = Object.entries(finalQuantities).map(
+        ([size, qty]) => {
+          const canonicalSize = canonSize(size);
+          const variantId = variantMap[canonicalSize];
+          
+          console.log(`🔍 Size mapping: ${size} -> ${canonicalSize} -> variant ${variantId}`);
+          
+          return {
             size,
             qty,
-            // ✅ Printrove mapping handled by backend
-          })
-        );
+            printroveVariantId: variantId || null,
+          };
+        }
+      );
 
-        console.log(
-          "✅ Using fallback variant IDs for all sizes:",
-          finalPrintroveLineItems
-        );
-      } else if (unmappedSizes.length) {
-        // Some mapped, some not — add fallback for unmapped sizes
-        console.warn("⚠️ Unmapped sizes (adding fallback IDs):", unmappedSizes);
-
-        const fallbackItems = unmappedSizes.map((size) => ({
-          size,
-          qty: finalQuantities[size],
-          printroveVariantId: null, // Will be handled by backend fallback logic
-        }));
-
-        finalPrintroveLineItems = [...printroveLineItems, ...fallbackItems];
-        console.log(
-          "✅ Added fallback variant IDs for unmapped sizes:",
-          fallbackItems
-        );
-      }
+      // Log mapping results
+      const mappedSizes = finalPrintroveLineItems.filter(item => item.printroveVariantId);
+      const unmappedSizes = finalPrintroveLineItems.filter(item => !item.printroveVariantId);
+      
+      console.log("📊 Variant Mapping Results:", {
+        totalSizes: finalPrintroveLineItems.length,
+        mappedSizes: mappedSizes.length,
+        unmappedSizes: unmappedSizes.length,
+        variantMap,
+        finalLineItems: finalPrintroveLineItems
+      });
 
       // ✅ Printrove mapping handled by backend - no fallback needed
 
@@ -706,9 +697,13 @@ const TshirtDesigner = () => {
         id: productDetails?._id || proid,
         _id: productDetails?._id || proid,
         printroveProductId: printroveProductId || null,
-        legacyVariant: null, // handled by backend
+        variantMap: variantMap,
+        printroveVariantsBySize: customProduct.printroveVariantsBySize,
         lineItems: finalPrintroveLineItems,
         needsMapping: customProduct?.printroveNeedsMapping,
+        hasVariantMappings: Object.keys(variantMap).length > 0,
+        mappedSizesCount: finalPrintroveLineItems.filter(item => item.printroveVariantId).length,
+        totalSizesCount: finalPrintroveLineItems.length
       });
 
       addToCart(customProduct);

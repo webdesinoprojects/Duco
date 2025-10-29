@@ -1,171 +1,227 @@
 // routes/printroveRoutes.js
 const express = require('express');
-const axios = require('axios');
 const router = express.Router();
-const {
-  syncPrintroveCatalog,
-} = require('../Controller/printroveSyncController');
-const {
-  createPrintroveOrder,
-  listPrintroveProducts,
-  getPrintroveProduct,
-  uploadDesignToPrintrove,
-  testPrintroveConnection,
-} = require('../Controller/printroveHelper');
-const { getPrintroveToken } = require('../Controller/printroveAuth');
+const PrintroveIntegrationService = require('../Service/PrintroveIntegrationService');
+const PrintroveMapping = require('../DataBase/Models/PrintroveMappingModel');
+const Product = require('../DataBase/Models/ProductsModel');
 
-router.get('/sync', syncPrintroveCatalog);
-
-// ✅ Test Printrove integration endpoints
-router.get('/test/connection', async (req, res) => {
+// Get Printrove mapping for a product
+router.get('/mappings/:productId', async (req, res) => {
   try {
-    const result = await testPrintroveConnection();
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-router.get('/test/products', async (req, res) => {
-  try {
-    const products = await listPrintroveProducts();
-    res.json({ success: true, data: products });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-router.get('/test/product/:id', async (req, res) => {
-  try {
-    const product = await getPrintroveProduct(req.params.id);
-    res.json({ success: true, data: product });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-router.post('/test/upload-design', async (req, res) => {
-  try {
-    const { designImage, designName } = req.body;
-    const result = await uploadDesignToPrintrove(designImage, designName);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ✅ Test order creation with minimal data
-router.post('/test/create-order', async (req, res) => {
-  try {
-    const testOrder = {
-      _id: 'test-order-' + Date.now(),
-      razorpayPaymentId: 'test-payment-' + Date.now(),
-      products: [
-        {
-          printroveProductId: null,
-          printroveVariantId: null,
-          price: 100,
-          quantity: 1,
-          design: {},
-        },
-      ],
-      address: {
-        fullName: 'Test Customer',
-        email: 'test@example.com',
-        phone: '9999999999',
-        houseNumber: '123',
-        street: 'Test Street',
-        city: 'Test City',
-        state: 'Test State',
-        pincode: '110001',
-      },
-    };
-
-    const result = await createPrintroveOrder(testOrder);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message,
-      details: err.response?.data,
-    });
-  }
-});
-
-// ✅ Test with real Printrove IDs from your account
-router.post('/test/create-order-exact', async (req, res) => {
-  try {
-    const token = await getPrintroveToken();
-
-    // ✅ Get real product and variant IDs from your account
-    const products = await listPrintroveProducts();
-    const variantProductId = products?.products?.[0]?.id || 807600;
-
-    let realProductId = 464; // Parent product ID
-    let realVariantId = 22094474; // Use the one we know works
-
-    if (products?.products?.[0]?.id) {
-      const productDetails = await getPrintroveProduct(variantProductId);
-      if (productDetails?.product?.product?.id) {
-        realProductId = productDetails.product.product.id; // Parent product ID
-      }
-      if (productDetails?.product?.variants?.[0]?.id) {
-        realVariantId = productDetails.product.variants[0].id;
-      }
+    const { productId } = req.params;
+    
+    const mapping = await PrintroveIntegrationService.getProductMapping(productId);
+    
+    if (!mapping) {
+      return res.status(404).json({
+        success: false,
+        message: 'No Printrove mapping found for this product'
+      });
     }
 
-    const payload = {
-      reference_number: 'OD1001',
-      retail_price: 500,
-      customer: {
-        name: 'John Doe',
-        email: 'johndoe@example.com',
-        number: 9844654321,
-        address1: '123 Lane, Area',
-        address2: 'Address Line 2',
-        address3: 'Landmark here',
-        pincode: 600001,
-        state: 'Tamil Nadu',
-        city: 'Chennai',
-        country: 'India',
-      },
-      order_products: [
-        {
-          // product_id: realProductId, // Try without product_id first
-          quantity: 1,
-          variant_id: realVariantId, // Use real variant ID
-          is_plain: true, // Set to true for plain products (no design)
-        },
-      ],
-      // courier_id: 7, // Remove invalid courier ID
-      cod: false, // Set to false for online payments
-      invoice_url:
-        'https://printrove.s3.ap-south-1.amazonaws.com/invoice/od1001.pdf',
-    };
-
-    console.log('🧪 Testing with real Printrove IDs:', {
-      productId: realProductId,
-      variantId: realVariantId,
-      payload,
+    res.json({
+      success: true,
+      mapping: mapping
     });
-
-    const response = await axios.post(
-      'https://api.printrove.com/api/external/orders',
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    res.json({ success: true, data: response.data });
-  } catch (err) {
+  } catch (error) {
+    console.error('Error fetching Printrove mapping:', error);
     res.status(500).json({
       success: false,
-      error: err.message,
-      details: err.response?.data,
+      message: 'Failed to fetch Printrove mapping',
+      error: error.message
+    });
+  }
+});
+
+// Create Printrove mapping for a product
+router.post('/mappings', async (req, res) => {
+  try {
+    const { ducoProductId, printroveProductId, variants } = req.body;
+
+    if (!ducoProductId || !printroveProductId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ducoProductId and printroveProductId are required'
+      });
+    }
+
+    const mapping = await PrintroveIntegrationService.createProductMapping(
+      ducoProductId,
+      printroveProductId,
+      variants
+    );
+
+    res.json({
+      success: true,
+      message: 'Printrove mapping created successfully',
+      mapping: mapping
+    });
+  } catch (error) {
+    console.error('Error creating Printrove mapping:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create Printrove mapping',
+      error: error.message
+    });
+  }
+});
+
+// Get variant ID for specific size/color
+router.get('/variant/:productId/:size', async (req, res) => {
+  try {
+    const { productId, size } = req.params;
+    const { color } = req.query;
+
+    const variantId = await PrintroveIntegrationService.getVariantId(productId, size, color);
+
+    if (!variantId) {
+      return res.status(404).json({
+        success: false,
+        message: 'No variant ID found for the specified size/color'
+      });
+    }
+
+    res.json({
+      success: true,
+      variantId: variantId
+    });
+  } catch (error) {
+    console.error('Error fetching variant ID:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch variant ID',
+      error: error.message
+    });
+  }
+});
+
+// Get all variant mappings for a product
+router.get('/variants/:productId', async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    const variantMappings = await PrintroveIntegrationService.getVariantMappings(productId);
+
+    res.json({
+      success: true,
+      variantMappings: variantMappings
+    });
+  } catch (error) {
+    console.error('Error fetching variant mappings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch variant mappings',
+      error: error.message
+    });
+  }
+});
+
+// Sync all products with Printrove
+router.post('/sync', async (req, res) => {
+  try {
+    const results = await PrintroveIntegrationService.syncAllProducts();
+
+    res.json({
+      success: true,
+      message: 'Printrove sync completed',
+      results: results
+    });
+  } catch (error) {
+    console.error('Error syncing with Printrove:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to sync with Printrove',
+      error: error.message
+    });
+  }
+});
+
+// Get Printrove categories
+router.get('/categories', async (req, res) => {
+  try {
+    const categories = await PrintroveIntegrationService.getCategories();
+
+    res.json({
+      success: true,
+      categories: categories
+    });
+  } catch (error) {
+    console.error('Error fetching Printrove categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch Printrove categories',
+      error: error.message
+    });
+  }
+});
+
+// Get products in a category
+router.get('/categories/:categoryId/products', async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    
+    const products = await PrintroveIntegrationService.getCategoryProducts(categoryId);
+
+    res.json({
+      success: true,
+      products: products
+    });
+  } catch (error) {
+    console.error('Error fetching category products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch category products',
+      error: error.message
+    });
+  }
+});
+
+// Get product variants
+router.get('/categories/:categoryId/products/:productId/variants', async (req, res) => {
+  try {
+    const { categoryId, productId } = req.params;
+    
+    const variants = await PrintroveIntegrationService.getProductVariants(categoryId, productId);
+
+    res.json({
+      success: true,
+      variants: variants
+    });
+  } catch (error) {
+    console.error('Error fetching product variants:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch product variants',
+      error: error.message
+    });
+  }
+});
+
+// Upload design to Printrove
+router.post('/designs', async (req, res) => {
+  try {
+    const { designImage, designName } = req.body;
+
+    if (!designImage || !designName) {
+      return res.status(400).json({
+        success: false,
+        message: 'designImage and designName are required'
+      });
+    }
+
+    const design = await PrintroveIntegrationService.uploadDesign(designImage, designName);
+
+    res.json({
+      success: true,
+      message: 'Design uploaded successfully',
+      design: design
+    });
+  } catch (error) {
+    console.error('Error uploading design:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload design',
+      error: error.message
     });
   }
 });

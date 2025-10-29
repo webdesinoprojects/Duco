@@ -73,8 +73,22 @@ export const CartProvider = ({ children }) => {
             printroveVariantId: finalData.printroveVariantId,
 });
 
-      if (!finalData.printroveProductId || !finalData.printroveVariantId) {
-        console.warn("⚠️ Missing Printrove IDs in cart item:", finalData);
+      // ✅ Check Printrove mapping status
+      const hasPrintroveProductId = !!finalData.printroveProductId;
+      const hasVariantMappings = finalData.printroveLineItems?.some(item => item.printroveVariantId);
+      const mappedSizesCount = finalData.printroveLineItems?.filter(item => item.printroveVariantId)?.length || 0;
+      const totalSizesCount = finalData.printroveLineItems?.length || 0;
+
+      if (!hasPrintroveProductId && !hasVariantMappings) {
+        console.info("ℹ️ Cart item added without Printrove mappings - backend will handle fallback:", {
+          productName: finalData.name,
+          productId: finalData.productId,
+          needsFallback: true
+        });
+      } else if (mappedSizesCount < totalSizesCount) {
+        console.info(`ℹ️ Cart item partially mapped: ${mappedSizesCount}/${totalSizesCount} sizes have variant IDs`);
+      } else {
+        console.log("✅ Cart item fully mapped with Printrove IDs");
       }
 
       setCart((prev) => [...prev, finalData]);
