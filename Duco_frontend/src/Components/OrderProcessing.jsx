@@ -42,10 +42,11 @@ const OrderProcessing = () => {
 
   useEffect(() => {
     // 1️⃣ If order already processed → go directly to success screen
-    if (processedFlag || orderIdFromQuery || lastOrderId) {
+    // ✅ Only use cached data if there's no fresh payment data
+    if ((processedFlag || orderIdFromQuery || lastOrderId) && !paymentId && !orderData) {
       const finalId = orderIdFromQuery || lastOrderId;
       if (finalId) {
-        console.log("⚙️ Skipping reprocess, redirecting to success page...");
+        console.log("⚙️ Using cached order data, redirecting to success page...");
         navigate(`/order-success/${finalId}`, {
           replace: true,
           state: {
@@ -54,6 +55,13 @@ const OrderProcessing = () => {
         });
       }
       return;
+    }
+
+    // ✅ If we have fresh payment data, clear old cached data
+    if (paymentId && orderData) {
+      console.log("🧹 Fresh payment detected - clearing old cached order data...");
+      localStorage.removeItem("lastOrderId");
+      localStorage.removeItem("lastOrderMeta");
     }
 
     // 2️⃣ If missing essentials → bail
@@ -85,77 +93,23 @@ const OrderProcessing = () => {
           navigate("/payment", { replace: true });
           return;
         }
-        // 🔹 Step 3: Send request to backend (with full charge data)
-try {
-  // ✅ Inject printing + P&F charges before sending to backend
-  const storedCharges = JSON.parse(localStorage.getItem("lastCartCharges") || "{}");
+        // ✅ Inject printing + P&F charges before sending to backend
+        const storedCharges = JSON.parse(localStorage.getItem("lastCartCharges") || "{}");
 
-  // fallback defaults if not available
-  const pfCharge = Number(storedCharges.pf) || 30;
-  const printingCharge = Number(storedCharges.printing) || 50;
+        // fallback defaults if not available
+        const pfCharge = Number(storedCharges.pf) || 30;
+        const printingCharge = Number(storedCharges.printing) || 50;
 
-  // ensure orderData.charges exists
-  if (!orderData.charges || typeof orderData.charges !== "object") {
-    orderData.charges = {};
-  }
+        // ensure orderData.charges exists
+        if (!orderData.charges || typeof orderData.charges !== "object") {
+          orderData.charges = {};
+        }
 
-  orderData.charges.pf = pfCharge;
-  orderData.charges.printing = printingCharge;
+        orderData.charges.pf = pfCharge;
+        orderData.charges.printing = printingCharge;
 
-  console.log("🧾 Injected Charges into orderData before sending:", orderData.charges);
-
-  // ✅ Send enriched payload to backend
-  const response = await axios.post(`${API_BASE}api/completedorder`, {
-    paymentId,
-    paymentmode,
-    orderData,
-  });
-
-  console.log("✅ Backend Response:", response.data);
-
-  const data = response?.data;
-  if (data?.success) {
-    console.log("🎯 Backend confirmed success:", data.order);
-    const orderId =
-      data?.order?._id || data?.orderId || orderData?.id || "UNKNOWN";
-
-    // store for refresh/deeplink
-    if (orderId && orderId !== "UNKNOWN") {
-      localStorage.setItem("lastOrderId", String(orderId));
-    }
-
-    // optional: keep any meta info
-    if (inboundPaymentMeta) {
-      localStorage.setItem(
-        "lastOrderMeta",
-        JSON.stringify(inboundPaymentMeta)
-      );
-    }
-
-    toast.success("✅ Order completed successfully!");
-    navigate(`/order-processing?orderId=${orderId}`, {
-      replace: true,
-      state: {
-        processed: true,
-        order: data.order,
-        paymentMeta: inboundPaymentMeta || null,
-      },
-    });
-  } else {
-    console.warn("⚠️ Backend returned error:", data?.message);
-    toast.error(data?.message || "❌ Order failed. Please try again.");
-    navigate("/payment", { replace: true });
-  }
-} catch (error) {
-  console.error("❌ Order processing error:", error);
-  const errMsg =
-    error.response?.data?.message ||
-    error.message ||
-    "Something went wrong. Please try again.";
-  toast.error(errMsg);
-  navigate("/payment", { replace: true });
-}
-console.log("📤 FINAL PAYLOAD SENT TO BACKEND:", JSON.stringify(orderData, null, 2));
+        console.log("🧾 Injected Charges into orderData before sending:", orderData.charges);
+        console.log("📤 FINAL PAYLOAD SENT TO BACKEND:", JSON.stringify(orderData, null, 2));
 
         // post to backend
         const response = await axios.post(`${API_BASE}api/completedorder`, {

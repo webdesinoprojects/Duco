@@ -92,8 +92,41 @@ async function verifyRazorpayPayment(paymentId, expectedAmountINR) {
 // ================================================================
 // COMPLETE ORDER
 // ================================================================
+
+// Simple in-memory cache to prevent duplicate processing
+const processingCache = new Map();
+
 const completeOrder = async (req, res) => {
   let { paymentId, orderData, paymentmode, compressed } = req.body || {};
+
+  // ✅ Prevent duplicate processing for the same payment ID
+  if (paymentId && paymentId !== 'manual_payment') {
+    const cacheKey = `${paymentId}_${paymentmode}`;
+    
+    if (processingCache.has(cacheKey)) {
+      const cachedTime = processingCache.get(cacheKey);
+      const timeDiff = Date.now() - cachedTime;
+      
+      if (timeDiff < 30000) { // 30 seconds
+        console.log('⚠️ Duplicate request detected within 30 seconds, ignoring:', cacheKey);
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Request already being processed',
+          duplicate: true
+        });
+      }
+    }
+    
+    // Mark as processing
+    processingCache.set(cacheKey, Date.now());
+    
+    // Clean up old entries (older than 5 minutes)
+    for (const [key, time] of processingCache.entries()) {
+      if (Date.now() - time > 300000) {
+        processingCache.delete(key);
+      }
+    }
+  }
 
   // ✅ Log raw data from frontend
   console.log('🔍 RAW REQUEST DATA FROM FRONTEND:', {
@@ -127,6 +160,20 @@ const completeOrder = async (req, res) => {
     0;
 
   try {
+    // ✅ Check for duplicate orders based on payment ID
+    if (paymentId && paymentId !== 'manual_payment') {
+      const existingOrder = await Order.findOne({ razorpayPaymentId: paymentId });
+      if (existingOrder) {
+        console.log('⚠️ Duplicate order detected for payment ID:', paymentId);
+        console.log('Existing order ID:', existingOrder._id);
+        return res.status(200).json({ 
+          success: true, 
+          order: existingOrder,
+          message: 'Order already exists for this payment'
+        });
+      }
+    }
+
     // ✅ Decompress if compressed
     if (compressed && typeof orderData === 'string') {
       try {
@@ -229,18 +276,23 @@ const completeOrder = async (req, res) => {
         }
       }
 
-      try {
-        const printData = await createPrintroveOrder(order);
-        order.printroveOrderId = printData?.id || null;
-        order.printroveStatus = printData?.status || 'Processing';
-        order.printroveItems = printData?.items || [];
-        order.printroveTrackingUrl = printData?.tracking_url || '';
-        await order.save();
-        console.log('✅ Sent to Printrove:', order.printroveOrderId);
-      } catch (err) {
-        console.error('❌ Printrove sync failed (store pickup):', err.message);
-        order.printroveStatus = 'Error';
-        await order.save();
+      // ✅ Only send to Printrove if not already sent
+      if (!order.printroveOrderId) {
+        try {
+          const printData = await createPrintroveOrder(order);
+          order.printroveOrderId = printData?.order?.id || printData?.id || null;
+          order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
+          order.printroveItems = printData?.order?.order_products || printData?.items || [];
+          order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
+          await order.save();
+          console.log('✅ Sent to Printrove:', order.printroveOrderId);
+        } catch (err) {
+          console.error('❌ Printrove sync failed (store pickup):', err.message);
+          order.printroveStatus = 'Error';
+          await order.save();
+        }
+      } else {
+        console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
 
       const settings = await getOrCreateSingleton();
@@ -279,6 +331,12 @@ const completeOrder = async (req, res) => {
         console.error('Invoice creation failed (store pickup):', e);
       }
 
+      // ✅ Clean up processing cache on success
+      if (paymentId && paymentId !== 'manual_payment') {
+        const cacheKey = `${paymentId}_${paymentmode}`;
+        processingCache.delete(cacheKey);
+      }
+
       return res.status(200).json({ success: true, order });
     }
 
@@ -301,18 +359,23 @@ const completeOrder = async (req, res) => {
         orderType,
       });
 
-      try {
-        const printData = await createPrintroveOrder(order);
-        order.printroveOrderId = printData?.id || null;
-        order.printroveStatus = printData?.status || 'Processing';
-        order.printroveItems = printData?.items || [];
-        order.printroveTrackingUrl = printData?.tracking_url || '';
-        await order.save();
-        console.log('✅ Sent to Printrove:', order.printroveOrderId);
-      } catch (err) {
-        console.error('❌ Printrove sync failed (netbanking):', err.message);
-        order.printroveStatus = 'Error';
-        await order.save();
+      // ✅ Only send to Printrove if not already sent
+      if (!order.printroveOrderId) {
+        try {
+          const printData = await createPrintroveOrder(order);
+          order.printroveOrderId = printData?.order?.id || printData?.id || null;
+          order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
+          order.printroveItems = printData?.order?.order_products || printData?.items || [];
+          order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
+          await order.save();
+          console.log('✅ Sent to Printrove:', order.printroveOrderId);
+        } catch (err) {
+          console.error('❌ Printrove sync failed (netbanking):', err.message);
+          order.printroveStatus = 'Error';
+          await order.save();
+        }
+      } else {
+        console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
 
       const settings = await getOrCreateSingleton();
@@ -347,6 +410,12 @@ const completeOrder = async (req, res) => {
         await createInvoice(invoicePayload);
       } catch (e) {
         console.error('Invoice creation failed (netbanking):', e);
+      }
+
+      // ✅ Clean up processing cache on success
+      if (paymentId && paymentId !== 'manual_payment') {
+        const cacheKey = `${paymentId}_${paymentmode}`;
+        processingCache.delete(cacheKey);
       }
 
       return res.status(200).json({ success: true, order });
@@ -400,18 +469,23 @@ const completeOrder = async (req, res) => {
         }
       }
 
-      try {
-        const printData = await createPrintroveOrder(order);
-        order.printroveOrderId = printData?.id || null;
-        order.printroveStatus = printData?.status || 'Processing';
-        order.printroveItems = printData?.items || [];
-        order.printroveTrackingUrl = printData?.tracking_url || '';
-        await order.save();
-        console.log('✅ Sent to Printrove:', order.printroveOrderId);
-      } catch (err) {
-        console.error('❌ Printrove sync failed (online):', err.message);
-        order.printroveStatus = 'Error';
-        await order.save();
+      // ✅ Only send to Printrove if not already sent
+      if (!order.printroveOrderId) {
+        try {
+          const printData = await createPrintroveOrder(order);
+          order.printroveOrderId = printData?.order?.id || printData?.id || null;
+          order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
+          order.printroveItems = printData?.order?.order_products || printData?.items || [];
+          order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
+          await order.save();
+          console.log('✅ Sent to Printrove:', order.printroveOrderId);
+        } catch (err) {
+          console.error('❌ Printrove sync failed (online):', err.message);
+          order.printroveStatus = 'Error';
+          await order.save();
+        }
+      } else {
+        console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
 
       const settings = await getOrCreateSingleton();
@@ -450,6 +524,12 @@ const completeOrder = async (req, res) => {
         console.error('Invoice creation failed (razorpay):', e);
       }
 
+      // ✅ Clean up processing cache on success
+      if (paymentId && paymentId !== 'manual_payment') {
+        const cacheKey = `${paymentId}_${paymentmode}`;
+        processingCache.delete(cacheKey);
+      }
+
       return res.status(200).json({ success: true, order });
     }
 
@@ -481,18 +561,23 @@ const completeOrder = async (req, res) => {
         console.error('Wallet creation failed (halfpay):', error);
       }
 
-      try {
-        const printData = await createPrintroveOrder(order);
-        order.printroveOrderId = printData?.id || null;
-        order.printroveStatus = printData?.status || 'Processing';
-        order.printroveItems = printData?.items || [];
-        order.printroveTrackingUrl = printData?.tracking_url || '';
-        await order.save();
-        console.log('✅ Sent to Printrove:', order.printroveOrderId);
-      } catch (err) {
-        console.error('❌ Printrove sync failed (50%):', err.message);
-        order.printroveStatus = 'Error';
-        await order.save();
+      // ✅ Only send to Printrove if not already sent
+      if (!order.printroveOrderId) {
+        try {
+          const printData = await createPrintroveOrder(order);
+          order.printroveOrderId = printData?.order?.id || printData?.id || null;
+          order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
+          order.printroveItems = printData?.order?.order_products || printData?.items || [];
+          order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
+          await order.save();
+          console.log('✅ Sent to Printrove:', order.printroveOrderId);
+        } catch (err) {
+          console.error('❌ Printrove sync failed (50%):', err.message);
+          order.printroveStatus = 'Error';
+          await order.save();
+        }
+      } else {
+        console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
 
       const settings = await getOrCreateSingleton();
@@ -531,6 +616,12 @@ const completeOrder = async (req, res) => {
         console.error('Invoice creation failed (50%):', e);
       }
 
+      // ✅ Clean up processing cache on success
+      if (paymentId && paymentId !== 'manual_payment') {
+        const cacheKey = `${paymentId}_${paymentmode}`;
+        processingCache.delete(cacheKey);
+      }
+
       return res.status(200).json({ success: true, order });
     }
 
@@ -540,6 +631,13 @@ const completeOrder = async (req, res) => {
       .json({ success: false, message: 'Invalid payment mode' });
   } catch (err) {
     console.error('💥 completeOrder failed:', err);
+    
+    // ✅ Clean up processing cache on error
+    if (paymentId && paymentId !== 'manual_payment') {
+      const cacheKey = `${paymentId}_${paymentmode}`;
+      processingCache.delete(cacheKey);
+    }
+    
     return res
       .status(500)
       .json({ success: false, message: err.message || 'Internal error' });

@@ -15,6 +15,8 @@ import axios from "axios";
 import { createDesign, getproductssingle } from "../Service/APIservice";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { FaUpload, FaFont, FaRegKeyboard, FaTimes } from "react-icons/fa";
+import { startFreshDesignSession } from "../utils/clearOrderCache";
+import { usePriceContext } from "../ContextAPI/PriceContext";
 
 // ======================== SIMPLE DRAGGABLE ITEM ========================
 const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 }, onPositionChange }) => {
@@ -110,7 +112,8 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
 
 // ======================== MAIN COMPONENT ========================
 const TshirtDesigner = () => {
-  const { addToCart } = useContext(CartContext);
+  const { addToCart, clearCart } = useContext(CartContext);
+  const { priceIncrease, toConvert: conversionRate, currency, resolvedLocation } = usePriceContext();
   const [isSaving, setIsSaving] = useState(false);
   const [productDetails, setProductDetails] = useState(null);
   const [isLoadingProduct, setIsLoadingProduct] = useState(true);
@@ -124,6 +127,23 @@ const TshirtDesigner = () => {
   );
 
   const views = ["front", "back", "left", "right"];
+
+  // ✅ Apply location-based pricing to a base price
+  const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
+    let price = Number(basePrice) || 0;
+    
+    // Step 1: Apply percentage increase (location markup)
+    if (priceIncrease) {
+      price += (price * Number(priceIncrease)) / 100;
+    }
+    
+    // Step 2: Apply currency conversion
+    if (conversionRate && conversionRate !== 1) {
+      price *= conversionRate;
+    }
+    
+    return Math.round(price);
+  };
 
   // Custom drag system - no sensors needed
 
@@ -188,6 +208,25 @@ const TshirtDesigner = () => {
     ({ front: 0, back: 1, left: 2, right: 3 }[s] ?? 0);
 
   // ======================== EFFECTS ========================
+  // ✅ Clear all cached order data when starting a new design session
+  useEffect(() => {
+    try {
+      const sessionId = startFreshDesignSession();
+      clearCart();
+      
+      // Store session ID for this design
+      setAllDesigns(prev => ({
+        ...prev,
+        sessionId
+      }));
+      
+      console.log("✅ Fresh design session initialized successfully");
+    } catch (error) {
+      console.error("❌ Error initializing fresh design session:", error);
+      // Continue without session ID if there's an error
+    }
+  }, []); // Run only once when component mounts
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 1024);
@@ -218,18 +257,8 @@ const TshirtDesigner = () => {
         const designImages = match?.designtshirt || [];
         setSideimage(designImages);
         
-        console.log("🔄 Design images loaded:", {
-          designImages,
-          length: designImages.length,
-          front: designImages[0],
-          back: designImages[1],
-          left: designImages[2],
-          right: designImages[3]
-        });
-        
-        // If no design images available, create default views with different orientations
+        // If no design images available, use default T-shirt for all views
         if (designImages.length === 0) {
-          console.log("⚠️ No design images found, creating default T-shirt views");
           setSideimage([
             menstshirt, // front
             menstshirt, // back  
@@ -764,6 +793,8 @@ if (!Object.keys(map).length) {
         productId: productDetails?._id || proid,
         products_name: productDetails?.products_name || "Custom T-Shirt",
         name: productDetails?.products_name || "Custom T-Shirt",
+        timestamp: new Date().toISOString(), // ✅ Add timestamp for debugging
+        sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // ✅ Unique session ID
         printroveProductId: printroveProductId || null,
         printroveVariantId: fallbackVariantId, // legacy single
         printroveVariantsBySize: Object.fromEntries(
@@ -785,10 +816,28 @@ if (!Object.keys(map).length) {
         color: colorWithHash,
         colortext: productDetails?.colortext || "Custom",
         gender: productDetails?.gender || "Unisex",
-        price: Math.round(productDetails?.pricing?.[0]?.price_per || 499),
+        price: applyLocationPricing(
+          productDetails?.pricing?.[0]?.price_per || 499,
+          priceIncrease,
+          conversionRate
+        ),
         quantity: finalQuantities,
         additionalFilesMeta: additionalFiles.map((f) => ({ name: f.name })),
       };
+
+      // ✅ Log pricing calculation details
+      const basePrice = productDetails?.pricing?.[0]?.price_per || 499;
+      const finalPrice = customProduct.price;
+      
+      console.log("💰 PRICING CALCULATION:", {
+        basePrice,
+        priceIncrease,
+        conversionRate,
+        currency,
+        resolvedLocation,
+        finalPrice,
+        calculation: `${basePrice} + ${priceIncrease}% + conversion(${conversionRate}) = ${finalPrice}`
+      });
 
       console.log("🧾 FINAL PRODUCT BEFORE ADDING TO CART:", {
         id: productDetails?._id || proid,
@@ -803,7 +852,13 @@ if (!Object.keys(map).length) {
         variantMap: variantMap,
         hasVariantMappings: Object.keys(variantMap).length > 0,
         mappedSizesCount: finalPrintroveLineItems.filter(item => item.printroveVariantId).length,
-        totalSizesCount: finalPrintroveLineItems.length
+        totalSizesCount: finalPrintroveLineItems.length,
+        locationPricing: {
+          basePrice,
+          finalPrice,
+          location: resolvedLocation,
+          currency
+        }
       });
 
       // Final validation log
@@ -817,6 +872,10 @@ if (!Object.keys(map).length) {
         console.warn("⚠️ Product added to cart WITHOUT Printrove mappings - backend will handle fallback");
       }
 
+      // ✅ Clear existing cart items before adding new design
+      console.log("🧹 Clearing cart before adding new design...");
+      clearCart();
+      
       addToCart(customProduct);
       
       // ✅ Show success message with variant mapping info
@@ -970,13 +1029,7 @@ if (!Object.keys(map).length) {
     const design = allDesigns[view];
     const isActive = view === side;
     
-    // Debug view rendering
-    console.log(`🎨 Rendering ${view} view:`, {
-      isActive,
-      currentSide: side,
-      imageIndex: getViewIndex(view),
-      imageUrl: sideimage[getViewIndex(view)] || menstshirt
-    });
+    // View rendering logic
     
     return (
       <div
@@ -1133,6 +1186,27 @@ if (!Object.keys(map).length) {
         {/* Sidebar (desktop only) */}
         <aside className="hidden lg:block w-80 bg-white rounded-2xl shadow-xl p-6 border border-gray-300">
           {renderControls()}
+          
+          {/* ✅ Price Display with Location Pricing */}
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-1">Price</p>
+              <p className="text-2xl font-bold text-green-600">
+                {currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '₹'}
+                {applyLocationPricing(
+                  productDetails?.pricing?.[0]?.price_per || 499,
+                  priceIncrease,
+                  conversionRate
+                )}
+              </p>
+              {resolvedLocation && resolvedLocation !== 'Asia' && (
+                <p className="text-xs text-gray-500 mt-1">
+                  📍 {resolvedLocation} pricing (+{priceIncrease || 0}%)
+                </p>
+              )}
+            </div>
+          </div>
+
           <button
             onClick={saveSelectedViews}
             className="mt-6 py-3 px-6 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-lg w-full hidden lg:block"
@@ -1148,10 +1222,7 @@ if (!Object.keys(map).length) {
               {views.map((view) => (
                 <button
                   key={view}
-                  onClick={() => {
-                    console.log(`🔄 Switching to view: ${view}`);
-                    setSide(view);
-                  }}
+                  onClick={() => setSide(view)}
                   className={`px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base font-medium transition-all ${
                     side === view
                       ? "bg-yellow-500 text-black"
@@ -1323,6 +1394,25 @@ if (!Object.keys(map).length) {
             </div>
           )}
 
+          {/* ✅ Mobile Price Display */}
+          <div className="fixed bottom-16 left-0 w-full bg-white border-t border-gray-200 py-2 z-40 lg:hidden">
+            <div className="text-center">
+              <span className="text-lg font-bold text-green-600">
+                {currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '₹'}
+                {applyLocationPricing(
+                  productDetails?.pricing?.[0]?.price_per || 499,
+                  priceIncrease,
+                  conversionRate
+                )}
+              </span>
+              {resolvedLocation && resolvedLocation !== 'Asia' && (
+                <span className="text-xs text-gray-500 ml-2">
+                  📍 {resolvedLocation} (+{priceIncrease || 0}%)
+                </span>
+              )}
+            </div>
+          </div>
+
           {/* Submit Button */}
           <button
             onClick={saveSelectedViews}
@@ -1332,7 +1422,7 @@ if (!Object.keys(map).length) {
           </button>
 
           {/* Tab Bar */}
-          <div className="fixed bottom-14 left-0 w-full bg-gray-800 text-white flex justify-around py-2 z-50">
+          <div className="fixed bottom-20 left-0 w-full bg-gray-800 text-white flex justify-around py-2 z-50">
             <button
               onClick={() => setActiveTab("upload")}
               className="flex flex-col items-center"

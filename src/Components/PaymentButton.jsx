@@ -134,7 +134,7 @@ const PaymentButton = ({ orderData }) => {
       // ✅ 2. Configure Razorpay options
       console.group("🔍 STEP 4: CONFIGURING RAZORPAY OPTIONS");
 
-      const razorpayKey = "rzp_test_RTLJm3jpfiwFgf";
+      const razorpayKey = "rzp_test_RKkNoqkW7sQisX";
       console.log("🔑 Using Razorpay key:", razorpayKey);
       console.log("💰 Amount (paise):", amount);
       console.log("📦 Order ID:", orderId);

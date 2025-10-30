@@ -46,31 +46,58 @@ const PaymentPage = () => {
   const navigate = useNavigate();
   const { cart } = useCart();
 
+  const orderpayload = locations.state || {};
+
   const [cartLoaded, setCartLoaded] = useState(false);
   useEffect(() => {
-    const savedCart = JSON.parse(localStorage.getItem("cart"));
-    if (savedCart && savedCart.length > 0) {
-      console.log("🛒 Using localStorage cart as fallback:", savedCart);
+    try {
+      // ✅ Only use localStorage cart if no fresh order payload exists
+      if (!orderpayload?.items?.length) {
+        const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+        if (savedCart && savedCart.length > 0) {
+          console.log("🛒 Using localStorage cart as fallback:", savedCart);
+        }
+      } else {
+        console.log("✅ Using fresh order payload, ignoring localStorage cart");
+      }
+    } catch (error) {
+      console.error("❌ Error loading cart data:", error);
+    } finally {
+      setCartLoaded(true);
     }
-    setCartLoaded(true);
-  }, []);
-
-  const orderpayload = locations.state || {};
+  }, [orderpayload]);
 
   useEffect(() => {
     if (!orderpayload) return;
-    console.group("🧾 AUTO ORDER PAYLOAD PREVIEW");
-    console.log("📦 Full order payload that will be sent to backend:");
-    console.log(JSON.stringify(orderpayload, null, 2));
-    const summary = {
-      user: orderpayload?.user?._id || "❌ Missing",
-      address: orderpayload?.address?.fullName || "❌ Missing",
+    console.group("🧾 PAYMENT PAGE: Data Source Analysis");
+    console.log("📦 Order payload from Cart page:", {
+      hasItems: !!orderpayload?.items?.length,
       itemCount: orderpayload?.items?.length || 0,
       totalPay: orderpayload?.totalPay || 0,
-    };
-    console.table(summary);
+      items: orderpayload?.items?.map(item => ({
+        name: item.products_name || item.name,
+        price: item.price,
+        timestamp: item.timestamp || 'Unknown'
+      })) || []
+    });
+    console.log("🛒 Cart context data:", {
+      hasItems: !!cart?.length,
+      itemCount: cart?.length || 0,
+      items: cart?.map(item => ({
+        name: item.products_name || item.name,
+        price: item.price,
+        timestamp: item.timestamp || 'Unknown'
+      })) || []
+    });
+    
+    const finalItems = orderpayload?.items?.length > 0 ? orderpayload.items : cart || [];
+    console.log("✅ Final items that will be used:", {
+      source: orderpayload?.items?.length > 0 ? 'Order Payload' : 'Cart Context',
+      itemCount: finalItems.length,
+      totalPay: orderpayload?.totalPay || orderpayload?.totals?.grandTotal || 0
+    });
     console.groupEnd();
-  }, [orderpayload]);
+  }, [orderpayload, cart]);
 
   // Ensure email present
   if (orderpayload?.address && !orderpayload.address.email) {
@@ -652,7 +679,8 @@ const PaymentPage = () => {
               <PaymentButton
                 orderData={{
                   ...orderpayload,
-                  items: cart?.length > 0 ? cart : orderpayload?.items || [],
+                  items: orderpayload?.items?.length > 0 ? orderpayload.items : cart || [],
+                  totalPay: orderpayload?.totalPay || orderpayload?.totals?.grandTotal || 0,
                 }}
               />
             </div>

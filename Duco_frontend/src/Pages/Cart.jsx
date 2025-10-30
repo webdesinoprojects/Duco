@@ -227,11 +227,14 @@ const Cart = () => {
   const [currencySymbol, setCurrencySymbol] = useState("₹");
   const [conversionRate, setConversionRate] = useState(1);
 
-  // ✅ Dynamic Currency Formatter (now has access to states)
-  const formatCurrency = (num) =>
-    `${currencySymbol}${Math.round(safeNum(num, 0) * safeNum(conversionRate, 1))
+  // ✅ Dynamic Currency Formatter (prices are already location-adjusted at item level)
+  const formatCurrency = (num) => {
+    const formatted = `${currencySymbol}${Math.round(safeNum(num, 0))
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+    console.log(`💱 formatCurrency: ${num} → ${formatted} (symbol: ${currencySymbol})`);
+    return formatted;
+  };
 
   // ✅ Load user from localStorage so address API has userId
   useEffect(() => {
@@ -239,19 +242,45 @@ const Cart = () => {
     if (stored) setUser(JSON.parse(stored));
   }, []);
 
-  // ✅ PriceContext
-  const { priceIncrease, currency, resolvedLocation } = usePriceContext();
+  // ✅ PriceContext - with safety check
+  const priceContext = usePriceContext();
+  const { priceIncrease, currency, resolvedLocation, toConvert } = priceContext || {};
 
   useEffect(() => {
-    if (!currency) return;
-    setCurrencySymbol(currencySymbols[currency] || "₹");
-    const cached = JSON.parse(localStorage.getItem("locationPricing"));
-    if (cached && cached.currency?.toconvert) {
-      setConversionRate(Number(cached.currency.toconvert));
+    console.log("🔄 Currency effect triggered:", { currency, toConvert });
+    
+    // Set currency symbol
+    if (currency) {
+      console.log("💱 Setting currency symbol for:", currency);
+      const symbol = currencySymbols[currency] || "₹";
+      setCurrencySymbol(symbol);
+      console.log("💱 Currency symbol set to:", symbol);
     } else {
-      setConversionRate(1);
+      console.log("⚠️ No currency set, keeping default ₹");
+      setCurrencySymbol("₹");
     }
-  }, [currency]);
+    
+    // Set conversion rate
+    if (toConvert) {
+      setConversionRate(Number(toConvert));
+      console.log("💰 Using conversion rate from PriceContext:", toConvert);
+    } else {
+      // Fallback to localStorage
+      try {
+        const cached = JSON.parse(localStorage.getItem("locationPricing"));
+        if (cached && cached.currency?.toconvert) {
+          setConversionRate(Number(cached.currency.toconvert));
+          console.log("💰 Using conversion rate from localStorage:", cached.currency.toconvert);
+        } else {
+          setConversionRate(1);
+          console.log("💰 Using default conversion rate: 1");
+        }
+      } catch (err) {
+        console.warn("⚠️ Error reading localStorage:", err);
+        setConversionRate(1);
+      }
+    }
+  }, [currency, toConvert]);
 
   /* ---------- Products ---------- */
   useEffect(() => {
@@ -335,19 +364,32 @@ const Cart = () => {
         (a, q) => a + safeNum(q),
         0
       );
-      const basePrice = safeNum(item.price); // Base price from the product details
-      const printingCost = calculatePrintingCost(item); // Printing cost based on the sides
-      const designCost = calculateDesignCost(item); // Custom design cost (text/image)
+      
+      // ✅ Check if item is from TShirtDesigner (custom item with already applied pricing)
+      const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
+      
+      let itemTotal;
+      
+      if (isCustomItem) {
+        // ✅ Custom items already have location pricing applied in TShirtDesigner
+        itemTotal = safeNum(item.price);
+        console.log(`💰 Custom item ${item.name}: Using pre-converted price ${itemTotal}`);
+      } else {
+        // ✅ Regular products need location pricing applied
+        const basePrice = safeNum(item.price);
+        const printingCost = calculatePrintingCost(item);
+        const designCost = calculateDesignCost(item);
+        const itemTotalBeforeLocation = basePrice + printingCost + designCost;
+        
+        itemTotal = applyLocationPricing(
+          itemTotalBeforeLocation,
+          priceIncrease,
+          conversionRate
+        );
+        console.log(`💰 Regular item ${item.name}: Applied location pricing ${itemTotalBeforeLocation} → ${itemTotal}`);
+      }
 
-      // ✅ Apply location pricing to the total item price (base + printing + design)
-      const itemTotalBeforeLocation = basePrice + printingCost + designCost;
-      const itemTotalWithLocation = applyLocationPricing(
-        itemTotalBeforeLocation,
-        priceIncrease,
-        conversionRate
-      );
-
-      return sum + itemTotalWithLocation * qty; // Total price per item with location adjustment
+      return sum + itemTotal * qty;
     }, 0);
   }, [actualData, priceIncrease, conversionRate]);
 
@@ -418,19 +460,30 @@ const Cart = () => {
   );
 
   const grandTotal = useMemo(() => {
-    // ✅ Since itemsSubtotal already has location pricing applied,
-    // we only need to apply it to printing and P&F costs
+    // ✅ Apply location pricing only to printing and P&F costs (items already handled in itemsSubtotal)
     const printingWithLocation = applyLocationPricing(printingCost, priceIncrease, conversionRate);
     const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
     
-    // Taxable amount = items (already adjusted) + printing + P&F (both adjusted)
+    // Taxable amount = items (already properly adjusted) + printing + P&F (both adjusted)
     const adjustedTaxable = safeNum(itemsSubtotal) + printingWithLocation + pfWithLocation;
     
     // GST on adjusted taxable amount
     const adjustedGst = (adjustedTaxable * safeNum(gstPercent)) / 100;
     
-    return Math.round(adjustedTaxable + adjustedGst);
-  }, [itemsSubtotal, printingCost, pfCost, gstPercent, priceIncrease, conversionRate]);
+    const total = Math.round(adjustedTaxable + adjustedGst);
+    
+    console.log(`💰 Grand Total Calculation:`, {
+      itemsSubtotal: safeNum(itemsSubtotal),
+      printingWithLocation,
+      pfWithLocation,
+      adjustedTaxable,
+      adjustedGst,
+      total,
+      currency: currencySymbol
+    });
+    
+    return total;
+  }, [itemsSubtotal, printingCost, pfCost, gstPercent, priceIncrease, conversionRate, currencySymbol]);
 
   if (loadingProducts) return <Loading />;
   if (!cart.length)
@@ -514,6 +567,27 @@ const Cart = () => {
                   toast.error("⚠ Please select a delivery address");
                   return;
                 }
+
+                // ✅ Debug: Log cart data before navigation
+                console.group("🛒 CART: Checkout Debug");
+                console.log("📦 Cart items being sent to payment:", actualData.length);
+                console.log("💰 Pricing breakdown:", {
+                  itemsSubtotal,
+                  printingCost,
+                  pfCost,
+                  gstTotal,
+                  grandTotal,
+                  totalPay: grandTotal
+                });
+                console.log("🛍️ Individual items:", actualData.map(item => ({
+                  name: item.products_name || item.name,
+                  price: item.price,
+                  quantity: item.quantity,
+                  id: item.id,
+                  timestamp: new Date().toISOString()
+                })));
+                console.groupEnd();
+
                 navigate("/payment", {
                   state: {
                     items: actualData,
@@ -527,6 +601,7 @@ const Cart = () => {
                       locationIncreasePercent: priceIncrease || 0,
                       grandTotal,
                     },
+                    totalPay: grandTotal, // ✅ Add totalPay for PaymentButton
                     address,
                     user,
                   },

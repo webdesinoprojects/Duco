@@ -45,6 +45,7 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
             <PriceDisplay
               price={Math.ceil(totalPrice)}
               className="text-base sm:text-lg font-bold text-[#FDC305]"
+              skipConversion={true}
             />
           </div>
 

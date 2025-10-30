@@ -2,6 +2,13 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 require('dotenv').config();
 
+// Debug environment variables
+console.log('🔍 Environment Variables Debug:', {
+  NODE_ENV: process.env.NODE_ENV,
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+});
+
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
@@ -20,7 +27,10 @@ const createRazorpayOrder = async (req, res) => {
     console.log('🔑 Razorpay credentials check:', {
       hasKeyId: !!process.env.RAZORPAY_KEY_ID,
       hasKeySecret: !!process.env.RAZORPAY_KEY_SECRET,
-      keyId: process.env.RAZORPAY_KEY_ID?.substring(0, 10) + '...',
+      keyId: process.env.RAZORPAY_KEY_ID?.substring(0, 15) + '...',
+      keySecret: process.env.RAZORPAY_KEY_SECRET?.substring(0, 8) + '...',
+      fullKeyId: process.env.RAZORPAY_KEY_ID,
+      fullKeySecret: process.env.RAZORPAY_KEY_SECRET,
     });
 
     if (!amount || isNaN(amount)) {

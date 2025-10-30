@@ -15,6 +15,32 @@ const printrove = axios.create({
 });
 
 /* -------------------------------------------------------------------------- */
+/* 🟡 HELPER FUNCTIONS                                                        */
+/* -------------------------------------------------------------------------- */
+
+// Map Printrove variant IDs to their corresponding product IDs
+function getPrintroveProductIdFromVariant(variantId) {
+  // Known mappings based on our earlier analysis
+  const variantToProductMap = {
+    // Women Crop Top variants (22094474-22094532) -> Product ID 807600
+    22094474: 807600, 22094475: 807600, 22094476: 807600, 22094477: 807600, 22094478: 807600,
+    22094479: 807600, 22094480: 807600, 22094481: 807600, 22094482: 807600, 22094483: 807600,
+    22094484: 807600, 22094485: 807600, 22094486: 807600, 22094487: 807600, 22094488: 807600,
+    22094489: 807600, 22094490: 807600, 22094491: 807600, 22094492: 807600, 22094493: 807600,
+    22094494: 807600, 22094495: 807600, 22094496: 807600, 22094497: 807600, 22094498: 807600,
+    22094499: 807600, 22094500: 807600, 22094501: 807600, 22094502: 807600, 22094503: 807600,
+    22094504: 807600, 22094505: 807600, 22094506: 807600, 22094507: 807600, 22094508: 807600,
+    22094509: 807600, 22094510: 807600, 22094511: 807600, 22094512: 807600, 22094513: 807600,
+    22094514: 807600, 22094515: 807600, 22094516: 807600, 22094517: 807600, 22094518: 807600,
+    22094519: 807600, 22094520: 807600, 22094521: 807600, 22094522: 807600, 22094523: 807600,
+    22094524: 807600, 22094525: 807600, 22094526: 807600, 22094527: 807600, 22094528: 807600,
+    22094529: 807600, 22094530: 807600, 22094531: 807600, 22094532: 807600,
+  };
+  
+  return variantToProductMap[variantId] || null;
+}
+
+/* -------------------------------------------------------------------------- */
 /* 🟡 TEST PRINTROVE CONNECTION                                               */
 /* -------------------------------------------------------------------------- */
 async function testPrintroveConnection() {
@@ -180,11 +206,13 @@ async function createPrintroveOrder(order) {
   try {
     // Use the new integration service
     const result = await PrintroveIntegrationService.createOrder(o);
+    console.log('✅ New integration service succeeded, returning result');
     return result;
   } catch (error) {
     console.error('❌ New integration service failed, falling back to legacy method:', error.message);
     
     // Fallback to legacy method
+    console.log('🔄 Using legacy method as fallback...');
     return await createPrintroveOrderLegacy(order);
   }
 }
@@ -513,40 +541,25 @@ async function createPrintroveOrderLegacy(order) {
           is_plain: isPlain,
         };
 
-        // ✅ Use the correct structure for Printrove orders with actual variant IDs
-        if (
-          productInfo &&
-          productInfo.design &&
-          Object.keys(productInfo.design).length > 0
-        ) {
-          // For custom products with design, use product_id, design, and variant_id
-          orderProduct.product_id = productInfo.productId || 1000; // Use actual product ID if available
-          orderProduct.design = productInfo.design;
-          orderProduct.variant_id = printroveVariantId; // Use actual variant ID from frontend
-          console.log(
-            `✅ Using product_id with design: ${orderProduct.product_id}, variant: ${orderProduct.variant_id}`
-          );
-          console.log(`✅ Including design information:`, {
-            hasFront: !!productInfo.design.front,
-            hasBack: !!productInfo.design.back,
-            frontId: productInfo.design.front?.id,
-            backId: productInfo.design.back?.id,
-          });
-        } else if (productInfo && productInfo.productId) {
-          // For plain products, use product_id and variant_id
-          orderProduct.product_id = productInfo.productId; // Use actual product ID
-          orderProduct.variant_id = printroveVariantId; // Use actual variant ID from frontend
-          console.log(
-            `✅ Using product_id and variant_id: ${orderProduct.product_id}, ${orderProduct.variant_id}`
-          );
-        } else if (printroveVariantId) {
-          // Fallback to variant_id if available
+        // ✅ Use only variant_id for Printrove orders (product_id causes validation errors)
+        if (printroveVariantId) {
           orderProduct.variant_id = printroveVariantId;
           console.log(`✅ Using variant_id: ${printroveVariantId}`);
+          
+          // Add design information if available (without product_id)
+          if (productInfo && productInfo.design && Object.keys(productInfo.design).length > 0) {
+            orderProduct.design = productInfo.design;
+            console.log(`✅ Including design information:`, {
+              hasFront: !!productInfo.design.front,
+              hasBack: !!productInfo.design.back,
+              frontId: productInfo.design.front?.id,
+              backId: productInfo.design.back?.id,
+            });
+          }
         } else {
-          console.error(`❌ No valid identifier for product ${ducoProductId}`);
+          console.error(`❌ No valid variant ID for product ${ducoProductId}`);
           throw new Error(
-            `Missing required product identifier for ${ducoProductId}`
+            `Missing required variant ID for ${ducoProductId}`
           );
         }
 

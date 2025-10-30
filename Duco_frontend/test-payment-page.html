@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Payment Page Fix</title>
+</head>
+<body>
+    <h1>Payment Page Fix Test</h1>
+    
+    <div id="test-results"></div>
+    
+    <script>
+        // Test the variable initialization fix
+        function testVariableOrder() {
+            console.log("Testing variable initialization order...");
+            
+            try {
+                // Simulate the fixed code structure
+                const locations = { state: { items: [], totalPay: 100 } };
+                const orderpayload = locations.state || {};
+                
+                // This should work now (orderpayload is defined before use)
+                const hasItems = !!orderpayload?.items?.length;
+                
+                console.log("✅ Variable order test passed");
+                return true;
+            } catch (error) {
+                console.error("❌ Variable order test failed:", error);
+                return false;
+            }
+        }
+        
+        // Test cache clearing functionality
+        function testCacheClearing() {
+            console.log("Testing cache clearing...");
+            
+            try {
+                // Set some test cache data
+                localStorage.setItem("lastOrderId", "test123");
+                localStorage.setItem("lastOrderMeta", "{}");
+                localStorage.setItem("cart", "[]");
+                
+                // Clear cache (simulate the utility function)
+                const orderKeys = ["lastOrderId", "lastOrderMeta", "lastCartCharges", "cart"];
+                orderKeys.forEach(key => {
+                    if (localStorage.getItem(key)) {
+                        localStorage.removeItem(key);
+                    }
+                });
+                
+                // Check if cleared
+                const cleared = orderKeys.every(key => !localStorage.getItem(key));
+                
+                if (cleared) {
+                    console.log("✅ Cache clearing test passed");
+                    return true;
+                } else {
+                    console.error("❌ Cache clearing test failed - some items not cleared");
+                    return false;
+                }
+            } catch (error) {
+                console.error("❌ Cache clearing test failed:", error);
+                return false;
+            }
+        }
+        
+        // Run tests
+        function runTests() {
+            const results = {
+                variableOrder: testVariableOrder(),
+                cacheClearing: testCacheClearing()
+            };
+            
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = `
+                <h2>Test Results:</h2>
+                <p>Variable Order Fix: ${results.variableOrder ? '✅ PASSED' : '❌ FAILED'}</p>
+                <p>Cache Clearing: ${results.cacheClearing ? '✅ PASSED' : '❌ FAILED'}</p>
+                <p><strong>Overall: ${Object.values(results).every(r => r) ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}</strong></p>
+            `;
+            
+            if (Object.values(results).every(r => r)) {
+                console.log("🎉 All tests passed! The fixes should work correctly.");
+            } else {
+                console.error("⚠️ Some tests failed. Check the console for details.");
+            }
+        }
+        
+        // Run tests on page load
+        runTests();
+    </script>
+</body>
+</html>

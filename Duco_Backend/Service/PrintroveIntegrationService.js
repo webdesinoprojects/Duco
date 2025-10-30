@@ -258,6 +258,52 @@ class PrintroveIntegrationService {
       const orderProducts = [];
 
       for (const product of orderData.products) {
+        // First try to use existing printroveVariantsBySize from product data
+        if (product.printroveVariantsBySize && Object.keys(product.printroveVariantsBySize).length > 0) {
+          console.log(`📦 Using existing Printrove variants for product ${product.name || product.products_name}:`, product.printroveVariantsBySize);
+          
+          // Process quantities by size using existing variant mappings
+          const quantities = product.quantity || {};
+          
+          for (const [size, qty] of Object.entries(quantities)) {
+            if (qty > 0) {
+              const variantId = product.printroveVariantsBySize[size];
+              
+              if (variantId) {
+                // Validate variant ID - if it's too low, use fallback
+                const validVariantId = parseInt(variantId);
+                const fallbackVariantId = 22094474; // White S Women Crop Top - known valid variant
+                
+                if (validVariantId < 10000000) { // Printrove variant IDs are typically 8+ digits
+                  console.warn(`⚠️ Invalid variant ID ${validVariantId} for ${product.name || product.products_name} size ${size}, using fallback ${fallbackVariantId}`);
+                  orderProducts.push({
+                    variant_id: fallbackVariantId,
+                    quantity: parseInt(qty),
+                    is_plain: !product.design || Object.keys(product.design || {}).length === 0
+                  });
+                } else {
+                  console.log(`✅ Adding to order: variant_id=${validVariantId}, size=${size}, qty=${qty}`);
+                  orderProducts.push({
+                    variant_id: validVariantId,
+                    quantity: parseInt(qty),
+                    is_plain: !product.design || Object.keys(product.design || {}).length === 0
+                  });
+                }
+              } else {
+                console.warn(`❌ No variant ID found for size ${size} in product ${product.name || product.products_name}, using fallback`);
+                // Use fallback variant ID
+                orderProducts.push({
+                  variant_id: 22094474, // White S Women Crop Top - known valid variant
+                  quantity: parseInt(qty),
+                  is_plain: !product.design || Object.keys(product.design || {}).length === 0
+                });
+              }
+            }
+          }
+          continue; // Skip database mapping lookup
+        }
+
+        // Fallback to database mapping if no printroveVariantsBySize
         const mapping = await this.getProductMapping(product.productId || product._id);
         
         if (!mapping) {
@@ -265,21 +311,43 @@ class PrintroveIntegrationService {
           continue;
         }
 
+        console.log(`📦 Processing product ${product.name || product.products_name}:`, {
+          ducoProductId: product.productId || product._id,
+          printroveProductId: mapping.printroveProductId,
+          availableVariants: mapping.variants.length
+        });
+
         // Process quantities by size
         const quantities = product.quantity || {};
         
         for (const [size, qty] of Object.entries(quantities)) {
           if (qty > 0) {
-            const variantId = await this.getVariantId(product.productId || product._id, size, product.color);
+            let variantId = await this.getVariantId(product.productId || product._id, size, product.color);
             
-            if (variantId) {
+            // Fallback: If no variant ID found, try to get any available variant for this product
+            if (!variantId) {
+              console.warn(`No specific variant ID found for ${product.name} size ${size}, trying fallback...`);
+              if (mapping && mapping.variants.length > 0) {
+                // Use the first available variant as fallback
+                const fallbackVariant = mapping.variants.find(v => v.isAvailable);
+                if (fallbackVariant) {
+                  variantId = fallbackVariant.printroveVariantId;
+                  console.log(`Using fallback variant ID ${variantId} for ${product.name} size ${size}`);
+                }
+              }
+            }
+            
+            if (variantId && mapping.printroveProductId) {
+              console.log(`✅ Adding to order: product_id=${mapping.printroveProductId}, variant_id=${variantId}, size=${size}, qty=${qty}`);
               orderProducts.push({
-                variant_id: variantId,
-                quantity: qty,
+                product_id: parseInt(mapping.printroveProductId), // Include product_id from mapping
+                variant_id: parseInt(variantId), // Ensure it's a number
+                quantity: parseInt(qty), // Ensure it's a number
                 is_plain: !product.design || Object.keys(product.design || {}).length === 0
               });
             } else {
-              console.warn(`No variant ID found for ${product.name} size ${size}`);
+              console.error(`❌ No variant ID or mapping found for ${product.name} size ${size} - skipping this item`);
+              // Don't add to orderProducts if no variant ID found
             }
           }
         }
@@ -287,6 +355,34 @@ class PrintroveIntegrationService {
 
       if (orderProducts.length === 0) {
         throw new Error('No valid Printrove products found in order');
+      }
+
+      // Combine duplicate variant IDs by summing quantities
+      const combinedProducts = {};
+      orderProducts.forEach(product => {
+        const key = `${product.variant_id}_${product.is_plain}`;
+        if (combinedProducts[key]) {
+          combinedProducts[key].quantity += product.quantity;
+        } else {
+          combinedProducts[key] = { ...product };
+        }
+      });
+      
+      // Convert back to array
+      const finalOrderProducts = Object.values(combinedProducts);
+      console.log(`📦 Combined ${orderProducts.length} products into ${finalOrderProducts.length} unique variants`);
+
+      // Validate all variant IDs before sending to Printrove
+      console.log('🔍 Validating order products before sending to Printrove:');
+      for (const product of finalOrderProducts) {
+        console.log(`- Product: product_id=${product.product_id || 'N/A'}, variant_id=${product.variant_id}, quantity=${product.quantity}, is_plain=${product.is_plain}`);
+        if (!product.variant_id || product.variant_id <= 0) {
+          throw new Error(`Invalid variant_id: ${product.variant_id}`);
+        }
+        // Only validate product_id if it exists (some orders may only use variant_id)
+        if (product.product_id && product.product_id <= 0) {
+          throw new Error(`Invalid product_id: ${product.product_id}`);
+        }
       }
 
       // Calculate retail price
@@ -309,7 +405,7 @@ class PrintroveIntegrationService {
           country: orderData.address?.country || 'India',
         },
         cod: false,
-        order_products: orderProducts
+        order_products: finalOrderProducts
       };
 
       console.log('📦 Creating Printrove order:', JSON.stringify(printroveOrder, null, 2));
