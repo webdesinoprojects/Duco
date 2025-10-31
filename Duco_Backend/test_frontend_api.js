@@ -5,7 +5,7 @@
 
 const axios = require('axios');
 
-const API_BASE = 'http://localhost:3000/';
+const API_BASE = 'https://duco-67o5.onrender.com/';
 
 async function testFrontendAPIs() {
   console.log('🧪 Testing Frontend API Integration\n');
