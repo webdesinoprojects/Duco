@@ -1,5 +1,5 @@
 // controllers/chargePlanController.js
-const ChargePlan = require('../DataBase/Models/DefaultChargePlan');
+const ChargePlan = require("../DataBase/Models/DefaultChargePlan");
 
 // ---------- helpers ----------
 const toNum = (v, name) => {
@@ -15,14 +15,14 @@ function normalizeRange(raw, label) {
   if (minqty < 1) throw new Error(`${label}.minqty must be >= 1`);
   if (maxqty < minqty) throw new Error(`${label}.maxqty must be >= minqty`);
 
-  // ✅ If this is GST, use percent
+  // ✅ GST uses percent instead of cost
   if (raw.percent != null) {
     const percent = toNum(raw.percent, `${label}.percent`);
     if (percent < 0) throw new Error(`${label}.percent must be >= 0`);
     return { minqty, maxqty, percent };
   }
 
-  // ✅ Otherwise it's cost per unit
+  // ✅ Normal cost tiers
   const cost = toNum(raw.cost, `${label}.cost`);
   if (cost < 0) throw new Error(`${label}.cost must be >= 0`);
   return { minqty, maxqty, cost };
@@ -55,26 +55,44 @@ function findTierValue(tiers, qty, label) {
 }
 
 // ---------- default plan ----------
+// ---------- default plan ----------
 async function getOrCreateSinglePlan() {
   let plan = await ChargePlan.findOne();
 
+  // ✅ default data definition
+  const defaultData = {
+    pakageingandforwarding: [
+      { minqty: 1, maxqty: 50, cost: 12 },
+      { minqty: 51, maxqty: 200, cost: 10 },
+      { minqty: 201, maxqty: 1000000000, cost: 8 },
+    ],
+    printingcost: [
+      { minqty: 1, maxqty: 50, cost: 15 },
+      { minqty: 51, maxqty: 200, cost: 12 },
+      { minqty: 201, maxqty: 1000000000, cost: 10 },
+    ],
+    gst: [{ minqty: 1, maxqty: 1000000000, percent: 5 }],
+  };
+
+  // ✅ If no plan → create new
   if (!plan) {
-    // ✅ Create baseline plan with realistic values
-    plan = await ChargePlan.create({
-      pakageingandforwarding: [
-        { minqty: 1, maxqty: 50, cost: 12 },
-        { minqty: 51, maxqty: 200, cost: 10 },
-        { minqty: 201, maxqty: 1000000000, cost: 8 },
-      ],
-      printingcost: [
-        { minqty: 1, maxqty: 50, cost: 15 },
-        { minqty: 51, maxqty: 200, cost: 12 },
-        { minqty: 201, maxqty: 1000000000, cost: 10 },
-      ],
-      gst: [{ minqty: 1, maxqty: 1000000000, percent: 5 }],
-    });
+    plan = await ChargePlan.create(defaultData);
+    console.log("✅ Created default charge plan");
+    return plan;
   }
 
+  // ✅ If plan exists but missing any array → patch it automatically
+  let updated = false;
+  for (const key of Object.keys(defaultData)) {
+    if (!Array.isArray(plan[key]) || plan[key].length === 0) {
+      plan[key] = defaultData[key];
+      updated = true;
+      console.log(`⚙️ Restored missing key '${key}' in ChargePlan.`);
+    }
+  }
+
+  if (updated) await plan.save();
+  console.log("✅ ChargePlan was missing data and has been patched.");
   return plan;
 }
 
@@ -96,23 +114,23 @@ exports.updatePlan = async (req, res) => {
     if (body.pakageingandforwarding != null) {
       update.pakageingandforwarding = validateAndSortTiers(
         body.pakageingandforwarding,
-        'pakageingandforwarding'
+        "pakageingandforwarding"
       );
     }
     if (body.printingcost != null) {
       update.printingcost = validateAndSortTiers(
         body.printingcost,
-        'printingcost'
+        "printingcost"
       );
     }
     if (body.gst != null) {
-      update.gst = validateAndSortTiers(body.gst, 'gst');
+      update.gst = validateAndSortTiers(body.gst, "gst");
     }
 
     if (!Object.keys(update).length) {
       return res
         .status(400)
-        .json({ success: false, error: 'No valid fields to update.' });
+        .json({ success: false, error: "No valid fields to update." });
     }
 
     const plan = await getOrCreateSinglePlan();
@@ -132,46 +150,48 @@ exports.getTotalsForQty = async (req, res) => {
     if (!Number.isFinite(qty) || qty < 1) {
       return res
         .status(400)
-        .json({ success: false, error: 'qty must be a number >= 1' });
+        .json({ success: false, error: "qty must be a number >= 1" });
     }
 
     const subtotal = Number(req.query.subtotal ?? req.body?.subtotal ?? 0);
     const plan = await getOrCreateSinglePlan();
 
-    // TODO: Commented out packaging and forwarding for testing - uncomment later
-    // const packaging = findTierValue(plan.pakageingandforwarding, qty, "pakageingandforwarding");
-    const packaging = 0; // Temporarily set to 0 for testing
-    const printing = findTierValue(plan.printingcost, qty, 'printingcost');
-    const gstPercent = findTierValue(plan.gst, qty, 'gst');
+    // ✅ Actual tiered rate lookup
+    const packaging = findTierValue(
+      plan.pakageingandforwarding,
+      qty,
+      "pakageingandforwarding"
+    );
+    const printing = findTierValue(plan.printingcost, qty, "printingcost");
+    const gstPercent = findTierValue(plan.gst, qty, "gst");
 
     // ✅ Compute totals
     const pfTotal = packaging * qty;
     const printTotal = printing * qty;
     const gstAmount = ((subtotal + pfTotal + printTotal) * gstPercent) / 100;
+    const grandTotal = subtotal + pfTotal + printTotal + gstAmount;
 
+    // ✅ Final response
     res.json({
       success: true,
       data: {
         qty,
         perUnit: {
-          // TODO: Commented out packaging and forwarding for testing - uncomment later
-          // pakageingandforwarding: packaging,
-          pakageingandforwarding: 0, // Temporarily set to 0 for testing
+          pakageingandforwarding: packaging,
           printingcost: printing,
         },
         totals: {
-          // TODO: Commented out packaging and forwarding for testing - uncomment later
-          // pakageingandforwarding: pfTotal,
-          pakageingandforwarding: 0, // Temporarily set to 0 for testing
+          pakageingandforwarding: pfTotal,
           printingcost: printTotal,
           gstPercent,
           gstAmount,
           subtotal,
-          grandTotal: subtotal + pfTotal + printTotal + gstAmount,
+          grandTotal,
         },
       },
     });
   } catch (e) {
+    console.error("❌ Error in getTotalsForQty:", e);
     res.status(400).json({ success: false, error: e.message });
   }
 };
@@ -183,23 +203,26 @@ exports.getRatesForQty = async (req, res) => {
     if (!Number.isFinite(qty) || qty < 1) {
       return res
         .status(400)
-        .json({ success: false, error: 'qty must be a number >= 1' });
+        .json({ success: false, error: "qty must be a number >= 1" });
     }
 
     const plan = await getOrCreateSinglePlan();
     const packaging = findTierValue(
       plan.pakageingandforwarding,
       qty,
-      'pakageingandforwarding'
+      "pakageingandforwarding"
     );
-    const printing = findTierValue(plan.printingcost, qty, 'printingcost');
-    const gstPercent = findTierValue(plan.gst, qty, 'gst');
+    const printing = findTierValue(plan.printingcost, qty, "printingcost");
+    const gstPercent = findTierValue(plan.gst, qty, "gst");
 
     res.json({
       success: true,
       data: {
         qty,
-        perUnit: { pakageingandforwarding: packaging, printingcost: printing },
+        perUnit: {
+          pakageingandforwarding: packaging,
+          printingcost: printing,
+        },
         gstPercent,
       },
     });

@@ -8,16 +8,16 @@ const {
   getTotalsForQty,
 } = require("../Controller/chargePlanController");
 
-// ✅ Read the current plan (auto-creates baseline if none exists)
-router.get("/chargeplan", getPlan);
+// ✅ Get default charge plan
+router.get("/", getPlan);
 
-// ✅ Update tiers for P&F, printing, and GST
-router.patch("/chargeplan", updatePlan);
+// ✅ Update charge plan
+router.patch("/", updatePlan);
 
-// ✅ Get per-unit rates for a given qty (legacy endpoint)
-router.post("/chargeplan/rates", getRatesForQty);
+// ✅ Legacy endpoint (per-unit only)
+router.post("/rates", getRatesForQty);
 
-// ✅ Get full totals (P&F + Printing + GST + Grand Total)
-router.post("/chargeplan/totals", getTotalsForQty);
+// ✅ NEW: Full totals endpoint (printing + P&F + GST + total)
+router.get("/getTotalsForQty", getTotalsForQty);
 
 module.exports = router;
