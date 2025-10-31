@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Razorpay</title>
+</head>
+<body>
+    <h1>Razorpay Test</h1>
+    <button id="testBtn">Test Razorpay Payment</button>
+    
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+        document.getElementById('testBtn').addEventListener('click', async function() {
+            console.log('Testing Razorpay...');
+            
+            // Check if Razorpay is loaded
+            if (typeof Razorpay === 'undefined') {
+                alert('Razorpay SDK not loaded!');
+                return;
+            }
+            
+            console.log('Razorpay SDK loaded successfully');
+            
+            // Test creating a payment order
+            try {
+                const response = await fetch('http://localhost:3000/api/payment/create-order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        amount: 100,
+                        half: false
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('Order created:', data);
+                
+                const options = {
+                    key: 'rzp_test_RKkNoqkW7sQisX',
+                    amount: data.amount,
+                    currency: 'INR',
+                    name: 'Test Payment',
+                    description: 'Test Transaction',
+                    order_id: data.orderId,
+                    handler: function (response) {
+                        alert('Payment successful: ' + response.razorpay_payment_id);
+                        console.log('Payment response:', response);
+                    },
+                    prefill: {
+                        name: 'Test User',
+                        email: 'test@example.com',
+                        contact: '9999999999'
+                    },
+                    theme: {
+                        color: '#E5C870'
+                    }
+                };
+                
+                const rzp = new Razorpay(options);
+                rzp.on('payment.failed', function (response) {
+                    alert('Payment failed: ' + response.error.description);
+                    console.error('Payment failed:', response.error);
+                });
+                
+                rzp.open();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

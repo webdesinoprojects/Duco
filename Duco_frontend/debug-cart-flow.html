@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Cart Flow</title>
+</head>
+<body>
+    <h1>Cart Flow Debug</h1>
+    <div id="debug-info"></div>
+    
+    <script>
+        // Function to check localStorage cart
+        function checkCart() {
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            const debugInfo = document.getElementById('debug-info');
+            
+            debugInfo.innerHTML = `
+                <h2>Current Cart Status</h2>
+                <p><strong>Items in cart:</strong> ${cart.length}</p>
+                <div>
+                    ${cart.map((item, index) => `
+                        <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
+                            <h3>Item ${index + 1}</h3>
+                            <p><strong>Name:</strong> ${item.products_name || item.name || 'Unknown'}</p>
+                            <p><strong>Price:</strong> ${item.price || 'Unknown'}</p>
+                            <p><strong>ID:</strong> ${item.id || 'Unknown'}</p>
+                            <p><strong>Timestamp:</strong> ${item.timestamp || 'Unknown'}</p>
+                            <p><strong>Quantity:</strong> ${JSON.stringify(item.quantity || {})}</p>
+                        </div>
+                    `).join('')}
+                </div>
+                <button onclick="clearCart()">Clear Cart</button>
+                <button onclick="checkCart()">Refresh</button>
+            `;
+        }
+        
+        function clearCart() {
+            localStorage.removeItem('cart');
+            checkCart();
+        }
+        
+        // Check cart on load
+        checkCart();
+        
+        // Auto-refresh every 2 seconds
+        setInterval(checkCart, 2000);
+    </script>
+</body>
+</html>

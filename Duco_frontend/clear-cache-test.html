@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Cache Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .cache-item { border: 1px solid #ccc; margin: 10px 0; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Order Cache Management</h1>
+    
+    <div>
+        <button onclick="showCache()">Show Current Cache</button>
+        <button onclick="clearAllCache()">Clear All Order Cache</button>
+        <button onclick="clearSpecificCache()">Clear Specific Items</button>
+    </div>
+    
+    <div id="cache-display"></div>
+    
+    <script>
+        function showCache() {
+            const display = document.getElementById('cache-display');
+            const cacheItems = [
+                'cart',
+                'lastOrderId', 
+                'lastOrderMeta',
+                'lastCartCharges',
+                'user'
+            ];
+            
+            let html = '<h2>Current Cache Status:</h2>';
+            
+            cacheItems.forEach(key => {
+                const value = localStorage.getItem(key);
+                html += `
+                    <div class="cache-item">
+                        <strong>${key}:</strong> 
+                        ${value ? `<pre>${value}</pre>` : '<em>Not set</em>'}
+                    </div>
+                `;
+            });
+            
+            // Check sessionStorage too
+            html += '<h3>Session Storage:</h3>';
+            const sessionKeys = ['currentDesignSession'];
+            sessionKeys.forEach(key => {
+                const value = sessionStorage.getItem(key);
+                html += `
+                    <div class="cache-item">
+                        <strong>${key}:</strong> 
+                        ${value || '<em>Not set</em>'}
+                    </div>
+                `;
+            });
+            
+            display.innerHTML = html;
+        }
+        
+        function clearAllCache() {
+            // Clear localStorage
+            const orderKeys = ['cart', 'lastOrderId', 'lastOrderMeta', 'lastCartCharges'];
+            orderKeys.forEach(key => localStorage.removeItem(key));
+            
+            // Clear sessionStorage
+            sessionStorage.removeItem('currentDesignSession');
+            
+            alert('All order cache cleared!');
+            showCache();
+        }
+        
+        function clearSpecificCache() {
+            const key = prompt('Enter key to clear:');
+            if (key) {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+                alert(`Cleared: ${key}`);
+                showCache();
+            }
+        }
+        
+        // Auto-refresh display
+        showCache();
+        setInterval(showCache, 5000);
+    </script>
+</body>
+</html>

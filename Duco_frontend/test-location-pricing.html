@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Location Pricing</title>
+</head>
+<body>
+    <h1>Location Pricing Test</h1>
+    
+    <div id="test-results"></div>
+    
+    <script>
+        // Test the location pricing function
+        function applyLocationPricing(basePrice, priceIncrease, conversionRate) {
+            let price = Number(basePrice) || 0;
+            
+            // Step 1: Apply percentage increase (location markup)
+            if (priceIncrease) {
+                price += (price * Number(priceIncrease)) / 100;
+            }
+            
+            // Step 2: Apply currency conversion
+            if (conversionRate && conversionRate !== 1) {
+                price *= conversionRate;
+            }
+            
+            return Math.round(price);
+        }
+        
+        function runTests() {
+            const testCases = [
+                {
+                    name: "India (Base)",
+                    basePrice: 499,
+                    priceIncrease: 0,
+                    conversionRate: 1,
+                    expected: 499
+                },
+                {
+                    name: "USA (+20%)",
+                    basePrice: 499,
+                    priceIncrease: 20,
+                    conversionRate: 0.012, // INR to USD
+                    expected: Math.round(499 * 1.2 * 0.012)
+                },
+                {
+                    name: "Europe (+15%)",
+                    basePrice: 499,
+                    priceIncrease: 15,
+                    conversionRate: 0.011, // INR to EUR
+                    expected: Math.round(499 * 1.15 * 0.011)
+                },
+                {
+                    name: "Australia (+25%)",
+                    basePrice: 499,
+                    priceIncrease: 25,
+                    conversionRate: 0.018, // INR to AUD
+                    expected: Math.round(499 * 1.25 * 0.018)
+                }
+            ];
+            
+            let html = '<h2>Location Pricing Test Results:</h2>';
+            
+            testCases.forEach(test => {
+                const result = applyLocationPricing(test.basePrice, test.priceIncrease, test.conversionRate);
+                const passed = result === test.expected;
+                
+                html += `
+                    <div style="border: 1px solid ${passed ? 'green' : 'red'}; margin: 10px; padding: 10px;">
+                        <h3>${test.name} ${passed ? '✅' : '❌'}</h3>
+                        <p><strong>Base Price:</strong> ₹${test.basePrice}</p>
+                        <p><strong>Price Increase:</strong> ${test.priceIncrease}%</p>
+                        <p><strong>Conversion Rate:</strong> ${test.conversionRate}</p>
+                        <p><strong>Expected:</strong> ${test.expected}</p>
+                        <p><strong>Actual:</strong> ${result}</p>
+                        <p><strong>Calculation:</strong> ${test.basePrice} + ${test.priceIncrease}% × ${test.conversionRate} = ${result}</p>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('test-results').innerHTML = html;
+        }
+        
+        runTests();
+    </script>
+</body>
+</html>
