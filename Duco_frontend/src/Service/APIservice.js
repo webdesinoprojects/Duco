@@ -231,64 +231,61 @@ export async function adminLogin(userid, password) {
 
 /* ------------------------------- CHARGE PLAN ------------------------------- */
 /**
- * Returns a charge plan used for printing & P&F + tax rate.
- * Shape (recommended):
- * {
- *   slabs: [
- *     { min: 1, max: 9,    printingPerSide: 69, pnfPerUnit: 0, pnfFlat: 25 },
- *     { min: 10, max: 49,  printingPerSide: 49, pnfPerUnit: 0, pnfFlat: 25 },
- *     { min: 50, max: 999999, printingPerSide: 39, pnfPerUnit: 0, pnfFlat: 25 }
- *   ],
- *   gstRate: 0.05
- * }
+ * ✅ Fetch tiered pricing for Printing, P&F, and GST dynamically
+ * Uses backend `/api/chargeplan/getTotalsForQty`
  */
-export const getChargePlanRates = async (qty = 1) => {
+export const getChargePlanRates = async (qty = 1, subtotal = 0) => {
   try {
-    const res = await axios.post(`${API_BASE}api/chargeplan/rates`, {
-      qty: qty
-    }, {
-      timeout: 8000,
+    const res = await axios.get(`${API_BASE}api/chargeplan/getTotalsForQty`, {
+      params: { qty, subtotal },
     });
-    const data = res?.data;
 
-    // Cache successful plan for offline/fallback use
-    try {
-      localStorage.setItem("chargePlanRates", JSON.stringify(data));
-    } catch {}
+    if (!res?.data?.success) {
+      console.warn("⚠️ getChargePlanRates: No success field found.", res.data);
+      return null;
+    }
 
-    return data;
+    const data = res.data.data || {};
+    const perUnit = data.perUnit || {};
+    const totals = data.totals || {};
+
+    console.log("📦 Charge Plan Rates Fetched:", {
+      qty: data.qty,
+      perUnit,
+      totals,
+    });
+
+    return {
+      success: true,
+      data: {
+        qty: data.qty,
+        perUnit, // { pakageingandforwarding, printingcost }
+        totals, // { pakageingandforwarding, printingcost, gstPercent, gstAmount, grandTotal, subtotal }
+        gstPercent: totals.gstPercent ?? 5,
+      },
+    };
   } catch (err) {
-    console.warn(
-      "getChargePlanRates(): API failed, using cached/default plan.",
-      err?.response?.status,
-      err?.message
-    );
+    console.error("❌ getChargePlanRates() failed:", err.message);
 
-    // 1) Try cached plan from localStorage
+    // fallback to cached version
     try {
       const cached = localStorage.getItem("chargePlanRates");
       if (cached) return JSON.parse(cached);
     } catch {}
 
-    // 2) Final hardcoded fallback (EDIT values to match your business rules)
+    // fallback hardcoded safe default
     return {
-      slabs: [
-        { min: 1, max: 9, printingPerSide: 69, pnfPerUnit: 0, pnfFlat: 25 },
-        { min: 10, max: 49, printingPerSide: 49, pnfPerUnit: 0, pnfFlat: 25 },
-        {
-          min: 50,
-          max: 999999,
-          printingPerSide: 39,
-          pnfPerUnit: 0,
-          pnfFlat: 25,
-        },
-      ],
-      gstRate: 0.05, // 5%
+      success: true,
+      data: {
+        qty: 1,
+        perUnit: { pakageingandforwarding: 10, printingcost: 15 },
+        totals: { gstPercent: 5 },
+      },
     };
   }
 };
 
-// Optional: manual cache helper (safe to import even if unused)
+// Optional: manual cache helper
 export const cacheChargePlanRates = (plan) => {
   try {
     localStorage.setItem("chargePlanRates", JSON.stringify(plan));

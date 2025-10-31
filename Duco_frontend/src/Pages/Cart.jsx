@@ -11,61 +11,51 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import JsBarcode from "jsbarcode";
 
+/* --------------------------------- Symbols -------------------------------- */
 const currencySymbols = {
-  INR: "₹", // Indian Rupee
-  USD: "$", // US Dollar
-  AED: "د.إ", // UAE Dirham
-  EUR: "€", // Euro
-  GBP: "£", // British Pound
-  AUD: "A$", // Australian Dollar 🇦🇺
-  CAD: "C$", // Canadian Dollar 🇨🇦
-  SGD: "S$", // Singapore Dollar 🇸🇬
-  NZD: "NZ$", // New Zealand Dollar 🇳🇿
-  CHF: "CHF", // Swiss Franc 🇨🇭
-  JPY: "¥", // Japanese Yen 🇯🇵
-  CNY: "¥", // Chinese Yuan 🇨🇳
-  HKD: "HK$", // Hong Kong Dollar 🇭🇰
-  MYR: "RM", // Malaysian Ringgit 🇲🇾
-  THB: "฿", // Thai Baht 🇹🇭
-  SAR: "﷼", // Saudi Riyal 🇸🇦
-  QAR: "ر.ق", // Qatari Riyal 🇶🇦
-  KWD: "KD", // Kuwaiti Dinar 🇰🇼
-  BHD: "BD", // Bahraini Dinar 🇧🇭
-  OMR: "﷼", // Omani Rial 🇴🇲
-  ZAR: "R", // South African Rand 🇿🇦
-  PKR: "₨", // Pakistani Rupee 🇵🇰
-  LKR: "Rs", // Sri Lankan Rupee 🇱🇰
-  BDT: "৳", // Bangladeshi Taka 🇧🇩
-  NPR: "रू", // Nepalese Rupee 🇳🇵
-  PHP: "₱", // Philippine Peso 🇵🇭
-  IDR: "Rp", // Indonesian Rupiah 🇮🇩
-  KRW: "₩", // South Korean Won 🇰🇷
+  INR: "₹",
+  USD: "$",
+  AED: "د.إ",
+  EUR: "€",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+  NZD: "NZ$",
+  CHF: "CHF",
+  JPY: "¥",
+  CNY: "¥",
+  HKD: "HK$",
+  MYR: "RM",
+  THB: "฿",
+  SAR: "﷼",
+  QAR: "ر.ق",
+  KWD: "KD",
+  BHD: "BD",
+  OMR: "﷼",
+  ZAR: "R",
+  PKR: "₨",
+  LKR: "Rs",
+  BDT: "৳",
+  NPR: "रू",
+  PHP: "₱",
+  IDR: "Rp",
+  KRW: "₩",
 };
 
-/* ----------------- Helpers ----------------- */
+/* --------------------------------- Helpers -------------------------------- */
 const safeNum = (v, fallback = 0) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 };
 
-// ✅ Apply location-based pricing to a base price
 const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
   let price = safeNum(basePrice);
-  
-  // Step 1: Apply percentage increase (location markup)
-  if (priceIncrease) {
-    price += (price * safeNum(priceIncrease)) / 100;
-  }
-  
-  // Step 2: Apply currency conversion
-  if (conversionRate && conversionRate !== 1) {
-    price *= conversionRate;
-  }
-  
+  if (priceIncrease) price += (price * safeNum(priceIncrease)) / 100;
+  if (conversionRate && conversionRate !== 1) price *= conversionRate;
   return Math.round(price);
 };
 
-// ✅ Count printed sides
 const countDesignSides = (item) => {
   const d = item?.design || {};
   const sides = ["front", "back", "left", "right"];
@@ -77,7 +67,6 @@ const countDesignSides = (item) => {
   return used;
 };
 
-// ✅ Pick slab from plan
 const pickSlab = (plan, qty) => {
   const slabs = plan?.slabs || [];
   return (
@@ -86,7 +75,7 @@ const pickSlab = (plan, qty) => {
   );
 };
 
-/* ----------------- Invoice UI ----------------- */
+/* ----------------------------- Invoice Component -------------------------- */
 const InvoiceDucoTailwind = ({ data }) => {
   const barcodeRef = useRef(null);
 
@@ -190,7 +179,6 @@ const InvoiceDucoTailwind = ({ data }) => {
         </h2>
       )}
 
-      {/* ✅ GST Breakdown */}
       <h2 style={{ textAlign: "right", marginTop: "5px" }}>
         CGST ({(data.gstPercent / 2).toFixed(1)}%):{" "}
         {data.formatCurrency((data.subtotal * (data.gstPercent / 100)) / 2)}
@@ -200,7 +188,7 @@ const InvoiceDucoTailwind = ({ data }) => {
         {data.formatCurrency((data.subtotal * (data.gstPercent / 100)) / 2)}
       </h2>
       <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-        Total GST ({data.gstPercent}%):{" "}
+        Total GST ({safeNum(data.gstPercent)}%):{" "}
         {data.formatCurrency(data.subtotal * (data.gstPercent / 100))}
       </h2>
 
@@ -211,85 +199,78 @@ const InvoiceDucoTailwind = ({ data }) => {
   );
 };
 
-/* ----------------- Main Cart ----------------- */
+/* --------------------------------- Main Cart ------------------------------- */
 const Cart = () => {
   const { cart, setCart, removeFromCart, updateQuantity } =
     useContext(CartContext);
+
   const [user, setUser] = useState(null);
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingRates, setLoadingRates] = useState(false);
   const [address, setAddress] = useState(null);
-
-  const navigate = useNavigate();
   const invoiceRef = useRef();
+  const navigate = useNavigate();
 
+  /* -------------------- Currency state (stable across reload) -------------- */
   const [currencySymbol, setCurrencySymbol] = useState("₹");
   const [conversionRate, setConversionRate] = useState(1);
 
-  // ✅ Dynamic Currency Formatter (prices are already location-adjusted at item level)
-  const formatCurrency = (num) => {
-    const formatted = `${currencySymbol}${Math.round(safeNum(num, 0))
-      .toString()
-      .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-    console.log(`💱 formatCurrency: ${num} → ${formatted} (symbol: ${currencySymbol})`);
-    return formatted;
-  };
+  const priceContext = usePriceContext();
+  const { priceIncrease, currency, resolvedLocation, toConvert } =
+    priceContext || {};
 
-  // ✅ Load user from localStorage so address API has userId
+  /* --------------------------------- User --------------------------------- */
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) setUser(JSON.parse(stored));
   }, []);
 
-  // ✅ PriceContext - with safety check
-  const priceContext = usePriceContext();
-  const { priceIncrease, currency, resolvedLocation, toConvert } = priceContext || {};
-
+  /* --------------------- Currency/Rate (persist + restore) ----------------- */
   useEffect(() => {
-    console.log("🔄 Currency effect triggered:", { currency, toConvert });
-    
-    // Set currency symbol
-    if (currency) {
-      console.log("💱 Setting currency symbol for:", currency);
-      const symbol = currencySymbols[currency] || "₹";
-      setCurrencySymbol(symbol);
-      console.log("💱 Currency symbol set to:", symbol);
-    } else {
-      console.log("⚠️ No currency set, keeping default ₹");
-      setCurrencySymbol("₹");
-    }
-    
-    // Set conversion rate
-    if (toConvert) {
-      setConversionRate(Number(toConvert));
-      console.log("💰 Using conversion rate from PriceContext:", toConvert);
-    } else {
-      // Fallback to localStorage
-      try {
-        const cached = JSON.parse(localStorage.getItem("locationPricing"));
-        if (cached && cached.currency?.toconvert) {
-          setConversionRate(Number(cached.currency.toconvert));
-          console.log("💰 Using conversion rate from localStorage:", cached.currency.toconvert);
-        } else {
-          setConversionRate(1);
-          console.log("💰 Using default conversion rate: 1");
-        }
-      } catch (err) {
-        console.warn("⚠️ Error reading localStorage:", err);
+    try {
+      const cached = JSON.parse(localStorage.getItem("locationPricing"));
+      if (currency && toConvert) {
+        const symbol = currencySymbols[currency] || "₹";
+        setCurrencySymbol(symbol);
+        setConversionRate(Number(toConvert));
+        localStorage.setItem(
+          "locationPricing",
+          JSON.stringify({
+            currency: { code: currency, toconvert: toConvert },
+            priceIncrease: priceIncrease || 0,
+            location: resolvedLocation || "India",
+          })
+        );
+      } else if (cached) {
+        setCurrencySymbol(currencySymbols[cached.currency?.code] || "₹");
+        setConversionRate(Number(cached.currency?.toconvert || 1));
+      } else {
+        setCurrencySymbol("₹");
         setConversionRate(1);
       }
+    } catch {
+      setCurrencySymbol("₹");
+      setConversionRate(1);
     }
-  }, [currency, toConvert]);
+  }, [currency, toConvert, priceIncrease, resolvedLocation]);
 
-  /* ---------- Products ---------- */
+  /* -------------------------- Currency formatter -------------------------- */
+  const formatCurrency = (num) => {
+    const out = `${currencySymbol}${Math.round(safeNum(num, 0))
+      .toString()
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+    return out;
+  };
+
+  /* ------------------------------- Products -------------------------------- */
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoadingProducts(true);
         const data = await getproducts();
         if (Array.isArray(data)) setProducts(data);
-      } catch (e) {
+      } catch {
         toast.error("Failed to load products. Please refresh.");
       } finally {
         setLoadingProducts(false);
@@ -298,7 +279,7 @@ const Cart = () => {
     fetchProducts();
   }, []);
 
-  /* ---------- Merge cart ---------- */
+  /* ------------------------------- Merge cart ------------------------------ */
   useEffect(() => {
     if (products.length && cart.length) {
       const merged = cart.map((ci) => {
@@ -307,8 +288,16 @@ const Cart = () => {
       });
       setCart(merged);
     }
-  }, [products]);
+  }, [products, currency, toConvert, priceIncrease]); // re-merge when pricing signals change
 
+  // After products fully load, nudge a recompute path
+  useEffect(() => {
+    if (!loadingProducts && products.length > 0 && cart.length > 0) {
+      console.log("🔁 Products loaded, totals will recompute.");
+    }
+  }, [loadingProducts, products, cart.length]);
+
+  /* ---------------------- Actual data joined with products ----------------- */
   const actualData = useMemo(() => {
     if (!cart.length) return [];
     return cart.map((ci) => {
@@ -317,7 +306,7 @@ const Cart = () => {
     });
   }, [cart, products]);
 
-  /* ---------- Quantity & Costs ---------- */
+  /* ------------------------------ Quantities ------------------------------- */
   const totalQuantity = useMemo(
     () =>
       actualData.reduce(
@@ -344,98 +333,106 @@ const Cart = () => {
     }, 0);
   }, [actualData]);
 
-  // ✅ Calculate printing cost based on the number of sides
-  const calculatePrintingCost = (item) => {
-    const sides = countDesignSides(item);
-    const costPerSide = 10; // You can change this value based on your pricing
-    return sides * costPerSide; // Total printing cost for the item
+  /* --------------------------------- Rates -------------------------------- */
+  const [pfPerUnit, setPfPerUnit] = useState(0);
+  const [pfFlat, setPfFlat] = useState(0);
+  const [printPerUnit, setPrintPerUnit] = useState(0);
+  const [printingPerSide, setPrintingPerSide] = useState(0);
+  const [gstPercent, setGstPercent] = useState(5); // default to 5
+
+  // Restore cached computed summary (no flicker to zero)
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("cartSummary"));
+      if (saved && saved.grandTotal > 0) {
+        console.log("♻️ Restored summary:", saved);
+        setPfPerUnit(saved.pfPerUnit ?? 0);
+        setPfFlat(saved.pfFlat ?? 0);
+        setPrintPerUnit(saved.printPerUnit ?? 0);
+        setPrintingPerSide(saved.printingPerSide ?? 0);
+        setGstPercent(saved.gstPercent ?? 5);
+      }
+    } catch {}
+  }, []);
+
+  // fetchRates extracted to a function so we can call it from multiple effects
+  const doFetchRates = async () => {
+    try {
+      setLoadingRates(true);
+      const res = await getChargePlanRates(totalQuantity || 1);
+
+      if (res?.success && res?.data) {
+        setPfPerUnit(safeNum(res.data?.perUnit?.pakageingandforwarding, 0));
+        setPrintPerUnit(safeNum(res.data?.perUnit?.printingcost, 0));
+        setGstPercent(safeNum(res?.data?.gstPercent, 5));
+        setPfFlat(0);
+        setPrintingPerSide(0);
+        return;
+      }
+
+      if (res && (Array.isArray(res.slabs) || res.gstRate != null)) {
+        const slab = pickSlab(res, totalQuantity || 0);
+        setPfPerUnit(safeNum(slab?.pnfPerUnit, 0));
+        setPfFlat(safeNum(slab?.pnfFlat, 0));
+        setPrintingPerSide(
+          safeNum(slab?.printingPerSide ?? slab?.printingPerUnit, 0)
+        );
+        setPrintPerUnit(0);
+        setGstPercent(safeNum((res.gstRate ?? 0.05) * 100, 5));
+        return;
+      }
+    } catch {
+      console.warn("Could not fetch charge plan; using defaults");
+      setGstPercent((g) => (g ? g : 5));
+    } finally {
+      setLoadingRates(false);
+    }
   };
 
-  // ✅ Calculate custom design cost (for text or uploaded image)
-  const calculateDesignCost = (item) => {
-    const textCost = item?.design?.customText ? 20 : 0; // Example: ₹20 for custom text
-    const imageCost = item?.design?.uploadedImage ? 30 : 0; // Example: ₹30 for uploaded image
-    return textCost + imageCost; // Total design cost
-  };
+  // Run when we have all signals needed to price properly
+  useEffect(() => {
+    if (products.length > 0 && totalQuantity > 0) {
+      doFetchRates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, totalQuantity]);
 
+  // Also re-run when pricing context changes (currency/markup)
+  useEffect(() => {
+    if (products.length > 0 && totalQuantity > 0) {
+      doFetchRates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, toConvert, priceIncrease]);
+
+  /* ----------------------------- Items Subtotal ---------------------------- */
   const itemsSubtotal = useMemo(() => {
+    // Item price only (no printing/P&F here)
     return actualData.reduce((sum, item) => {
       const qty = Object.values(item.quantity || {}).reduce(
         (a, q) => a + safeNum(q),
         0
       );
-      
-      // ✅ Check if item is from TShirtDesigner (custom item with already applied pricing)
-      const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
-      
-      let itemTotal;
-      
+
+      // custom designer items already location-priced
+      const isCustomItem = item.id && item.id.startsWith("custom-tshirt-");
+      let unitPrice;
+
       if (isCustomItem) {
-        // ✅ Custom items already have location pricing applied in TShirtDesigner
-        itemTotal = safeNum(item.price);
-        console.log(`💰 Custom item ${item.name}: Using pre-converted price ${itemTotal}`);
+        unitPrice = safeNum(item.price);
       } else {
-        // ✅ Regular products need location pricing applied
-        const basePrice = safeNum(item.price);
-        const printingCost = calculatePrintingCost(item);
-        const designCost = calculateDesignCost(item);
-        const itemTotalBeforeLocation = basePrice + printingCost + designCost;
-        
-        itemTotal = applyLocationPricing(
-          itemTotalBeforeLocation,
+        unitPrice = applyLocationPricing(
+          safeNum(item.price),
           priceIncrease,
           conversionRate
         );
-        console.log(`💰 Regular item ${item.name}: Applied location pricing ${itemTotalBeforeLocation} → ${itemTotal}`);
       }
 
-      return sum + itemTotal * qty;
+      return sum + unitPrice * qty;
     }, 0);
-  }, [actualData, priceIncrease, conversionRate]);
+  }, [actualData, priceIncrease, conversionRate, currency, toConvert]);
 
-  const [pfPerUnit, setPfPerUnit] = useState(0);
-  const [pfFlat, setPfFlat] = useState(0);
-  const [printPerUnit, setPrintPerUnit] = useState(0);
-  const [printingPerSide, setPrintingPerSide] = useState(0);
-  const [gstPercent, setGstPercent] = useState(0);
-
-  useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        setLoadingRates(true);
-        const res = await getChargePlanRates(totalQuantity || 1);
-
-        if (res?.success && res?.data) {
-          setPfPerUnit(safeNum(res.data?.perUnit?.pakageingandforwarding, 0));
-          setPrintPerUnit(safeNum(res.data?.perUnit?.printingcost, 0));
-          setGstPercent(safeNum(res?.data?.gstPercent, 5));
-          setPfFlat(0);
-          setPrintingPerSide(0);
-          return;
-        }
-
-        if (res && (Array.isArray(res.slabs) || res.gstRate != null)) {
-          const slab = pickSlab(res, totalQuantity || 0);
-          setPfPerUnit(safeNum(slab?.pnfPerUnit, 0));
-          setPfFlat(safeNum(slab?.pnfFlat, 0));
-          setPrintingPerSide(
-            safeNum(slab?.printingPerSide ?? slab?.printingPerUnit, 0)
-          );
-          setPrintPerUnit(0);
-          setGstPercent(safeNum((res.gstRate ?? 0.05) * 100, 5));
-          return;
-        }
-      } catch {
-        console.warn("Could not fetch charge plan; using defaults");
-        setGstPercent(5);
-      } finally {
-        setLoadingRates(false);
-      }
-    };
-
-    if (itemsSubtotal > 0 && totalQuantity > 0) fetchRates();
-  }, [itemsSubtotal, totalQuantity]);
-
+  /* ------------------------------ Variable charges ------------------------ */
   const printingCost = useMemo(() => {
     const a = safeNum(printPerUnit) * safeNum(totalQuantity);
     const b = safeNum(printingPerSide) * safeNum(printingUnits);
@@ -446,6 +443,7 @@ const Cart = () => {
     return safeNum(pfPerUnit) * safeNum(totalQuantity) + safeNum(pfFlat);
   }, [pfPerUnit, pfFlat, totalQuantity]);
 
+  /* --------------------------- Taxable & Grand Total ---------------------- */
   const taxableAmount = useMemo(() => {
     return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
   }, [itemsSubtotal, printingCost, pfCost]);
@@ -454,37 +452,79 @@ const Cart = () => {
     return (safeNum(taxableAmount) * safeNum(gstPercent)) / 100;
   }, [taxableAmount, gstPercent]);
 
-  const baseTotal = useMemo(
-    () => safeNum(taxableAmount) + safeNum(gstTotal),
-    [taxableAmount, gstTotal]
-  );
-
   const grandTotal = useMemo(() => {
-    // ✅ Apply location pricing only to printing and P&F costs (items already handled in itemsSubtotal)
-    const printingWithLocation = applyLocationPricing(printingCost, priceIncrease, conversionRate);
-    const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
-    
-    // Taxable amount = items (already properly adjusted) + printing + P&F (both adjusted)
-    const adjustedTaxable = safeNum(itemsSubtotal) + printingWithLocation + pfWithLocation;
-    
-    // GST on adjusted taxable amount
+    // apply location pricing to non-item charges too
+    const printingWithLocation = applyLocationPricing(
+      printingCost,
+      priceIncrease,
+      conversionRate
+    );
+    const pfWithLocation = applyLocationPricing(
+      pfCost,
+      priceIncrease,
+      conversionRate
+    );
+
+    const adjustedTaxable =
+      safeNum(itemsSubtotal) + printingWithLocation + pfWithLocation;
     const adjustedGst = (adjustedTaxable * safeNum(gstPercent)) / 100;
-    
     const total = Math.round(adjustedTaxable + adjustedGst);
-    
-    console.log(`💰 Grand Total Calculation:`, {
-      itemsSubtotal: safeNum(itemsSubtotal),
+
+    console.log("💰 Grand Total Calculation:", {
+      itemsSubtotal,
       printingWithLocation,
       pfWithLocation,
       adjustedTaxable,
       adjustedGst,
       total,
-      currency: currencySymbol
     });
-    
-    return total;
-  }, [itemsSubtotal, printingCost, pfCost, gstPercent, priceIncrease, conversionRate, currencySymbol]);
 
+    return total;
+  }, [
+    itemsSubtotal,
+    printingCost,
+    pfCost,
+    gstPercent,
+    priceIncrease,
+    conversionRate,
+  ]);
+
+  /* ----------------------- Persist computed summary ----------------------- */
+  useEffect(() => {
+    try {
+      // only store when we have real numbers
+      if (itemsSubtotal > 0 || grandTotal > 0) {
+        localStorage.setItem(
+          "cartSummary",
+          JSON.stringify({
+            itemsSubtotal,
+            printingCost,
+            pfCost,
+            gstTotal,
+            grandTotal,
+            gstPercent,
+            pfPerUnit,
+            pfFlat,
+            printPerUnit,
+            printingPerSide,
+          })
+        );
+      }
+    } catch {}
+  }, [
+    itemsSubtotal,
+    printingCost,
+    pfCost,
+    gstTotal,
+    grandTotal,
+    gstPercent,
+    pfPerUnit,
+    pfFlat,
+    printPerUnit,
+    printingPerSide,
+  ]);
+
+  /* --------------------------------- UI ----------------------------------- */
   if (loadingProducts) return <Loading />;
   if (!cart.length)
     return (
@@ -533,26 +573,57 @@ const Cart = () => {
                 <span>Items Subtotal</span>
                 <span>{formatCurrency(itemsSubtotal)}</span>
               </div>
+
               <div className="flex justify-between">
                 <span>Printing ({printingUnits} sides)</span>
-                <span>{formatCurrency(applyLocationPricing(printingCost, priceIncrease, conversionRate))}</span>
+                <span>
+                  {formatCurrency(
+                    applyLocationPricing(
+                      printingCost,
+                      priceIncrease,
+                      conversionRate
+                    )
+                  )}
+                </span>
               </div>
+
               <div className="flex justify-between">
-                <span>P&F</span>
-                <span>{formatCurrency(applyLocationPricing(pfCost, priceIncrease, conversionRate))}</span>
+                <span>P&amp;F</span>
+                <span>
+                  {formatCurrency(
+                    applyLocationPricing(pfCost, priceIncrease, conversionRate)
+                  )}
+                </span>
               </div>
+
               <div className="flex justify-between">
                 <span>GST ({safeNum(gstPercent)}%)</span>
-                <span>{formatCurrency((itemsSubtotal + applyLocationPricing(printingCost, priceIncrease, conversionRate) + applyLocationPricing(pfCost, priceIncrease, conversionRate)) * (safeNum(gstPercent) / 100))}</span>
+                <span>
+                  {formatCurrency(
+                    (itemsSubtotal +
+                      applyLocationPricing(
+                        printingCost,
+                        priceIncrease,
+                        conversionRate
+                      ) +
+                      applyLocationPricing(
+                        pfCost,
+                        priceIncrease,
+                        conversionRate
+                      )) *
+                      (safeNum(gstPercent) / 100)
+                  )}
+                </span>
               </div>
-              {priceIncrease && (
+
+              {priceIncrease ? (
                 <div className="flex justify-between text-yellow-400">
                   <span>
                     ✓ Location Pricing Applied ({resolvedLocation}, {currency})
                   </span>
                   <span>+{safeNum(priceIncrease)}%</span>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="flex justify-between border-t pt-4 mb-6">
@@ -568,24 +639,15 @@ const Cart = () => {
                   return;
                 }
 
-                // ✅ Debug: Log cart data before navigation
                 console.group("🛒 CART: Checkout Debug");
-                console.log("📦 Cart items being sent to payment:", actualData.length);
-                console.log("💰 Pricing breakdown:", {
+                console.log("📦 Items:", actualData.length);
+                console.log("💰 Totals:", {
                   itemsSubtotal,
                   printingCost,
                   pfCost,
                   gstTotal,
                   grandTotal,
-                  totalPay: grandTotal
                 });
-                console.log("🛍️ Individual items:", actualData.map(item => ({
-                  name: item.products_name || item.name,
-                  price: item.price,
-                  quantity: item.quantity,
-                  id: item.id,
-                  timestamp: new Date().toISOString()
-                })));
                 console.groupEnd();
 
                 navigate("/payment", {
@@ -601,7 +663,7 @@ const Cart = () => {
                       locationIncreasePercent: priceIncrease || 0,
                       grandTotal,
                     },
-                    totalPay: grandTotal, // ✅ Add totalPay for PaymentButton
+                    totalPay: grandTotal,
                     address,
                     user,
                   },
@@ -649,7 +711,7 @@ const Cart = () => {
         </div>
       </div>
 
-      {/* ✅ Off-screen Invoice */}
+      {/* Off-screen Invoice for PDF */}
       <div
         ref={invoiceRef}
         style={{

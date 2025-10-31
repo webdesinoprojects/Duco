@@ -16,59 +16,60 @@ export const PriceProvider = ({ children }) => {
   useEffect(() => {
     const detectLocation = async () => {
       try {
-        // 🧪 TEMPORARY: Force Europe for testing
-        console.log("🧪 TESTING: Forcing location to Europe");
-        setLocation("Europe");
-        return;
-        
+        // // 🧪 TEMPORARY: Force Europe for testing
+        // console.log("🧪 TESTING: Forcing location to Europe");
+        // setLocation("Europe");
+        // return;
+
         // ✅ Use IP-based geolocation (works with VPN)
         console.log("🌍 Detecting location via IP...");
         const ipResponse = await axios.get("https://ipapi.co/json/");
         const data = ipResponse.data;
-        
+
         console.log("📍 IP Geolocation Data:", {
           country: data.country_name,
           countryCode: data.country_code,
           city: data.city,
           continent: data.continent_code,
-          ip: data.ip
+          ip: data.ip,
         });
 
         // Map country to continent/region for backend
         const continentMapping = {
-          "IN": "Asia",
-          "US": "North America", 
-          "CA": "North America",
-          "GB": "Europe",
-          "DE": "Europe",
-          "FR": "Europe",
-          "NL": "Europe", // Netherlands (Amsterdam)
-          "ES": "Europe",
-          "IT": "Europe",
-          "AU": "Australia",
-          "NZ": "Australia",
-          "CN": "Asia",
-          "JP": "Asia",
-          "KR": "Asia",
-          "SG": "Asia",
-          "AE": "Asia", // UAE
-          "SA": "Asia", // Saudi Arabia
+          IN: "Asia",
+          US: "North America",
+          CA: "North America",
+          GB: "Europe",
+          DE: "Europe",
+          FR: "Europe",
+          NL: "Europe", // Netherlands (Amsterdam)
+          ES: "Europe",
+          IT: "Europe",
+          AU: "Australia",
+          NZ: "Australia",
+          CN: "Asia",
+          JP: "Asia",
+          KR: "Asia",
+          SG: "Asia",
+          AE: "Asia", // UAE
+          SA: "Asia", // Saudi Arabia
         };
 
         const countryCode = data.country_code || data.country;
-        const mappedLocation = continentMapping[countryCode] || data.country_name || "Unknown";
-        
+        const mappedLocation =
+          continentMapping[countryCode] || data.country_name || "Unknown";
+
         console.log("🗺️ Mapped location:", {
           countryCode,
           countryName: data.country_name,
-          mappedTo: mappedLocation
+          mappedTo: mappedLocation,
         });
 
         setLocation(mappedLocation);
       } catch (err) {
         console.error("❌ IP-based location detection failed:", err);
         console.log("🔄 Falling back to GPS geolocation...");
-        
+
         // Fallback to GPS geolocation if IP detection fails
         if (!navigator.geolocation) {
           console.warn("❌ Geolocation not supported.");
@@ -82,7 +83,9 @@ export const PriceProvider = ({ children }) => {
               const { latitude, longitude } = pos.coords;
               const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
               if (!apiKey) {
-                console.error("❌ Missing Google API Key. Check your .env file.");
+                console.error(
+                  "❌ Missing Google API Key. Check your .env file."
+                );
                 setLocation("Asia"); // Default fallback
                 return;
               }
