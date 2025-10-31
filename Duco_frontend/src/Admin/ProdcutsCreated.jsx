@@ -12,7 +12,7 @@ const ProductsCreated = () => {
     const getSubCategories = async () => {
       try {
         const res = await axios.get(
-          "http://localhost:3000/subcategory/getallsubctg"
+          "https://duco-67o5.onrender.com/subcategory/getallsubctg"
         );
         setSubcategories(res.data.subCategory || []);
       } catch (err) {
@@ -27,7 +27,7 @@ const ProductsCreated = () => {
     const fetchPrintroveCatalog = async () => {
       try {
         const res = await axios.get(
-          "http://localhost:3000/api/printrove/sync"
+          "https://duco-67o5.onrender.com/api/printrove/sync"
         );
         setPrintroveProducts(res.data.products || []);
       } catch (err) {
@@ -160,7 +160,7 @@ const ProductsCreated = () => {
     console.log("🧾 Submitting product:", formData);
     try {
       const res = await axios.post(
-        "http://localhost:3000/products/create",
+        "https://duco-67o5.onrender.com/products/create",
         formData
       );
       alert(res?.data?.message || "Product created successfully");

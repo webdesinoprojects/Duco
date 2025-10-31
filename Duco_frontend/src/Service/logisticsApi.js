@@ -1,5 +1,5 @@
 // src/api/logisticsApi.js
-const API_BASE = "http://localhost:3000/api" || ""; 
+const API_BASE = "https://duco-67o5.onrender.com/api" || ""; 
 
 
 

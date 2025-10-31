@@ -61,7 +61,7 @@ const Home = () => {
 
     const fetchBanner = async () => {
       try {
-        const res = await axios.get("http://localhost:3000/api/banners");
+        const res = await axios.get("https://duco-67o5.onrender.com/api/banners");
         setBanner(res.data.banners?.[0]?.link || "");
       } catch (err) {
         console.error("Failed to fetch banner data:", err);
