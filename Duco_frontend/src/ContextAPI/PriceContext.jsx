@@ -16,10 +16,7 @@ export const PriceProvider = ({ children }) => {
   useEffect(() => {
     const detectLocation = async () => {
       try {
-        // 🧪 TEMPORARY: Force Europe for testing
-        console.log("🧪 TESTING: Forcing location to Europe");
-        setLocation("Europe");
-        return;
+        // Remove hardcoded testing location
         
         // ✅ Use IP-based geolocation (works with VPN)
         console.log("🌍 Detecting location via IP...");

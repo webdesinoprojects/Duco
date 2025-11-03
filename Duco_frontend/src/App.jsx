@@ -44,6 +44,7 @@ import TrackOrder from "./Pages/TrackOrder.jsx";
 import ChargePlanManager from "./Admin/ChargePlanManager.jsx";
 
 import BankDetailsManager from "./Admin/BankDetailsManager.jsx";
+import TrackingManager from "./Admin/TrackingManager.jsx";
 import EmployessLayout from "./Admin/EmployessLayout.jsx";
 import EmployeesAccManager from "./Admin/EmployeesAccManager.jsx";
 import EmployeeLogin from "./Admin/Components/EmployeeLogin.jsx";
@@ -53,6 +54,7 @@ import Invoice from "./Admin/Invoice.jsx";
 import InvoiceSet from "./Pages/InvoiceSet.jsx";
 import WalletPage from "./Pages/WalletPage.jsx";
 import OrderSuccess from "./Pages/OrderSuccess.jsx";
+import ScrollToTop from "./Components/ScrollToTop.jsx";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -99,6 +101,7 @@ const App = () => {
         pauseOnHover
         theme="light" // or "dark"
       />
+      <ScrollToTop />
       <Routes>
         <Route
           path="/"
@@ -168,6 +171,7 @@ const App = () => {
             <Route path="/admin/charges" element={<ChargePlanManager />} />
             <Route path="/admin/bankdetails" element={<BankDetailsManager />} />
             <Route path="/admin/employess" element={<EmployeesAccManager />} />
+            <Route path="/admin/tracking" element={<TrackingManager />} />
             <Route path="/admin/invoice" element={<Invoice />} />
           </Route>
         </Route>

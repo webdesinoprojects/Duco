@@ -16,7 +16,9 @@ import {
   CartesianGrid,
 } from "recharts";
 
-const API_BASE = "http://localhost:3000/"; // e.g. "http://localhost:5000"; keep empty for same-origin
+import { API_BASE_URL } from "../config/api.js";
+
+const API_BASE = `${API_BASE_URL}/`; // Backend API URL
 
 const STATUSES = ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
 

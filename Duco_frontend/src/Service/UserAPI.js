@@ -1,7 +1,8 @@
 // src/Service/authService.js
 import axios from 'axios';
+import { API_ENDPOINTS } from "../config/api.js";
 
-const BASE_URL = 'http://localhost:3000/user'; // update with your actual backend base URL
+const BASE_URL = API_ENDPOINTS.USER; // Backend user API URL
 
 // 1. Send OTP to Gmail
 export const sendOtpToEmail = async ({ email }) => {

@@ -3,10 +3,11 @@ import React from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import LZString from "lz-string"; // ✅ added for compression
+import { API_BASE_URL } from "../config/api.js";
 
 const PaymentButton = ({ orderData }) => {
   const navigate = useNavigate();
-  const API_BASE = "http://localhost:3000/";
+  const API_BASE = `${API_BASE_URL}/`;
 
   // ✅ Load Razorpay SDK with better error handling
   const loadScript = (src) => {

@@ -155,10 +155,34 @@ const verifyOtp = async (req, res) => {
   }
 };
 
-const getUser = async (_req, res) => {
+const getUser = async (req, res) => {
   try {
-    const users = await User.find();
-    res.status(200).json({ ok: true, users });
+    // Add pagination to prevent memory issues
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50; // Default to 50 users per page
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination info
+    const totalUsers = await User.countDocuments();
+
+    const users = await User.find()
+      .select('-password') // Exclude password field for security
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.status(200).json({ 
+      ok: true, 
+      users,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalUsers / limit),
+        totalUsers,
+        hasNextPage: page < Math.ceil(totalUsers / limit),
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     const detail = extractError(error);
     console.error("getUser error:", detail);

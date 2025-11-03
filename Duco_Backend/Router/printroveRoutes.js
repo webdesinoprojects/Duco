@@ -136,6 +136,27 @@ router.post('/sync', async (req, res) => {
   }
 });
 
+// Get all Printrove products (for admin dropdown)
+router.get('/products', async (req, res) => {
+  try {
+    const { listPrintroveProducts } = require('../Controller/printroveHelper');
+    const productsData = await listPrintroveProducts();
+
+    res.json({
+      success: true,
+      products: productsData.products || [],
+      total: productsData.products?.length || 0
+    });
+  } catch (error) {
+    console.error('Error fetching Printrove products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch Printrove products',
+      error: error.message
+    });
+  }
+});
+
 // Get Printrove categories
 router.get('/categories', async (req, res) => {
   try {

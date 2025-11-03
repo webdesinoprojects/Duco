@@ -18,7 +18,7 @@ const ProductsUpdate = () => {
       colorcode: '',
       videolink: '',
       content: [{ size: '', minstock: 1 }],
-      designtshirt: ['']
+      designtshirt: ['', '', '', ''] // Front, Back, Left, Right views
     }],
     pricing: [{ quantity: '', price_per: '', discount: 0 }],
     Desciptions: [''],
@@ -78,7 +78,7 @@ const ProductsUpdate = () => {
         colorcode: '',
         videolink: '',
         content: [{ size: '', minstock: 1 }],
-        designtshirt: ['']
+        designtshirt: ['', '', '', ''] // Front, Back, Left, Right views
       }]
     });
   };
@@ -98,10 +98,10 @@ const ProductsUpdate = () => {
   const addDesignField = (imgIndex) => {
     const updated = [...formData.image_url];
     if (!updated[imgIndex].designtshirt) {
-      updated[imgIndex].designtshirt = [''];
-    } else {
-      updated[imgIndex].designtshirt.push('');
+      updated[imgIndex].designtshirt = ['', '', '', '']; // Initialize with 4 views
     }
+    // Note: We maintain exactly 4 views (Front, Back, Left, Right)
+    // If you need more views, you can modify this logic
     setFormData({ ...formData, image_url: updated });
   };
 
@@ -199,18 +199,26 @@ const ProductsUpdate = () => {
                 </div>
 
                 <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700">Design T-Shirts</h4>
-                  {(img.designtshirt || []).map((design, designIndex) => (
-                    <input
-                      key={designIndex}
-                      type="text"
-                      placeholder={`Design #${designIndex + 1}`}
-                      value={design}
-                      onChange={(e) => handleDesignChange(e, imgIndex, designIndex)}
-                      className="w-full border p-2 rounded mb-2"
-                    />
-                  ))}
-                  <button type="button" onClick={() => addDesignField(imgIndex)} className="text-blue-500 text-sm">+ Add Design</button>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Design T-shirt Views</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {['Front View', 'Back View', 'Left View', 'Right View'].map((viewName, designIndex) => (
+                      <div key={designIndex}>
+                        <label className="block text-sm font-medium text-gray-700">
+                          {viewName} Image URL
+                        </label>
+                        <input
+                          type="text"
+                          value={img.designtshirt?.[designIndex] || ''}
+                          onChange={(e) => handleDesignChange(e, imgIndex, designIndex)}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                          placeholder={`Enter ${viewName.toLowerCase()} image URL`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 Upload 4 different T-shirt views to show when users switch between Front/Back/Left/Right tabs in the designer
+                  </p>
                 </div>
               </div>
             ))}

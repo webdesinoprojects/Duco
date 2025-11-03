@@ -16,7 +16,9 @@ import React, { useEffect, useMemo, useState } from "react";
  * 3) Drop this component in your React app (e.g., <App/>). Tailwind must be configured.
  */
 
-const API_BASE = "http://localhost:3000"; // leave empty to call same-origin; set to "http://localhost:5000" if needed
+import { API_BASE_URL } from "../config/api.js";
+
+const API_BASE = API_BASE_URL; // Backend API URL
 
 const initialShape = {
   company: {

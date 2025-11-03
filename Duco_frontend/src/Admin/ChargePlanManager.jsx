@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const API_BASE = "http://localhost:3000" || "";
+import { API_BASE_URL } from "../config/api.js";
+
+const API_BASE = API_BASE_URL;
 const ACCENT = "#E5C870";
 const BG = "#0A0A0A";
 

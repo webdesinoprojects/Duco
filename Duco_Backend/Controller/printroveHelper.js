@@ -354,10 +354,29 @@ async function createPrintroveOrderLegacy(order) {
       number: parseInt(
         o.address?.mobileNumber || o.address?.phone || '9999999999'
       ),
-      address1: `${o.address?.houseNumber || ''}, ${
-        o.address?.street || ''
-      }`.trim(),
-      address2: o.address?.landmark || 'N/A',
+      address1: (() => {
+        // Simplified address formatting for Printrove
+        const house = (o.address?.houseNumber || '').replace(/[^a-zA-Z0-9\s]/g, ' ').trim();
+        const street = (o.address?.street || '').replace(/[^a-zA-Z0-9\s]/g, ' ').trim();
+        
+        // Create a clean, simple address
+        let address = `${house} ${street}`.replace(/\s+/g, ' ').trim();
+        
+        // Keep it short and simple (max 40 characters to be safe)
+        if (address.length > 40) {
+          address = address.substring(0, 40).trim();
+        }
+        
+        return address || 'Customer Address';
+      })(),
+      address2: (() => {
+        // Keep address2 simple
+        const landmark = (o.address?.landmark || '').replace(/[^a-zA-Z0-9\s]/g, ' ').trim();
+        if (landmark) {
+          return landmark.length > 30 ? landmark.substring(0, 30).trim() : landmark;
+        }
+        return 'Near City Center';
+      })(),
       address3: '',
       pincode: parseInt(
         o.address?.pincode || o.address?.postalCode || '110019'
@@ -632,6 +651,31 @@ async function createPrintroveOrderLegacy(order) {
       quantity: p.quantity,
       is_plain: p.is_plain,
     })),
+  });
+
+  // Debug address formatting and validation
+  console.log('🏠 Address formatting debug:', {
+    originalHouse: o.address?.houseNumber,
+    originalStreet: o.address?.street,
+    formattedAddress1: payload.customer.address1,
+    formattedAddress2: payload.customer.address2,
+    address1Length: payload.customer.address1?.length,
+    address2Length: payload.customer.address2?.length
+  });
+
+  // Validate all customer fields
+  console.log('👤 Customer validation:', {
+    name: payload.customer.name,
+    nameLength: payload.customer.name?.length,
+    email: payload.customer.email,
+    emailValid: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.customer.email),
+    number: payload.customer.number,
+    numberValid: !isNaN(payload.customer.number) && payload.customer.number > 1000000000,
+    pincode: payload.customer.pincode,
+    pincodeValid: !isNaN(payload.customer.pincode) && payload.customer.pincode > 100000,
+    state: payload.customer.state,
+    city: payload.customer.city,
+    country: payload.customer.country
   });
 
   console.log(

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../config/api.js";
 
 const ProductsCreated = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -12,7 +13,7 @@ const ProductsCreated = () => {
     const getSubCategories = async () => {
       try {
         const res = await axios.get(
-          "http://localhost:3000/subcategory/getallsubctg"
+          `${API_BASE_URL}/subcategory/getallsubctg`
         );
         setSubcategories(res.data.subCategory || []);
       } catch (err) {
@@ -27,11 +28,14 @@ const ProductsCreated = () => {
     const fetchPrintroveCatalog = async () => {
       try {
         const res = await axios.get(
-          "http://localhost:3000/api/printrove/sync"
+          `${API_BASE_URL}/api/printrove/products`
         );
+        console.log('✅ Printrove products fetched:', res.data);
         setPrintroveProducts(res.data.products || []);
       } catch (err) {
         console.error("Error fetching Printrove catalog:", err);
+        // Set empty array on error so dropdown still works
+        setPrintroveProducts([]);
       }
     };
     fetchPrintroveCatalog();
@@ -46,6 +50,7 @@ const ProductsCreated = () => {
         colorcode: "",
         videolink: "",
         content: [{ size: "", minstock: 1 }],
+        designtshirt: ["", "", "", ""], // Front, Back, Left, Right views
       },
     ],
     pricing: [{ quantity: "", price_per: "", discount: 0 }],
@@ -102,6 +107,16 @@ const ProductsCreated = () => {
     setFormData({ ...formData, image_url: updated });
   };
 
+  // Handler for design T-shirt images
+  const handleDesignTshirtChange = (e, imgIndex, designIndex) => {
+    const updated = [...formData.image_url];
+    if (!updated[imgIndex].designtshirt) {
+      updated[imgIndex].designtshirt = ["", "", "", ""];
+    }
+    updated[imgIndex].designtshirt[designIndex] = e.target.value;
+    setFormData({ ...formData, image_url: updated });
+  };
+
   // 🔹 Add new fields
   const addImageField = () => {
     setFormData({
@@ -114,6 +129,7 @@ const ProductsCreated = () => {
           colorcode: "",
           videolink: "",
           content: [{ size: "", minstock: 1 }],
+          designtshirt: ["", "", "", ""], // Front, Back, Left, Right views
         },
       ],
     });
@@ -160,7 +176,7 @@ const ProductsCreated = () => {
     console.log("🧾 Submitting product:", formData);
     try {
       const res = await axios.post(
-        "http://localhost:3000/products/create",
+        `${API_BASE_URL}/products/create`,
         formData
       );
       alert(res?.data?.message || "Product created successfully");
@@ -288,6 +304,30 @@ const ProductsCreated = () => {
                   >
                     + Add Image URL
                   </button>
+                </div>
+
+                {/* Design T-shirt Images (Front, Back, Left, Right) */}
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Design T-shirt Views</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {['Front View', 'Back View', 'Left View', 'Right View'].map((viewName, designIndex) => (
+                      <div key={designIndex}>
+                        <label className="block text-sm font-medium text-gray-700">
+                          {viewName} Image URL
+                        </label>
+                        <input
+                          type="text"
+                          value={img.designtshirt?.[designIndex] || ''}
+                          onChange={(e) => handleDesignTshirtChange(e, imgIndex, designIndex)}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                          placeholder={`Enter ${viewName.toLowerCase()} image URL`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 Upload 4 different T-shirt views to show when users switch between Front/Back/Left/Right tabs in the designer
+                  </p>
                 </div>
                 <div className="mt-4">
                   <h4 className="text-sm font-medium text-gray-700">

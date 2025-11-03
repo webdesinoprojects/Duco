@@ -1,5 +1,7 @@
 // src/api/logisticsApi.js
-const API_BASE = "http://localhost:3000/api" || ""; 
+import { API_ENDPOINTS } from "../config/api.js";
+
+const API_BASE = API_ENDPOINTS.API; 
 
 
 

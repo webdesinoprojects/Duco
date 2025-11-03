@@ -9,6 +9,11 @@ const SaerchingPage = () => {
 const[prodcuts,setProdcuts] = useState([])
 const {id,catogory_name} = useParams()
      const { toConvert, priceIncrease  } = usePriceContext();
+
+  // Scroll to top when category changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [id, catogory_name]);
   
       function calculatePrice(currency, ac, high) {
       const actualPrice = currency*ac

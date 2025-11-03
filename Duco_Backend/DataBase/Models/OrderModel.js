@@ -114,6 +114,13 @@ const OrderSchema = new Schema(
 
     printroveItems: { type: Array, default: [] }, // store Printrove line-items
     printroveTrackingUrl: { type: String, default: '' }, // tracking link if available
+    
+    // ✅ Enhanced Printrove tracking fields
+    printroveReceivedDate: { type: Date, default: null }, // when Printrove received the order
+    printroveDispatchDate: { type: Date, default: null }, // when order was dispatched
+    printroveShippedDate: { type: Date, default: null }, // when order was shipped
+    printroveDeliveredDate: { type: Date, default: null }, // when order was delivered
+    printroveEstimatedDelivery: { type: Date, default: null }, // Printrove's delivery estimate
     // ----------------------------------------------------
 
     pf: { type: Number, default: 0 },
@@ -160,10 +167,16 @@ OrderSchema.pre('save', async function (next) {
 
       // If we've tried too many times, use a fallback with UUID
       if (attempts >= maxAttempts) {
-        const { v4: uuidv4 } = require('uuid');
-        this.orderId = `ORD-${datePrefix}-${uuidv4()
-          .substring(0, 8)
-          .toUpperCase()}`;
+        try {
+          const { v4: uuidv4 } = require('uuid');
+          this.orderId = `ORD-${datePrefix}-${uuidv4()
+            .substring(0, 8)
+            .toUpperCase()}`;
+        } catch (uuidError) {
+          // Fallback if UUID is not available
+          console.warn('UUID not available, using timestamp fallback');
+          this.orderId = `ORD-${datePrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        }
         return next();
       }
 
@@ -185,5 +198,11 @@ OrderSchema.pre('save', async function (next) {
     }
   }
 });
+
+// ------------------ Indexes for Performance ------------------
+OrderSchema.index({ createdAt: -1 }); // Index for sorting by creation date (newest first)
+OrderSchema.index({ user: 1, createdAt: -1 }); // Compound index for user orders
+OrderSchema.index({ orderId: 1 }); // Index for order ID lookups
+OrderSchema.index({ printroveOrderId: 1 }); // Index for Printrove order lookups
 
 module.exports = mongoose.model('Order', OrderSchema);

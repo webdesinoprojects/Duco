@@ -56,6 +56,9 @@ const ProductPageBulk = () => {
 
   // Fetch product
   useEffect(() => {
+    // Scroll to top when product changes
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    
     const fetchProduct = async () => {
       const data = await getproductssingle(id);
       if (data) {

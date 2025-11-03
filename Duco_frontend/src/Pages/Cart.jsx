@@ -72,7 +72,8 @@ const countDesignSides = (item) => {
   let used = 0;
   sides.forEach((s) => {
     const side = d[s] || {};
-    if (side?.uploadedImage) used += 1;
+    // Count sides with either uploaded image OR custom text
+    if (side?.uploadedImage || side?.customText) used += 1;
   });
   return used;
 };
@@ -347,7 +348,7 @@ const Cart = () => {
   // ✅ Calculate printing cost based on the number of sides
   const calculatePrintingCost = (item) => {
     const sides = countDesignSides(item);
-    const costPerSide = 10; // You can change this value based on your pricing
+    const costPerSide = 15; // ₹15 per side with design
     return sides * costPerSide; // Total printing cost for the item
   };
 
@@ -437,10 +438,14 @@ const Cart = () => {
   }, [itemsSubtotal, totalQuantity]);
 
   const printingCost = useMemo(() => {
-    const a = safeNum(printPerUnit) * safeNum(totalQuantity);
-    const b = safeNum(printingPerSide) * safeNum(printingUnits);
-    return a + b;
-  }, [printPerUnit, printingPerSide, totalQuantity, printingUnits]);
+    // ✅ Calculate printing cost based on actual sides used (₹15 per side)
+    return actualData.reduce((total, item) => {
+      const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
+      const sides = countDesignSides(item);
+      const costPerSide = 15; // ₹15 per side
+      return total + (qty * sides * costPerSide);
+    }, 0);
+  }, [actualData]);
 
   const pfCost = useMemo(() => {
     return safeNum(pfPerUnit) * safeNum(totalQuantity) + safeNum(pfFlat);
@@ -460,7 +465,7 @@ const Cart = () => {
   );
 
   const grandTotal = useMemo(() => {
-    // ✅ Apply location pricing only to printing and P&F costs (items already handled in itemsSubtotal)
+    // ✅ Apply location pricing to printing and P&F costs (items already handled in itemsSubtotal)
     const printingWithLocation = applyLocationPricing(printingCost, priceIncrease, conversionRate);
     const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
     
@@ -545,14 +550,6 @@ const Cart = () => {
                 <span>GST ({safeNum(gstPercent)}%)</span>
                 <span>{formatCurrency((itemsSubtotal + applyLocationPricing(printingCost, priceIncrease, conversionRate) + applyLocationPricing(pfCost, priceIncrease, conversionRate)) * (safeNum(gstPercent) / 100))}</span>
               </div>
-              {priceIncrease && (
-                <div className="flex justify-between text-yellow-400">
-                  <span>
-                    ✓ Location Pricing Applied ({resolvedLocation}, {currency})
-                  </span>
-                  <span>+{safeNum(priceIncrease)}%</span>
-                </div>
-              )}
             </div>
 
             <div className="flex justify-between border-t pt-4 mb-6">
@@ -575,6 +572,7 @@ const Cart = () => {
                   itemsSubtotal,
                   printingCost,
                   pfCost,
+                  printingUnits,
                   gstTotal,
                   grandTotal,
                   totalPay: grandTotal
@@ -595,6 +593,7 @@ const Cart = () => {
                       itemsSubtotal,
                       printingCost,
                       pfCost,
+                      printingUnits,
                       taxableAmount,
                       gstPercent,
                       gstTotal,

@@ -1,6 +1,7 @@
 import axios from "axios";
+import { API_BASE_URL } from "../config/api.js";
 
-const API_BASE = "http://localhost:3000/"; // Backend Base URL
+const API_BASE = `${API_BASE_URL}/`; // Backend Base URL
 
 /* --------------------------- MONEY MANAGEMENT --------------------------- */
 export const fetchAllPrices = async () => {

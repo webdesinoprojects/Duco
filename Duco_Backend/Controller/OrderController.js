@@ -208,9 +208,19 @@ exports.getOrdersByUser = async (req, res) => {
 // ================================================================
 exports.getAllOrders = async (req, res) => {
   try {
+    // Add pagination to prevent memory issues
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50; // Default to 50 orders per page
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination info
+    const totalOrders = await Order.countDocuments();
+
     const orders = await Order.find()
       .populate('user', 'name email')
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
     const enrichedOrders = await Promise.all(
@@ -220,7 +230,16 @@ exports.getAllOrders = async (req, res) => {
       }))
     );
 
-    res.json(enrichedOrders);
+    res.json({
+      orders: enrichedOrders,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalOrders / limit),
+        totalOrders,
+        hasNextPage: page < Math.ceil(totalOrders / limit),
+        hasPrevPage: page > 1
+      }
+    });
   } catch (err) {
     console.error('Error fetching orders:', err);
     res.status(500).json({ error: 'Failed to fetch orders' });

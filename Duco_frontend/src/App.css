@@ -3,5 +3,38 @@
 .montserrat-light {
   font-family: 'Montserrat', sans-serif;
   font-weight: 300;
-  
+}
+
+/* Remove borders from draggable items and uploaded images */
+.custom-draggable-item {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.custom-draggable-item img {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Remove any selection borders */
+.custom-draggable-item:focus,
+.custom-draggable-item:active,
+.custom-draggable-item:hover {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure no browser default image borders */
+img[draggable="false"] {
+  border: none !important;
+  outline: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }

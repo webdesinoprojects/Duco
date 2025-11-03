@@ -19,11 +19,20 @@ const OrderBulk = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/order");
+      const res = await fetch("http://localhost:3000/api/order?limit=100"); // Get more orders for bulk analysis
       const data = await res.json();
-      setOrders(Array.isArray(data) ? data : []);
+      
+      // Handle both old format (array) and new paginated format (object with orders array)
+      if (Array.isArray(data)) {
+        setOrders(data);
+      } else if (data.orders && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+      } else {
+        setOrders([]);
+      }
     } catch (err) {
       console.error("Failed to fetch orders", err);
+      setOrders([]);
     } finally {
       setLoading(false);
     }

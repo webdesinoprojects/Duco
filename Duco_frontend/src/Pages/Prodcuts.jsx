@@ -25,6 +25,9 @@ const Products = ({ gender }) => {
   };
 
   useEffect(() => {
+    // Scroll to top when gender filter changes
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    
     const fetchProducts = async () => {
       try {
         const res = await axios.get(

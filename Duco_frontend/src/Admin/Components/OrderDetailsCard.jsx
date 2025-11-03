@@ -165,7 +165,7 @@ const OrderDetailsCard = ({ orderId }) => {
         </div>
 
         <div>
-          <h3 className="text-lg font-semibold mb-2">Payment Information</h3>
+          <h3 className="text-lg font-semibold mb-2">Payment & Delivery</h3>
           <div className="space-y-2">
             <p>
               Total Amount: ₹
@@ -178,6 +178,31 @@ const OrderDetailsCard = ({ orderId }) => {
             >
               Payment Status: {order.razorpayPaymentId ? "Paid" : "Unpaid"}
             </p>
+            <div className="pt-2 border-t border-gray-200">
+              <p className="text-sm text-gray-600">Expected Delivery:</p>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">
+                  {(() => {
+                    const deliveryDate = order.printroveEstimatedDelivery || order.deliveryExpectedDate;
+                    return deliveryDate ? new Date(deliveryDate).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric"
+                    }) : 'To be determined';
+                  })()}
+                </span>
+                {order.printroveEstimatedDelivery && (
+                  <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
+                    Printrove
+                  </span>
+                )}
+              </div>
+              {order.printroveOrderId && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Printrove Order: {order.printroveOrderId}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

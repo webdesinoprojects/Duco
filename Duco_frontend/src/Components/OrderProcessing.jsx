@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import LZString from "lz-string"; // ✅ for decompression
+import { API_BASE_URL } from "../config/api.js";
 
 const OrderProcessing = () => {
   const location = useLocation();
@@ -38,7 +39,7 @@ const OrderProcessing = () => {
   // ✅ Normalize paymentmode (backend expects lowercase)
   paymentmode = paymentmode.toLowerCase();
 
-  const API_BASE = "http://localhost:3000/";
+  const API_BASE = `${API_BASE_URL}/`;
 
   useEffect(() => {
     // 1️⃣ If order already processed → go directly to success screen

@@ -198,6 +198,13 @@ const TshirtDesigner = () => {
       : `#${color}`
     : "";
 
+  // Debug URL parameters
+  console.log("🔍 URL Parameters Debug:", {
+    productId: proid,
+    colorParam: color,
+    colorWithHash: colorWithHash
+  });
+
   // URL parameters processed
   
   // State for showing center guide
@@ -241,35 +248,103 @@ const TshirtDesigner = () => {
         setIsLoadingProduct(true);
         const data = await getproductssingle(proid);
         console.log("PRODUCT DETAILS:", data);
+        console.log("🔍 DETAILED PRODUCT ANALYSIS:", {
+          productId: data?._id,
+          hasImageUrl: !!data?.image_url,
+          imageUrlLength: data?.image_url?.length,
+          imageUrlStructure: data?.image_url?.map((img, index) => ({
+            index,
+            color: img.color,
+            colorcode: img.colorcode,
+            hasDesigntshirt: !!img.designtshirt,
+            designtshirtLength: img.designtshirt?.length,
+            designtshirtData: img.designtshirt
+          }))
+        });
         setProductDetails(data);
 
-        const match = data?.image_url?.find(
+        // Try multiple color matching strategies
+        let match = data?.image_url?.find(
           (e) => e.colorcode === colorWithHash
         );
+        
+        // Fallback 1: Try without hash
+        if (!match && colorWithHash.startsWith('#')) {
+          match = data?.image_url?.find(
+            (e) => e.colorcode === colorWithHash.substring(1)
+          );
+          console.log("🔄 Trying color match without hash:", colorWithHash.substring(1));
+        }
+        
+        // Fallback 2: Try with hash if original didn't have it
+        if (!match && !colorWithHash.startsWith('#')) {
+          match = data?.image_url?.find(
+            (e) => e.colorcode === `#${colorWithHash}`
+          );
+          console.log("🔄 Trying color match with hash:", `#${colorWithHash}`);
+        }
+        
+        // Fallback 3: Case insensitive match
+        if (!match) {
+          match = data?.image_url?.find(
+            (e) => e.colorcode?.toLowerCase() === colorWithHash.toLowerCase()
+          );
+          console.log("🔄 Trying case insensitive match");
+        }
+        
+        // Fallback 4: Use first color if no match found
+        if (!match && data?.image_url?.length > 0) {
+          match = data.image_url[0];
+          console.log("🔄 Using first available color as fallback:", match.colorcode);
+        }
         
         console.log("🎨 Color matching debug:", {
           colorWithHash,
           availableColors: data?.image_url?.map(img => img.colorcode),
+          availableColorsDetailed: data?.image_url?.map(img => ({
+            color: img.color,
+            colorcode: img.colorcode,
+            hasDesigntshirt: !!img.designtshirt,
+            designtshirtArray: img.designtshirt
+          })),
           match: match,
-          designtshirt: match?.designtshirt
+          designtshirt: match?.designtshirt,
+          fullImageUrlData: data?.image_url,
+          matchedColorData: match
         });
         
         const designImages = match?.designtshirt || [];
-        setSideimage(designImages);
         
-        // If no design images available, use default T-shirt for all views
-        if (designImages.length === 0) {
-          setSideimage([
-            menstshirt, // front
-            menstshirt, // back  
-            menstshirt, // left
-            menstshirt  // right
-          ]);
-        }
+        // Create array with proper fallbacks for each view
+        const processedImages = [
+          designImages[0] || menstshirt, // front
+          designImages[1] || menstshirt, // back  
+          designImages[2] || menstshirt, // left
+          designImages[3] || menstshirt, // right
+        ];
         
-        // If no design images found, ensure we have at least the fallback
-        if (designImages.length === 0) {
-          console.log("⚠️ No design images found, using fallback T-shirt image");
+        setSideimage(processedImages);
+        
+        console.log('🖼️ T-shirt images loaded:', {
+          front: !!designImages[0],
+          back: !!designImages[1], 
+          left: !!designImages[2],
+          right: !!designImages[3],
+          fallbackUsed: designImages.length === 0,
+          processedImages: processedImages,
+          rawDesignImages: designImages,
+          designImagesLength: designImages.length
+        });
+        
+        // Additional debugging for image URLs
+        if (designImages.length > 0) {
+          console.log('🔍 Design image URLs:', designImages);
+          designImages.forEach((img, index) => {
+            const viewName = ['Front', 'Back', 'Left', 'Right'][index];
+            console.log(`${viewName} view image:`, img || 'MISSING');
+          });
+        } else {
+          console.log('⚠️ No design images found - using fallback white T-shirt');
         }
       } catch (e) {
         console.error("Failed to fetch product images", e);
@@ -1056,12 +1131,19 @@ if (!Object.keys(map).length) {
           }`}
           crossOrigin="anonymous"
           onError={(e) => {
-            console.error(`Failed to load T-shirt image for ${view}:`, e.target.src);
+            console.error(`❌ Failed to load T-shirt image for ${view}:`, e.target.src);
             console.log("🔄 Falling back to default T-shirt image");
             e.target.src = menstshirt; // Fallback to default image
           }}
           onLoad={(e) => {
             console.log(`✅ T-shirt image loaded for ${view}:`, e.target.src);
+            console.log(`🔍 Image source debug:`, {
+              view,
+              viewIndex: getViewIndex(view),
+              sideimageArray: sideimage,
+              actualSrc: sideimage[getViewIndex(view)],
+              fallbackSrc: menstshirt
+            });
           }}
         />
         <div 
@@ -1109,13 +1191,9 @@ if (!Object.keys(map).length) {
                   height: `${
                     isMobile ? design.imageSize * 0.7 : design.imageSize
                   }px`,
-                  padding: "4px",
-                  borderRadius: "4px",
-                  backgroundColor: "rgba(255, 255, 255, 0.8)",
-                  border: "2px solid rgba(0, 0, 0, 0.2)",
                   pointerEvents: "none", // Let parent handle events
                 }}
-                className="object-contain hover:shadow-lg transition-shadow duration-200"
+                className="object-contain"
                 draggable={false}
               />
             </CustomDraggableItem>

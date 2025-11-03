@@ -66,4 +66,10 @@ const UserSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// ------------------ Indexes for Performance ------------------
+UserSchema.index({ createdAt: -1 }); // Index for sorting by creation date (newest first)
+UserSchema.index({ email: 1 }); // Index for email lookups
+UserSchema.index({ name: 1 }); // Index for name searches
+UserSchema.index({ isVerified: 1 }); // Index for filtering verified users
+
 module.exports = mongoose.model('User', UserSchema);

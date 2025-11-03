@@ -15,6 +15,9 @@ export default function ProductRouter() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Scroll to top when product ID changes
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    
     let isMounted = true; // prevent state updates if unmounted
 
     async function load() {

@@ -128,6 +128,7 @@ app.use('/api', require('./Router/LogisticsRoutes'));
 app.use('/api', require('./Router/chargePlanRoutes'));
 app.use('/api', require('./Router/bankDetails'));
 app.use('/api', require('./Router/employeesRoutes.js'));
+app.use('/api', require('./Router/trackingRoutes')); // ✅ Add tracking routes
 app.use('/api', BannerRoutes);
 app.use('/data', dataRouter);
 app.use('/api', InvoiceRoutes);
@@ -174,6 +175,14 @@ app.use((err, _req, res, _next) => {
     .status(err.status || 500)
     .json({ ok: false, message: err.message || 'Server error' });
 });
+
+// Initialize tracking sync job
+try {
+  require('./jobs/trackingSync');
+  console.log('🕐 Tracking sync job initialized');
+} catch (error) {
+  console.warn('⚠️ Could not initialize tracking sync job:', error.message);
+}
 
 // Start
 app.listen(port, () => {
