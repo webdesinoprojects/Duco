@@ -13,13 +13,21 @@ const EmployeeLogin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    console.log("🔐 Employee login attempt:", { employeeid: form.employeeid, apiBase: API_BASE });
+    
     try {
-      const res = await fetch(`${API_BASE}employeesacc/login`, {
+      const loginUrl = `${API_BASE}/employeesacc/login`;
+      console.log("📡 Making request to:", loginUrl);
+      
+      const res = await fetch(loginUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      
+      console.log("📡 Response status:", res.status);
       const data = await res.json();
+      console.log("📡 Response data:", data);
 
       if (data.ok) {
         // save session with employee data
@@ -45,9 +53,11 @@ const EmployeeLogin = () => {
         
         navigate(redirectPath);
       } else {
-        alert("Invalid credentials");
+        console.log("❌ Login failed:", data);
+        alert("Invalid credentials: " + (data.error || "Please check your Employee ID and password"));
       }
     } catch (err) {
+      console.error("❌ Login error:", err);
       alert("Login failed: " + err.message);
     } finally {
       setLoading(false);

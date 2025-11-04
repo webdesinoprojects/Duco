@@ -62,13 +62,17 @@ exports.updateEmployeeAcc = async (req, res) => {
 
 exports.checkEmployeeLogin = async (req, res) => {
   try {
+    console.log('🔐 Employee login attempt:', req.body);
     const { employeeid, password } = req.body;
     if (!employeeid || !password) {
+      console.log('❌ Missing credentials');
       return res.status(400).json({ ok: false, error: "Missing credentials" });
     }
     const user = await EmployeesAcc.findOne({ employeeid });
-    if (!user) return res.json({ ok: false });
+    console.log('👤 User found:', !!user, user ? user.employeeid : 'none');
+    if (!user) return res.json({ ok: false, error: "Employee not found" });
     const ok = await bcrypt.compare(password, user.password);
+    console.log('🔑 Password check:', ok);
     if (ok) {
       res.json({ 
         ok: true, 
@@ -82,7 +86,8 @@ exports.checkEmployeeLogin = async (req, res) => {
         }
       });
     } else {
-      res.json({ ok: false });
+      console.log('❌ Password incorrect');
+      res.json({ ok: false, error: "Invalid password" });
     }
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
