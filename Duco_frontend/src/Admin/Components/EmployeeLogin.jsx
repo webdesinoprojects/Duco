@@ -44,17 +44,28 @@ const EmployeeLogin = () => {
           const urlLower = data.url.toLowerCase();
           console.log("🎯 Employee URL:", data.url, "-> Mapping to route");
           
-          // More flexible URL mapping
+          // Extract the section from URL (e.g., "employees/gimme" -> "gimme")
+          const urlParts = data.url.split('/');
+          const section = urlParts[urlParts.length - 1]; // Get the last part
+          
+          // Map to available routes
           if (urlLower.includes('product') || urlLower.includes('inventory')) {
             redirectPath = "/employees/products";
           } else if (urlLower.includes('category') || urlLower.includes('categories')) {
             redirectPath = "/employees/category";
           } else if (urlLower.includes('banner') || urlLower.includes('marketing')) {
             redirectPath = "/employees/banners";
+          } else if (urlLower.includes('gimme')) {
+            redirectPath = "/employees/gimme";
           } else {
-            // If URL doesn't match any pattern, use banners as default
-            console.log("⚠️ URL pattern not recognized, using default banners");
-            redirectPath = "/employees/banners";
+            // Try to use the section directly if it exists as a route
+            const availableRoutes = ['banners', 'products', 'category', 'gimme'];
+            if (availableRoutes.includes(section.toLowerCase())) {
+              redirectPath = `/employees/${section.toLowerCase()}`;
+            } else {
+              console.log("⚠️ URL pattern not recognized, using default banners");
+              redirectPath = "/employees/banners";
+            }
           }
         }
         

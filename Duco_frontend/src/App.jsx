@@ -36,6 +36,7 @@ import AnalyticsDashboard from "./Admin/AnalyticsDashboard.jsx";
 import ProductRouter from "./Pages/ProductRouter.jsx";
 import UserInfo from "./Admin/UserInfo.jsx";
 import Banner from "./Admin/Components/Banner.jsx";
+import EmployeeSection from "./Admin/Components/EmployeeSection.jsx";
 import OrderBulk from "./Admin/OrderBulk.jsx";
 import AdminGuard from "./Admin/auth/AdminGuard.jsx";
 import AdminLogin from "./Admin/AdminLogin.jsx";
@@ -185,6 +186,7 @@ const App = () => {
             <Route path="banners" element={<Banner />} />
             <Route path="products" element={<ProdcutsCreated />} />
             <Route path="category" element={<Category />} />
+            <Route path=":section" element={<EmployeeSection />} />
           </Route>
         </Route>
       </Routes>

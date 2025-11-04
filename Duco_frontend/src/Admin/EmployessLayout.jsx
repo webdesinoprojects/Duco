@@ -17,11 +17,30 @@ const EmployessLayout = () => {
   const employeeAuth = JSON.parse(localStorage.getItem("employeeAuth") || "{}");
   const employeeName = employeeAuth.employee?.name || employeeAuth.employeeid || "Employee";
 
-  const navItems = [
+  // Create navigation items based on available sections
+  const baseNavItems = [
     { path: "/employees/banners", label: "Banners", icon: "🎨" },
     { path: "/employees/products", label: "Products", icon: "📦" },
     { path: "/employees/category", label: "Categories", icon: "📂" },
   ];
+
+  // Add employee's specific section if it's not one of the base sections
+  let navItems = [...baseNavItems];
+  if (employeeAuth.url) {
+    const urlParts = employeeAuth.url.split('/');
+    const section = urlParts[urlParts.length - 1];
+    const sectionLower = section.toLowerCase();
+    
+    // Check if this section is not already in the base nav items
+    const existingSections = ['banners', 'products', 'category'];
+    if (!existingSections.includes(sectionLower) && section) {
+      navItems.push({
+        path: `/employees/${sectionLower}`,
+        label: section.charAt(0).toUpperCase() + section.slice(1),
+        icon: "🎯"
+      });
+    }
+  }
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: BG, color: "white" }}>
