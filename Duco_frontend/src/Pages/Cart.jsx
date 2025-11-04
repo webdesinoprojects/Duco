@@ -539,21 +539,37 @@ const Cart = () => {
                 <span>{formatCurrency(itemsSubtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Printing ({printingUnits} sides)</span>
+                <span>Printing Charges ({printingUnits} sides)</span>
                 <span>{formatCurrency(applyLocationPricing(printingCost, priceIncrease, conversionRate))}</span>
               </div>
               <div className="flex justify-between">
-                <span>P&F</span>
+                <span>P&F Charges</span>
                 <span>{formatCurrency(applyLocationPricing(pfCost, priceIncrease, conversionRate))}</span>
               </div>
+              
+              {/* Subtotal before GST - matching invoice format */}
+              <div className="flex justify-between border-t pt-2 mt-2">
+                <span className="font-medium">Subtotal</span>
+                <span className="font-medium">{formatCurrency(itemsSubtotal + applyLocationPricing(printingCost, priceIncrease, conversionRate) + applyLocationPricing(pfCost, priceIncrease, conversionRate))}</span>
+              </div>
+              
+              {/* GST - simplified format */}
               <div className="flex justify-between">
                 <span>GST ({safeNum(gstPercent)}%)</span>
                 <span>{formatCurrency((itemsSubtotal + applyLocationPricing(printingCost, priceIncrease, conversionRate) + applyLocationPricing(pfCost, priceIncrease, conversionRate)) * (safeNum(gstPercent) / 100))}</span>
               </div>
+              
+              {/* Location pricing adjustment if applicable */}
+              {priceIncrease && priceIncrease > 0 && (
+                <div className="flex justify-between text-yellow-400 text-sm">
+                  <span>✓ Location Pricing Applied ({resolvedLocation})</span>
+                  <span>+{safeNum(priceIncrease)}%</span>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between border-t pt-4 mb-6">
-              <span className="font-bold">Total</span>
+              <span className="font-bold">Grand Total</span>
               <span className="font-bold">{formatCurrency(grandTotal)}</span>
             </div>
 
