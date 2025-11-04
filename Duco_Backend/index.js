@@ -69,6 +69,16 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' })); // Increased limit for design images
 app.use(express.urlencoded({ limit: '50mb', extended: true })); // Support URL-encoded data
 
+// Handle preflight requests
+app.options('*', (req, res) => {
+  console.log('🔄 Preflight request for:', req.path);
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
 // DB connect
 conntectDb();
 
