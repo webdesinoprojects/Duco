@@ -139,6 +139,11 @@ app.get('/', (_req, res) => {
   res.send('Duco Backend Server is running!');
 });
 
+// Simple test route
+app.get('/test', (req, res) => {
+  res.json({ message: 'Test route working', timestamp: new Date().toISOString() });
+});
+
 // ======= Routes =======
 // Temporarily comment out most routes to isolate the issue
 app.use('/user', UserRoute);
@@ -161,7 +166,7 @@ app.use('/money', MoneyRoute);
 // app.use('/api', require('./Router/LogisticsRoutes'));
 // app.use('/api', require('./Router/chargePlanRoutes'));
 // app.use('/api', require('./Router/bankDetails'));
-app.use('/api', require('./Router/employeesRoutes.js'));
+// app.use('/api', require('./Router/employeesRoutes.js'));
 // app.use('/api', require('./Router/trackingRoutes'));
 // app.use('/api', BannerRoutes);
 // app.use('/data', dataRouter);
