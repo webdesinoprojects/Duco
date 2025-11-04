@@ -136,7 +136,7 @@ app.get('/health', async (req, res) => {
 
 // Root
 app.get('/', (_req, res) => {
-  res.send('hello');
+  res.send('Duco Backend Server is running!');
 });
 
 // ======= Routes =======
@@ -151,8 +151,9 @@ app.use('/api', DesignRoute);
 app.use('/api/payment', paymentRoute);
 app.use('/api', completedorderRoutes);
 app.use('/api', orderRoutes);
-app.use('/api/printrove', printroveRoutes);
-app.use('/api/printrove-mapping', printroveMappingRoutes);
+// Temporarily comment out to isolate the issue
+// app.use('/api/printrove', printroveRoutes);
+// app.use('/api/printrove-mapping', printroveMappingRoutes);
 
 // 🔹 Analytics mounted on BOTH paths so both endpoints work:
 //    - /api/analytics/sales
@@ -169,7 +170,6 @@ app.use('/api', BannerRoutes);
 app.use('/data', dataRouter);
 app.use('/api', InvoiceRoutes);
 app.use('/api', walletRoutes);
-app.use('/api/printrove', require('./Router/printroveRoutes'));
 
 // ======= Admin login (bcrypt + DB) =======
 app.post('/api/admin/check', async (req, res) => {
