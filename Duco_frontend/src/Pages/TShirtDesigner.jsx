@@ -891,6 +891,7 @@ if (!Object.keys(map).length) {
         color: colorWithHash,
         colortext: productDetails?.colortext || "Custom",
         gender: productDetails?.gender || "Unisex",
+        isCorporate: productDetails?.isCorporate || false, // ✅ Add corporate flag from product details
         price: applyLocationPricing(
           productDetails?.pricing?.[0]?.price_per || 499,
           priceIncrease,

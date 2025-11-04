@@ -222,6 +222,15 @@ const completeOrder = async (req, res) => {
       (item) => item?.isCorporate === true
     );
     const orderType = isCorporateOrder ? 'B2B' : 'B2C';
+    
+    console.log('🏢 Order Type Detection:', {
+      isCorporateOrder,
+      orderType,
+      items: (orderData?.items || []).map(item => ({
+        name: item?.name || item?.products_name,
+        isCorporate: item?.isCorporate
+      }))
+    });
 
     // ================================================================
     // CASE 0 – NORMALIZE PAYMENT MODE DISPLAY
@@ -276,8 +285,8 @@ const completeOrder = async (req, res) => {
         }
       }
 
-      // ✅ Only send to Printrove if not already sent
-      if (!order.printroveOrderId) {
+      // ✅ Only send to Printrove if not already sent AND not a corporate order
+      if (!order.printroveOrderId && !isCorporateOrder) {
         try {
           const printData = await createPrintroveOrder(order);
           order.printroveOrderId = printData?.order?.id || printData?.id || null;
@@ -291,6 +300,10 @@ const completeOrder = async (req, res) => {
           order.printroveStatus = 'Error';
           await order.save();
         }
+      } else if (isCorporateOrder) {
+        console.log('🏢 Corporate order - skipping Printrove integration');
+        order.printroveStatus = 'Corporate Order - No Printrove';
+        await order.save();
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
@@ -359,8 +372,8 @@ const completeOrder = async (req, res) => {
         orderType,
       });
 
-      // ✅ Only send to Printrove if not already sent
-      if (!order.printroveOrderId) {
+      // ✅ Only send to Printrove if not already sent AND not a corporate order
+      if (!order.printroveOrderId && !isCorporateOrder) {
         try {
           const printData = await createPrintroveOrder(order);
           order.printroveOrderId = printData?.order?.id || printData?.id || null;
@@ -374,6 +387,11 @@ const completeOrder = async (req, res) => {
           order.printroveStatus = 'Error';
           await order.save();
         }
+      } else if (isCorporateOrder) {
+        console.log('🏢 Corporate order - skipping Printrove integration');
+        order.printroveStatus = 'Corporate Order - No Printrove';
+        await order.save();
+      }
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
@@ -469,8 +487,8 @@ const completeOrder = async (req, res) => {
         }
       }
 
-      // ✅ Only send to Printrove if not already sent
-      if (!order.printroveOrderId) {
+      // ✅ Only send to Printrove if not already sent AND not a corporate order
+      if (!order.printroveOrderId && !isCorporateOrder) {
         try {
           const printData = await createPrintroveOrder(order);
           order.printroveOrderId = printData?.order?.id || printData?.id || null;
@@ -484,6 +502,10 @@ const completeOrder = async (req, res) => {
           order.printroveStatus = 'Error';
           await order.save();
         }
+      } else if (isCorporateOrder) {
+        console.log('🏢 Corporate order - skipping Printrove integration');
+        order.printroveStatus = 'Corporate Order - No Printrove';
+        await order.save();
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
@@ -561,8 +583,8 @@ const completeOrder = async (req, res) => {
         console.error('Wallet creation failed (halfpay):', error);
       }
 
-      // ✅ Only send to Printrove if not already sent
-      if (!order.printroveOrderId) {
+      // ✅ Only send to Printrove if not already sent AND not a corporate order
+      if (!order.printroveOrderId && !isCorporateOrder) {
         try {
           const printData = await createPrintroveOrder(order);
           order.printroveOrderId = printData?.order?.id || printData?.id || null;
@@ -575,6 +597,11 @@ const completeOrder = async (req, res) => {
           console.error('❌ Printrove sync failed (50%):', err.message);
           order.printroveStatus = 'Error';
           await order.save();
+        }
+      } else if (isCorporateOrder) {
+        console.log('🏢 Corporate order - skipping Printrove integration');
+        order.printroveStatus = 'Corporate Order - No Printrove';
+        await order.save();
         }
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
