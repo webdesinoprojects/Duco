@@ -327,7 +327,7 @@ export default function TrackOrder() {
                 }
               </div>
               {trackingData.order.printroveEstimatedDelivery && (
-                <div className="text-xs text-blue-400 mt-1">Printrove Estimate</div>
+                <div className="text-xs text-blue-400 mt-1">Duco Art Estimate</div>
               )}
             </div>
           </div>
@@ -385,7 +385,7 @@ export default function TrackOrder() {
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
                         {trackingData.order.printroveEstimatedDelivery 
-                          ? 'Based on Printrove production and shipping schedule'
+                          ? 'Based on Duco Art production and shipping schedule'
                           : 'Based on standard processing time'
                         }
                       </div>
