@@ -81,8 +81,7 @@ async function verifyRazorpayPayment(paymentId, expectedAmountINR) {
   const expectedPaise = Math.round(safeNum(expectedAmountINR, 0) * 100);
   if (safeNum(payment.amount, -1) !== expectedPaise) {
     throw new Error(
-      `Payment amount mismatch. Expected ₹${expectedAmountINR}, got ₹${
-        safeNum(payment.amount, 0) / 100
+      `Payment amount mismatch. Expected ₹${expectedAmountINR}, got ₹${safeNum(payment.amount, 0) / 100
       }`
     );
   }
@@ -102,24 +101,24 @@ const completeOrder = async (req, res) => {
   // ✅ Prevent duplicate processing for the same payment ID
   if (paymentId && paymentId !== 'manual_payment') {
     const cacheKey = `${paymentId}_${paymentmode}`;
-    
+
     if (processingCache.has(cacheKey)) {
       const cachedTime = processingCache.get(cacheKey);
       const timeDiff = Date.now() - cachedTime;
-      
+
       if (timeDiff < 30000) { // 30 seconds
         console.log('⚠️ Duplicate request detected within 30 seconds, ignoring:', cacheKey);
-        return res.status(200).json({ 
-          success: true, 
+        return res.status(200).json({
+          success: true,
           message: 'Request already being processed',
           duplicate: true
         });
       }
     }
-    
+
     // Mark as processing
     processingCache.set(cacheKey, Date.now());
-    
+
     // Clean up old entries (older than 5 minutes)
     for (const [key, time] of processingCache.entries()) {
       if (Date.now() - time > 300000) {
@@ -135,17 +134,17 @@ const completeOrder = async (req, res) => {
     compressed,
     orderData: orderData
       ? {
-          items: orderData.items?.length || 0,
-          totalPay: orderData.totalPay,
-          address: orderData.address,
-          user: orderData.user,
-          pf: orderData.pf,
-          pfFlat: orderData.pfFlat,
-          gst: orderData.gst,
-          printing: orderData.printing,
-          printingPerSide: orderData.printingPerSide,
-          printingUnits: orderData.printingUnits,
-        }
+        items: orderData.items?.length || 0,
+        totalPay: orderData.totalPay,
+        address: orderData.address,
+        user: orderData.user,
+        pf: orderData.pf,
+        pfFlat: orderData.pfFlat,
+        gst: orderData.gst,
+        printing: orderData.printing,
+        printingPerSide: orderData.printingPerSide,
+        printingUnits: orderData.printingUnits,
+      }
       : null,
   });
 
@@ -166,8 +165,8 @@ const completeOrder = async (req, res) => {
       if (existingOrder) {
         console.log('⚠️ Duplicate order detected for payment ID:', paymentId);
         console.log('Existing order ID:', existingOrder._id);
-        return res.status(200).json({ 
-          success: true, 
+        return res.status(200).json({
+          success: true,
           order: existingOrder,
           message: 'Order already exists for this payment'
         });
@@ -222,7 +221,7 @@ const completeOrder = async (req, res) => {
       (item) => item?.isCorporate === true
     );
     const orderType = isCorporateOrder ? 'B2B' : 'B2C';
-    
+
     console.log('🏢 Order Type Detection:', {
       isCorporateOrder,
       orderType,
@@ -563,19 +562,19 @@ const completeOrder = async (req, res) => {
 
       try {
         order = await Order.create({
-        products: items,
-        price: totalPay,
-        totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
-        address,
-        user,
-        razorpayPaymentId: payment.id,
-        status: 'Pending',
-        paymentmode: readableMode,
-        pf: pfCharge,
-        printing: printingCharge,
-        gst: safeNum(orderData.gst, 0),
-        orderType,
-      });
+          products: items,
+          price: totalPay,
+          totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
+          address,
+          user,
+          razorpayPaymentId: payment.id,
+          status: 'Pending',
+          paymentmode: readableMode,
+          pf: pfCharge,
+          printing: printingCharge,
+          gst: safeNum(orderData.gst, 0),
+          orderType,
+        });
       } catch (createError) {
         if (createError.code === 11000) {
           // Duplicate key error - retry with a new orderId
@@ -682,13 +681,13 @@ const completeOrder = async (req, res) => {
       .json({ success: false, message: 'Invalid payment mode' });
   } catch (err) {
     console.error('💥 completeOrder failed:', err);
-    
+
     // ✅ Clean up processing cache on error
     if (paymentId && paymentId !== 'manual_payment') {
       const cacheKey = `${paymentId}_${paymentmode}`;
       processingCache.delete(cacheKey);
     }
-    
+
     return res
       .status(500)
       .json({ success: false, message: err.message || 'Internal error' });
