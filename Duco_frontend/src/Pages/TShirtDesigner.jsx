@@ -40,32 +40,32 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
 
   const handleMouseMove = useCallback((e) => {
     if (!isDragging) return;
-    
+
     // Get the T-shirt container (the main design area)
     const container = elementRef.current?.closest('.design-area-container');
     if (!container) return;
-    
+
     const rect = container.getBoundingClientRect();
     const deltaX = e.clientX - startPos.x;
     const deltaY = e.clientY - startPos.y;
-    
+
     // Convert pixel movement to percentage
     const deltaXPercent = (deltaX / rect.width) * 100;
     const deltaYPercent = (deltaY / rect.height) * 100;
-    
+
     // Calculate new position with constraints
     const newPos = {
       x: Math.max(10, Math.min(90, position.x + deltaXPercent)),
       y: Math.max(10, Math.min(90, position.y + deltaYPercent)),
     };
-    
+
     setCurrentPos(newPos);
   }, [isDragging, startPos, position]);
 
   const handleMouseUp = useCallback(() => {
     if (!isDragging) return;
     console.log(`🎯 Drag end: ${id} -> x:${currentPos.x.toFixed(1)}, y:${currentPos.y.toFixed(1)}`);
-    
+
     // Update the actual position in parent state
     onPositionChange(id, currentPos);
     setIsDragging(false);
@@ -99,9 +99,9 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
   };
 
   return (
-    <div 
+    <div
       ref={elementRef}
-      style={style} 
+      style={style}
       onMouseDown={handleMouseDown}
       className="custom-draggable-item"
     >
@@ -131,17 +131,17 @@ const TshirtDesigner = () => {
   // ✅ Apply location-based pricing to a base price
   const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
     let price = Number(basePrice) || 0;
-    
+
     // Step 1: Apply percentage increase (location markup)
     if (priceIncrease) {
       price += (price * Number(priceIncrease)) / 100;
     }
-    
+
     // Step 2: Apply currency conversion
     if (conversionRate && conversionRate !== 1) {
       price *= conversionRate;
     }
-    
+
     return Math.round(price);
   };
 
@@ -161,7 +161,7 @@ const TshirtDesigner = () => {
   const defaultSideState = (view) => {
     // Center position for all elements on all views - adjusted for T-shirt area
     const centerPos = { x: 50, y: 45 }; // More centered on actual T-shirt chest area
-    
+
     return {
       uploadedImage: null,
       customText: "",
@@ -206,7 +206,7 @@ const TshirtDesigner = () => {
   });
 
   // URL parameters processed
-  
+
   // State for showing center guide
   const [showCenterGuide, setShowCenterGuide] = useState(false);
   const [cuteMessage, setCuteMessage] = useState(null);
@@ -220,13 +220,13 @@ const TshirtDesigner = () => {
     try {
       const sessionId = startFreshDesignSession();
       clearCart();
-      
+
       // Store session ID for this design
       setAllDesigns(prev => ({
         ...prev,
         sessionId
       }));
-      
+
       console.log("✅ Fresh design session initialized successfully");
     } catch (error) {
       console.error("❌ Error initializing fresh design session:", error);
@@ -267,7 +267,7 @@ const TshirtDesigner = () => {
         let match = data?.image_url?.find(
           (e) => e.colorcode === colorWithHash
         );
-        
+
         // Fallback 1: Try without hash
         if (!match && colorWithHash.startsWith('#')) {
           match = data?.image_url?.find(
@@ -275,7 +275,7 @@ const TshirtDesigner = () => {
           );
           console.log("🔄 Trying color match without hash:", colorWithHash.substring(1));
         }
-        
+
         // Fallback 2: Try with hash if original didn't have it
         if (!match && !colorWithHash.startsWith('#')) {
           match = data?.image_url?.find(
@@ -283,7 +283,7 @@ const TshirtDesigner = () => {
           );
           console.log("🔄 Trying color match with hash:", `#${colorWithHash}`);
         }
-        
+
         // Fallback 3: Case insensitive match
         if (!match) {
           match = data?.image_url?.find(
@@ -291,13 +291,13 @@ const TshirtDesigner = () => {
           );
           console.log("🔄 Trying case insensitive match");
         }
-        
+
         // Fallback 4: Use first color if no match found
         if (!match && data?.image_url?.length > 0) {
           match = data.image_url[0];
           console.log("🔄 Using first available color as fallback:", match.colorcode);
         }
-        
+
         console.log("🎨 Color matching debug:", {
           colorWithHash,
           availableColors: data?.image_url?.map(img => img.colorcode),
@@ -312,9 +312,9 @@ const TshirtDesigner = () => {
           fullImageUrlData: data?.image_url,
           matchedColorData: match
         });
-        
+
         const designImages = match?.designtshirt || [];
-        
+
         // Create array with proper fallbacks for each view
         const processedImages = [
           designImages[0] || menstshirt, // front
@@ -322,12 +322,12 @@ const TshirtDesigner = () => {
           designImages[2] || menstshirt, // left
           designImages[3] || menstshirt, // right
         ];
-        
+
         setSideimage(processedImages);
-        
+
         console.log('🖼️ T-shirt images loaded:', {
           front: !!designImages[0],
-          back: !!designImages[1], 
+          back: !!designImages[1],
           left: !!designImages[2],
           right: !!designImages[3],
           fallbackUsed: designImages.length === 0,
@@ -335,7 +335,7 @@ const TshirtDesigner = () => {
           rawDesignImages: designImages,
           designImagesLength: designImages.length
         });
-        
+
         // Additional debugging for image URLs
         if (designImages.length > 0) {
           console.log('🔍 Design image URLs:', designImages);
@@ -364,11 +364,11 @@ const TshirtDesigner = () => {
       setAllDesigns((prev) => {
         const centerPos = { x: 45, y: 55 }; // Center position on chest
         const imageId = `uploaded-image-${side}`;
-        
+
         const result = {
           ...prev,
-          [side]: { 
-            ...prev[side], 
+          [side]: {
+            ...prev[side],
             uploadedImage: reader.result,
             // Ensure the uploaded image appears in center
             positions: {
@@ -377,11 +377,11 @@ const TshirtDesigner = () => {
             }
           },
         };
-        
+
         // Show center guide briefly when image is uploaded
         setShowCenterGuide(true);
         setTimeout(() => setShowCenterGuide(false), 2000);
-        
+
         return result;
       });
     };
@@ -401,12 +401,12 @@ const TshirtDesigner = () => {
     setAllDesigns((prev) => {
       const centerPos = { x: 50, y: 45 }; // Center position on T-shirt chest
       const textId = `custom-text-${side}`;
-      
+
       // If updating custom text and it's the first time adding text, center it
-      const shouldCenterText = property === 'customText' && 
-                              value && 
-                              !prev[side].customText;
-      
+      const shouldCenterText = property === 'customText' &&
+        value &&
+        !prev[side].customText;
+
       // Show center guide when text is first added
       if (shouldCenterText) {
         setShowCenterGuide(true);
@@ -421,8 +421,8 @@ const TshirtDesigner = () => {
 
       return {
         ...prev,
-        [side]: { 
-          ...prev[side], 
+        [side]: {
+          ...prev[side],
           [property]: value,
           positions: newPositions,
         },
@@ -433,7 +433,7 @@ const TshirtDesigner = () => {
   // Custom drag position handler
   const handlePositionChange = useCallback((elementId, newPosition) => {
     console.log(`🎯 Position updated: ${elementId} -> x:${newPosition.x.toFixed(1)}, y:${newPosition.y.toFixed(1)}`);
-    
+
     setAllDesigns((prev) => {
       return {
         ...prev,
@@ -519,7 +519,7 @@ const TshirtDesigner = () => {
           if (v && typeof v === "object") stack.push(v);
         }
       }
-    } catch {}
+    } catch { }
     return null;
   };
 
@@ -582,19 +582,19 @@ const TshirtDesigner = () => {
       upsert(size, vid);
     });
     // ✅ Fallback: if product itself has printroveVariantId or pricing[0] variant
-if (!Object.keys(map).length) {
-  const directVariant =
-    details?.printroveVariantId ||
-    details?.pricing?.[0]?.printrove_variant_id ||
-    details?.pricing?.[0]?.variant_id ||
-    details?.pricing?.[0]?.printroveVariantId;
-  if (directVariant) {
-    // default assign all canonical sizes to this variant (for single variant products)
-    ["S", "M", "L", "XL", "2XL", "3XL"].forEach((s) =>
-      upsert(s, directVariant)
-    );
-  }
-}
+    if (!Object.keys(map).length) {
+      const directVariant =
+        details?.printroveVariantId ||
+        details?.pricing?.[0]?.printrove_variant_id ||
+        details?.pricing?.[0]?.variant_id ||
+        details?.pricing?.[0]?.printroveVariantId;
+      if (directVariant) {
+        // default assign all canonical sizes to this variant (for single variant products)
+        ["S", "M", "L", "XL", "2XL", "3XL"].forEach((s) =>
+          upsert(s, directVariant)
+        );
+      }
+    }
 
     // 2) product-level pricing[]
     coerceList(details?.pricing).forEach((p) => {
@@ -667,7 +667,7 @@ if (!Object.keys(map).length) {
             if (v && typeof v === "object") stack.push(v);
           }
         }
-      } catch {}
+      } catch { }
     }
 
     // 4) deep fallback scan over entire product
@@ -700,7 +700,7 @@ if (!Object.keys(map).length) {
           if (v && typeof v === "object") stack.push(v);
         }
       }
-    } catch {}
+    } catch { }
 
     return map;
   };
@@ -770,7 +770,7 @@ if (!Object.keys(map).length) {
 
       // Extract mappings
       const printroveProductId = extractPrintroveProductId(productDetails);
-      
+
       // Enhanced logging for debugging
       console.log("🔍 Product Details for Variant Mapping:", {
         productId: productDetails?._id,
@@ -783,7 +783,7 @@ if (!Object.keys(map).length) {
         },
         rawProductData: productDetails
       });
-      
+
       // ✅ Try to get Printrove mappings from API first
       let variantMap = {};
       try {
@@ -791,7 +791,7 @@ if (!Object.keys(map).length) {
         if (response.data.success && response.data.mapping) {
           const mapping = response.data.mapping;
           console.log("🎯 Found Printrove mapping:", mapping);
-          
+
           // Use the mapping variants
           mapping.variants?.forEach(variant => {
             if (variant.isAvailable && variant.ducoSize && variant.printroveVariantId) {
@@ -799,7 +799,7 @@ if (!Object.keys(map).length) {
               variantMap[canonicalSize] = variant.printroveVariantId;
             }
           });
-          
+
           if (Object.keys(variantMap).length > 0) {
             console.log("✅ Using Printrove API mappings:", variantMap);
           }
@@ -813,7 +813,7 @@ if (!Object.keys(map).length) {
         variantMap = buildVariantMap(productDetails);
         console.log("🔄 Using fallback variant mapping:", variantMap);
       }
-      
+
       console.log("🧭 Final Variant Map:", variantMap);
       console.log("📦 Selected Quantities:", finalQuantities);
 
@@ -825,9 +825,9 @@ if (!Object.keys(map).length) {
         ([size, qty]) => {
           const canonicalSize = canonSize(size);
           const variantId = variantMap[canonicalSize];
-          
+
           console.log(`🔍 Size mapping: ${size} -> ${canonicalSize} -> variant ${variantId || 'MISSING'}`);
-          
+
           return {
             size,
             qty,
@@ -839,7 +839,7 @@ if (!Object.keys(map).length) {
       // Log mapping results
       const mappedSizes = finalPrintroveLineItems.filter(item => item.printroveVariantId);
       const unmappedSizes = finalPrintroveLineItems.filter(item => !item.printroveVariantId);
-      
+
       console.log("📊 Variant Mapping Results:", {
         totalSizes: finalPrintroveLineItems.length,
         mappedSizes: mappedSizes.length,
@@ -854,7 +854,7 @@ if (!Object.keys(map).length) {
       }
 
       if (unmappedSizes.length > 0) {
-        console.warn("⚠️ Some sizes missing variant IDs - backend will handle fallback:", 
+        console.warn("⚠️ Some sizes missing variant IDs - backend will handle fallback:",
           unmappedSizes.map(item => item.size));
       }
 
@@ -904,7 +904,7 @@ if (!Object.keys(map).length) {
       // ✅ Log pricing calculation details
       const basePrice = productDetails?.pricing?.[0]?.price_per || 499;
       const finalPrice = customProduct.price;
-      
+
       console.log("💰 PRICING CALCULATION:", {
         basePrice,
         priceIncrease,
@@ -951,9 +951,9 @@ if (!Object.keys(map).length) {
       // ✅ Clear existing cart items before adding new design
       console.log("🧹 Clearing cart before adding new design...");
       clearCart();
-      
+
       addToCart(customProduct);
-      
+
       // ✅ Show success message with variant mapping info
       const mappedCount = finalPrintroveLineItems.filter(item => item.printroveVariantId).length;
       const totalCount = finalPrintroveLineItems.length;
@@ -1094,7 +1094,7 @@ if (!Object.keys(map).length) {
 
   // ======================== HELPER FUNCTIONS ========================
   const getCenterPosition = () => ({ x: 45, y: 55 }); // Moved down to chest area
-  
+
   const getElementPosition = useCallback((view, elementId) => {
     const position = allDesigns[view]?.positions?.[elementId] || getCenterPosition();
     return position;
@@ -1104,18 +1104,17 @@ if (!Object.keys(map).length) {
   const renderDesignArea = (view) => {
     const design = allDesigns[view];
     const isActive = view === side;
-    
+
     // View rendering logic
-    
+
     return (
       <div
         ref={designRefs[view]}
-        className={`absolute top-0 left-0 w-full h-full transition-opacity duration-300 design-area-container ${
-          isActive
+        className={`absolute top-0 left-0 w-full h-full transition-opacity duration-300 design-area-container ${isActive
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
-        }`}
-        style={{ 
+          }`}
+        style={{
           minHeight: '400px',
           position: 'absolute', // Force absolute positioning
           zIndex: isActive ? 10 : 1, // Ensure active view is on top
@@ -1124,12 +1123,11 @@ if (!Object.keys(map).length) {
         <img
           src={sideimage[getViewIndex(view)] || menstshirt}
           alt={`${view} T-shirt`}
-          className={`absolute inset-0 w-full h-full object-contain pointer-events-none z-0 ${
-            view === 'back' ? 'scale-x-[-1]' : // Flip horizontally for back view
-            view === 'left' ? 'rotate-[-10deg]' : // Slight rotation for left view
-            view === 'right' ? 'rotate-[10deg]' : // Slight rotation for right view
-            '' // No transform for front view
-          }`}
+          className={`absolute inset-0 w-full h-full object-contain pointer-events-none z-0 ${view === 'back' ? 'scale-x-[-1]' : // Flip horizontally for back view
+              view === 'left' ? 'rotate-[-10deg]' : // Slight rotation for left view
+                view === 'right' ? 'rotate-[10deg]' : // Slight rotation for right view
+                  '' // No transform for front view
+            }`}
           crossOrigin="anonymous"
           onError={(e) => {
             console.error(`❌ Failed to load T-shirt image for ${view}:`, e.target.src);
@@ -1147,9 +1145,9 @@ if (!Object.keys(map).length) {
             });
           }}
         />
-        <div 
+        <div
           className="absolute inset-0 w-full h-full"
-          style={{ 
+          style={{
             zIndex: 20,
             pointerEvents: 'auto', // Allow draggable interactions
           }}
@@ -1165,17 +1163,17 @@ if (!Object.keys(map).length) {
 
           {/* Center Guide */}
           {showCenterGuide && isActive && (
-            <div 
+            <div
               className="absolute w-3 h-3 bg-yellow-400 rounded-full animate-pulse z-30 pointer-events-none"
-              style={{ 
-                left: '50%', 
-                top: '45%', 
+              style={{
+                left: '50%',
+                top: '45%',
                 transform: 'translate(-50%, -50%)',
                 boxShadow: '0 0 15px rgba(255, 193, 7, 0.8)'
               }}
             />
           )}
-          
+
           {design.uploadedImage && (
             <CustomDraggableItem
               id={`uploaded-image-${view}`}
@@ -1186,12 +1184,10 @@ if (!Object.keys(map).length) {
                 src={design.uploadedImage}
                 alt="Uploaded"
                 style={{
-                  width: `${
-                    isMobile ? design.imageSize * 0.7 : design.imageSize
-                  }px`,
-                  height: `${
-                    isMobile ? design.imageSize * 0.7 : design.imageSize
-                  }px`,
+                  width: `${isMobile ? design.imageSize * 0.7 : design.imageSize
+                    }px`,
+                  height: `${isMobile ? design.imageSize * 0.7 : design.imageSize
+                    }px`,
                   pointerEvents: "none", // Let parent handle events
                 }}
                 className="object-contain"
@@ -1208,9 +1204,8 @@ if (!Object.keys(map).length) {
               <p
                 className={`select-none ${design.font} font-semibold hover:shadow-lg transition-shadow duration-200`}
                 style={{
-                  fontSize: `${
-                    isMobile ? design.textSize * 0.8 : design.textSize
-                  }px`,
+                  fontSize: `${isMobile ? design.textSize * 0.8 : design.textSize
+                    }px`,
                   color: design.textColor,
                   whiteSpace: "nowrap",
                   padding: "2px 4px",
@@ -1265,7 +1260,7 @@ if (!Object.keys(map).length) {
         {/* Sidebar (desktop only) */}
         <aside className="hidden lg:block w-80 bg-white rounded-2xl shadow-xl p-6 border border-gray-300">
           {renderControls()}
-          
+
           {/* ✅ Price Display with Location Pricing */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
             <div className="text-center">
@@ -1302,11 +1297,10 @@ if (!Object.keys(map).length) {
                 <button
                   key={view}
                   onClick={() => setSide(view)}
-                  className={`px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base font-medium transition-all ${
-                    side === view
+                  className={`px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base font-medium transition-all ${side === view
                       ? "bg-yellow-500 text-black"
                       : "bg-gray-800 text-white"
-                  } rounded-md`}
+                    } rounded-md`}
                 >
                   {view.charAt(0).toUpperCase() + view.slice(1)}
                 </button>

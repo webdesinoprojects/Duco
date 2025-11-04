@@ -193,13 +193,13 @@ const OrderDetailsCard = ({ orderId }) => {
                 </span>
                 {order.printroveEstimatedDelivery && (
                   <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
-                    Printrove
+                    Duco Art
                   </span>
                 )}
               </div>
               {order.printroveOrderId && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Printrove Order: {order.printroveOrderId}
+                  Duco Art Order: {order.printroveOrderId}
                 </p>
               )}
             </div>

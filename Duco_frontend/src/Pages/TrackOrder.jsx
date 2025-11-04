@@ -191,7 +191,7 @@ export default function TrackOrder() {
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Badge>Status: {orderSummary.status}</Badge>
                 {orderSummary.printroveStatus && orderSummary.printroveStatus !== orderSummary.status && (
-                  <Badge>Printrove: {orderSummary.printroveStatus}</Badge>
+                  <Badge>Duco Art: {orderSummary.printroveStatus}</Badge>
                 )}
                 {typeof orderSummary.total !== "undefined" && (
                   <span className="text-xs md:text-sm text-gray-300">
@@ -398,7 +398,7 @@ export default function TrackOrder() {
                         <span className="text-lg font-semibold text-white">{trackingData.order.status}</span>
                         {trackingData.order.printroveStatus && trackingData.order.printroveStatus !== trackingData.order.status && (
                           <div className="text-sm text-gray-300 mt-1">
-                            Printrove: {trackingData.order.printroveStatus}
+                            Duco Art: {trackingData.order.printroveStatus}
                           </div>
                         )}
                       </div>

@@ -123,7 +123,7 @@ const TrackingManager = () => {
               Tracking Manager
             </h1>
             <p className="text-gray-400 mt-2">
-              Manage order tracking and sync with Printrove
+              Manage order tracking and sync with Duco Art
             </p>
           </div>
           
@@ -180,7 +180,7 @@ const TrackingManager = () => {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Printrove
+                    Duco Art
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Total
@@ -215,7 +215,7 @@ const TrackingManager = () => {
                       </span>
                       {order.printroveStatus && order.printroveStatus !== order.status && (
                         <div className="text-xs text-gray-400 mt-1">
-                          Printrove: {order.printroveStatus}
+                          Duco Art: {order.printroveStatus}
                         </div>
                       )}
                     </td>
@@ -379,7 +379,7 @@ const TrackingManager = () => {
                     style={{ backgroundColor: ACCENT, color: '#000' }}
                   >
                     <FaExternalLinkAlt />
-                    Track on Printrove
+                    Track on Duco Art
                   </button>
                 </div>
               )}
