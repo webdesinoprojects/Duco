@@ -179,9 +179,9 @@ const App = () => {
         <Route path="/employee-login" element={<EmployeeLogin />} />
 
         {/* Protected group */}
-        <Route path="/employees" element={<EmployeePrivateRoute />}>
+        <Route path="/admin/employees" element={<EmployeePrivateRoute />}>
           <Route element={<EmployessLayout />}>
-            <Route index element={<Navigate to="/employees/banners" replace />} />
+            <Route index element={<Navigate to="/admin/employees/banners" replace />} />
             <Route path="banners" element={<Banner />} />
             <Route path="products" element={<ProdcutsCreated />} />
             <Route path="category" element={<Category />} />

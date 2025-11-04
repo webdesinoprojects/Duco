@@ -8,6 +8,8 @@ const EmployessLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  console.log("🏢 EmployessLayout rendering, location:", location.pathname);
+
   const handleLogout = () => {
     localStorage.removeItem("employeeAuth"); // clear session
     navigate("/employee-login"); // redirect to login page
@@ -16,11 +18,13 @@ const EmployessLayout = () => {
   // Get employee info from localStorage
   const employeeAuth = JSON.parse(localStorage.getItem("employeeAuth") || "{}");
   const employeeName = employeeAuth.employee?.name || employeeAuth.employeeid || "Employee";
+  
+  console.log("👤 Employee auth data:", employeeAuth);
 
   const navItems = [
-    { path: "/employees/banners", label: "Banners", icon: "🎨" },
-    { path: "/employees/products", label: "Products", icon: "📦" },
-    { path: "/employees/category", label: "Categories", icon: "📂" },
+    { path: "/admin/employees/banners", label: "Banners", icon: "🎨" },
+    { path: "/admin/employees/products", label: "Products", icon: "📦" },
+    { path: "/admin/employees/category", label: "Categories", icon: "📂" },
   ];
 
   return (

@@ -30,16 +30,16 @@ const EmployeeLogin = () => {
         }));
         
         // Map URL to proper route based on employee's assigned section
-        let redirectPath = "/employees/banners"; // default
+        let redirectPath = "/admin/employees/banners"; // default
         
         if (data.url && typeof data.url === 'string') {
           const urlLower = data.url.toLowerCase();
           if (urlLower.includes('product')) {
-            redirectPath = "/employees/products";
+            redirectPath = "/admin/employees/products";
           } else if (urlLower.includes('category')) {
-            redirectPath = "/employees/category";
+            redirectPath = "/admin/employees/category";
           } else if (urlLower.includes('banner')) {
-            redirectPath = "/employees/banners";
+            redirectPath = "/admin/employees/banners";
           }
         }
         
