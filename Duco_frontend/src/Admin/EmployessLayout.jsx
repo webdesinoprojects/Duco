@@ -15,7 +15,7 @@ const EmployessLayout = () => {
 
   // Get employee info from localStorage
   const employeeAuth = JSON.parse(localStorage.getItem("employeeAuth") || "{}");
-  const employeeName = employeeAuth.employee?.name || employeeAuth.employeeid || "Employee";
+  const employeeName = employeeAuth.employee?.name || employeeAuth.email || "Employee";
 
   // Create navigation items based on available sections
   const baseNavItems = [

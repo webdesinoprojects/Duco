@@ -6,14 +6,14 @@ const API_BASE = import.meta?.env?.VITE_API_BASE_URL
   : (import.meta.env.DEV ? "http://localhost:3000/api" : "https://duco-67o5.onrender.com/api");
 
 const EmployeeLogin = () => {
-  const [form, setForm] = useState({ employeeid: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    console.log("🔐 Employee login attempt:", { employeeid: form.employeeid, apiBase: API_BASE });
+    console.log("🔐 Employee login attempt:", { email: form.email, apiBase: API_BASE });
     
     try {
       const loginUrl = `${API_BASE}/employeesacc/login`;
@@ -32,40 +32,28 @@ const EmployeeLogin = () => {
       if (data.ok) {
         // save session with employee data
         localStorage.setItem("employeeAuth", JSON.stringify({
-          employeeid: form.employeeid,
+          email: form.email,
+          employeeid: data.employee?.employeeid,
           url: data.url,
           employee: data.employee
         }));
         
-        // Map URL to proper route based on employee's assigned section
-        let redirectPath = "/employees/banners"; // default
+        // Dynamic URL mapping based on employee's assigned section
+        let redirectPath = "/employees/banners"; // default fallback
         
         if (data.url && typeof data.url === 'string') {
-          const urlLower = data.url.toLowerCase();
           console.log("🎯 Employee URL:", data.url, "-> Mapping to route");
           
           // Extract the section from URL (e.g., "employees/gimme" -> "gimme")
           const urlParts = data.url.split('/');
           const section = urlParts[urlParts.length - 1]; // Get the last part
           
-          // Map to available routes
-          if (urlLower.includes('product') || urlLower.includes('inventory')) {
-            redirectPath = "/employees/products";
-          } else if (urlLower.includes('category') || urlLower.includes('categories')) {
-            redirectPath = "/employees/category";
-          } else if (urlLower.includes('banner') || urlLower.includes('marketing')) {
-            redirectPath = "/employees/banners";
-          } else if (urlLower.includes('gimme')) {
-            redirectPath = "/employees/gimme";
+          if (section && section.trim()) {
+            // Use the section directly - the :section route will handle it
+            redirectPath = `/employees/${section.toLowerCase()}`;
+            console.log("✅ Dynamic route created:", redirectPath);
           } else {
-            // Try to use the section directly if it exists as a route
-            const availableRoutes = ['banners', 'products', 'category', 'gimme'];
-            if (availableRoutes.includes(section.toLowerCase())) {
-              redirectPath = `/employees/${section.toLowerCase()}`;
-            } else {
-              console.log("⚠️ URL pattern not recognized, using default banners");
-              redirectPath = "/employees/banners";
-            }
+            console.log("⚠️ No section found in URL, using default banners");
           }
         }
         
@@ -98,13 +86,14 @@ const EmployeeLogin = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Employee ID or Email
+              Email Address
             </label>
             <input
+              type="email"
               className="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors"
-              placeholder="Enter your Employee ID or Email"
-              value={form.employeeid}
-              onChange={(e) => setForm({ ...form, employeeid: e.target.value })}
+              placeholder="Enter your email address"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
             />
           </div>

@@ -256,13 +256,16 @@ const EmployeesAccManager = () => {
           <h2 className="text-xl font-semibold mb-4">Create Employee Access</h2>
 
           <form onSubmit={onCreate} className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <Field label="URL" required>
+            <Field label="Section URL" required>
               <input
                 value={form.url}
                 onChange={(e) => setForm((s) => ({ ...s, url: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 outline-none"
-                placeholder="acme.example.com"
+                placeholder="employees/gimme (creates route: /employees/gimme)"
               />
+              <p className="text-xs text-gray-400 mt-1">
+                This will create a route like /employees/[section-name] for the employee
+              </p>
             </Field>
 
             <Field label="Employee ID" required>

@@ -8,7 +8,7 @@ const EmployeeSection = () => {
   
   // Get employee info from localStorage
   const employeeAuth = JSON.parse(localStorage.getItem("employeeAuth") || "{}");
-  const employeeName = employeeAuth.employee?.name || employeeAuth.employeeid || "Employee";
+  const employeeName = employeeAuth.employee?.name || employeeAuth.employee?.employeeid || "Employee";
   
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
@@ -26,10 +26,12 @@ const EmployeeSection = () => {
               <h2 className="text-lg font-semibold mb-2">Section Information</h2>
               <div className="text-left space-y-2">
                 <p><strong>Section:</strong> {section || 'Default'}</p>
-                <p><strong>Employee ID:</strong> {employeeAuth.employeeid}</p>
+                <p><strong>Employee ID:</strong> {employeeAuth.employee?.employeeid || 'N/A'}</p>
+                <p><strong>Email:</strong> {employeeAuth.email || employeeAuth.employee?.email || 'N/A'}</p>
                 <p><strong>Name:</strong> {employeeAuth.employee?.name || 'N/A'}</p>
                 <p><strong>Role:</strong> {employeeAuth.employee?.role || 'N/A'}</p>
                 <p><strong>Assigned URL:</strong> {employeeAuth.url || 'N/A'}</p>
+                <p><strong>Current Route:</strong> {location.pathname}</p>
               </div>
             </div>
             
