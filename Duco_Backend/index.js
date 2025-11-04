@@ -40,7 +40,28 @@ app.use(compression()); //this is for compression
 
 // Core middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://duco-frontend.vercel.app'],
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173', 
+      'http://localhost:3000', 
+      'https://duco-frontend.vercel.app',
+      'https://ducoart.com',
+      'https://www.ducoart.com'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    console.log('🌐 CORS request from origin:', origin);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('✅ Origin allowed:', origin);
+      callback(null, true);
+    } else {
+      console.log('❌ Origin blocked:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
