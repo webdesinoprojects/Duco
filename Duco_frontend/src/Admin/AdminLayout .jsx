@@ -74,43 +74,43 @@ const AdminLayout = () => {
           <Link to="/admin" className="block hover:text-blue-300">
             Inventory
           </Link>
-          <Link to="/admin/products" className="block hover:text-blue-300">
+          <Link to="products" className="block hover:text-blue-300">
             Products
           </Link>
-          <Link to="/admin/category" className="block hover:text-blue-300">
+          <Link to="category" className="block hover:text-blue-300">
             Category
           </Link>
-          <Link to="/admin/moneyset" className="block hover:text-blue-300">
+          <Link to="moneyset" className="block hover:text-blue-300">
             Set Money
           </Link>
-          <Link to="/admin/order" className="block hover:text-blue-300">
+          <Link to="order" className="block hover:text-blue-300">
             Manage Order
           </Link>
-          <Link to="/admin/bulkorder" className="block hover:text-blue-300">
+          <Link to="bulkorder" className="block hover:text-blue-300">
             Bulk Order
           </Link>
-          <Link to="/admin/logistic" className="block hover:text-blue-300">
+          <Link to="logistic" className="block hover:text-blue-300">
             Logistic
           </Link>
-          <Link to="/admin/charges" className="block hover:text-blue-300">
+          <Link to="charges" className="block hover:text-blue-300">
             Charges Plan
           </Link>
-          <Link to="/admin/bankdetails" className="block hover:text-blue-300">
+          <Link to="bankdetails" className="block hover:text-blue-300">
             Bank Details
           </Link>
-          <Link to="/admin/employees" className="block hover:text-blue-300">
+          <Link to="employees" className="block hover:text-blue-300">
             Employees Management
           </Link>
-          <Link to="/admin/invoice" className="block hover:text-blue-300">
+          <Link to="invoice" className="block hover:text-blue-300">
             Invoice
           </Link>
-          <Link to="/admin/users" className="block hover:text-blue-300">
+          <Link to="users" className="block hover:text-blue-300">
             Users
           </Link>
-          <Link to="/admin/sales" className="block hover:text-blue-300">
+          <Link to="sales" className="block hover:text-blue-300">
             Analysis
           </Link>
-          <Link to="/admin/bannersetup" className="block hover:text-blue-300">
+          <Link to="bannersetup" className="block hover:text-blue-300">
             Banner
           </Link>
 

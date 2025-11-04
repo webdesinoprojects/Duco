@@ -162,26 +162,26 @@ const App = () => {
             <Route path="category" element={<Category />} />
             <Route path="moneyset" element={<MoneySet />} />
             <Route path="edit/:id" element={<ProductsUpdate />} />
-            <Route path="/admin/order" element={<OrderSection />} />
-            <Route path="/admin/bulkorder" element={<OrderBulk />} />
-            <Route path="/admin/sales" element={<AnalyticsDashboard />} />
-            <Route path="/admin/users" element={<UserInfo />} />
-            <Route path="/admin/bannersetup" element={<Banner />} />
-            <Route path="/admin/logistic" element={<LogisticsManager />} />
-            <Route path="/admin/charges" element={<ChargePlanManager />} />
-            <Route path="/admin/bankdetails" element={<BankDetailsManager />} />
-            <Route path="/admin/employees" element={<EmployeesAccManager />} />
-            <Route path="/admin/tracking" element={<TrackingManager />} />
-            <Route path="/admin/invoice" element={<Invoice />} />
+            <Route path="order" element={<OrderSection />} />
+            <Route path="bulkorder" element={<OrderBulk />} />
+            <Route path="sales" element={<AnalyticsDashboard />} />
+            <Route path="users" element={<UserInfo />} />
+            <Route path="bannersetup" element={<Banner />} />
+            <Route path="logistic" element={<LogisticsManager />} />
+            <Route path="charges" element={<ChargePlanManager />} />
+            <Route path="bankdetails" element={<BankDetailsManager />} />
+            <Route path="employees" element={<EmployeesAccManager />} />
+            <Route path="tracking" element={<TrackingManager />} />
+            <Route path="invoice" element={<Invoice />} />
           </Route>
         </Route>
 
         <Route path="/employee-login" element={<EmployeeLogin />} />
 
         {/* Protected group */}
-        <Route path="/admin/employees" element={<EmployeePrivateRoute />}>
+        <Route path="/employees" element={<EmployeePrivateRoute />}>
           <Route element={<EmployessLayout />}>
-            <Route index element={<Navigate to="/admin/employees/banners" replace />} />
+            <Route index element={<Navigate to="/employees/banners" replace />} />
             <Route path="banners" element={<Banner />} />
             <Route path="products" element={<ProdcutsCreated />} />
             <Route path="category" element={<Category />} />
