@@ -602,7 +602,6 @@ const completeOrder = async (req, res) => {
         console.log('🏢 Corporate order - skipping Printrove integration');
         order.printroveStatus = 'Corporate Order - No Printrove';
         await order.save();
-        }
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
