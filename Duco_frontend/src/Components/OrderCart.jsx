@@ -141,7 +141,7 @@ const OrderCart = ({ order }) => {
             })()}
             {order.printroveEstimatedDelivery && (
               <span className="px-1.5 py-0.5 bg-blue-600 text-white text-[10px] rounded-full">
-                Printrove
+                Duco Art
               </span>
             )}
           </p>
@@ -168,7 +168,7 @@ const OrderCart = ({ order }) => {
           <div className="mt-2 flex items-center gap-2 text-xs">
             <FaShippingFast className="text-gray-600" />
             <span className="text-gray-600">
-              {order.printroveOrderId ? 'Printrove Tracking Available' : 
+              {order.printroveOrderId ? 'Duco Art Tracking Available' : 
                order.hasLogistics ? 'Logistics Updates Available' : 
                'Tracking Available'}
             </span>
