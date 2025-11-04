@@ -18,13 +18,16 @@ exports.createEmployeeAcc = async (req, res) => {
 
 exports.getEmployeesAcc = async (req, res) => {
   try {
+    console.log('📋 GET /employeesacc - Request received:', req.query);
     const { url, employeeid } = req.query;
     const query = {};
     if (url) query.url = url;
     if (employeeid) query.employeeid = employeeid;
     const docs = await EmployeesAcc.find(query).select("-password").sort({ createdAt: -1 });
+    console.log('📋 Found employees:', docs.length);
     res.json(docs);
   } catch (err) {
+    console.error('❌ Error in getEmployeesAcc:', err);
     res.status(400).json({ error: err.message });
   }
 };

@@ -21,4 +21,9 @@ router.post("/employeesacc/login", checkEmployeeLogin);
 
 router.post("/employeesacc/reset-password", resetEmployeePassword);
 
+// Test endpoint
+router.get("/employeesacc/test", (req, res) => {
+  res.json({ message: "Employees routes are working!", timestamp: new Date().toISOString() });
+});
+
 module.exports = router;

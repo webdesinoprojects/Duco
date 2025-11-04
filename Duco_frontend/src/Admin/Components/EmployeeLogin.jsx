@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = import.meta?.env?.VITE_API_BASE || "https://duco-67o5.onrender.com/api/";
+const API_BASE = import.meta?.env?.VITE_API_BASE_URL 
+  ? `${import.meta.env.VITE_API_BASE_URL}/api` 
+  : (import.meta.env.DEV ? "http://localhost:3000/api" : "https://duco-67o5.onrender.com/api");
 
 const EmployeeLogin = () => {
   const [form, setForm] = useState({ employeeid: "", password: "" });
@@ -26,7 +28,22 @@ const EmployeeLogin = () => {
           url: data.url,
           employee: data.employee
         }));
-        navigate("/employees/banners"); // go to employee dashboard
+        
+        // Map URL to proper route based on employee's assigned section
+        let redirectPath = "/employees/banners"; // default
+        
+        if (data.url && typeof data.url === 'string') {
+          const urlLower = data.url.toLowerCase();
+          if (urlLower.includes('product')) {
+            redirectPath = "/employees/products";
+          } else if (urlLower.includes('category')) {
+            redirectPath = "/employees/category";
+          } else if (urlLower.includes('banner')) {
+            redirectPath = "/employees/banners";
+          }
+        }
+        
+        navigate(redirectPath);
       } else {
         alert("Invalid credentials");
       }

@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState } from "react";
    Keep endpoints centralized & typed here
    =========================================== */
 
-const API_BASE = import.meta?.env?.VITE_API_BASE || "https://duco-67o5.onrender.com/api";
+const API_BASE = import.meta?.env?.VITE_API_BASE_URL 
+  ? `${import.meta.env.VITE_API_BASE_URL}/api` 
+  : (import.meta.env.DEV ? "http://localhost:3000/api" : "https://duco-67o5.onrender.com/api");
 
 /** Build querystring for GET /employeesacc?url=&employeeid= */
 const getEmployeesAcc = async (params = {}) => {

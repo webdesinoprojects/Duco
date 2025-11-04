@@ -39,7 +39,12 @@ app.set('trust proxy', 1);
 app.use(compression()); //this is for compression
 
 // Core middleware
-app.use(cors()); // Allow all origins by default (tighten if needed)
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://duco-frontend.vercel.app'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+})); // Allow specific origins and methods
 app.use(express.json({ limit: '50mb' })); // Increased limit for design images
 app.use(express.urlencoded({ limit: '50mb', extended: true })); // Support URL-encoded data
 

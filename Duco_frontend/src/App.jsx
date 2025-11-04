@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./Layout.jsx";
 import Home from "./Pages/Home.jsx";
 import "./App.css";
@@ -181,6 +181,7 @@ const App = () => {
         {/* Protected group */}
         <Route path="/employees" element={<EmployeePrivateRoute />}>
           <Route element={<EmployessLayout />}>
+            <Route index element={<Navigate to="/employees/banners" replace />} />
             <Route path="banners" element={<Banner />} />
             <Route path="products" element={<ProdcutsCreated />} />
             <Route path="category" element={<Category />} />
