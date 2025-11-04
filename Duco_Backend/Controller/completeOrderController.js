@@ -391,7 +391,6 @@ const completeOrder = async (req, res) => {
         console.log('🏢 Corporate order - skipping Printrove integration');
         order.printroveStatus = 'Corporate Order - No Printrove';
         await order.save();
-      }
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
@@ -440,7 +439,7 @@ const completeOrder = async (req, res) => {
     }
 
     // ================================================================
-    // CASE 3 – ONLINE (FULL)
+    // CASE 3 - ONLINE (FULL)
     // ================================================================
     if (paymentmode === 'online') {
       console.warn('⚠️ Skipping Razorpay verification for testing mode');
@@ -562,7 +561,8 @@ const completeOrder = async (req, res) => {
       console.warn('⚠️ Skipping Razorpay verification for 50% testing mode');
       payment = { id: paymentId || 'test_payment_id_50percent' };
 
-      order = await Order.create({
+      try {
+        order = await Order.create({
         products: items,
         price: totalPay,
         totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
@@ -576,6 +576,31 @@ const completeOrder = async (req, res) => {
         gst: safeNum(orderData.gst, 0),
         orderType,
       });
+      } catch (createError) {
+        if (createError.code === 11000) {
+          // Duplicate key error - retry with a new orderId
+          console.warn('⚠️ Duplicate orderId detected, retrying...');
+          order = await Order.create({
+            products: items,
+            price: totalPay,
+            totalPay: totalPay,
+            address,
+            user,
+            razorpayPaymentId: payment.id,
+            status: 'Pending',
+            paymentmode: readableMode,
+            pf: pfCharge,
+            printing: printingCharge,
+            gst: safeNum(orderData.gst, 0),
+            orderType,
+            orderId: `ORD-${Date.now()}-${Math.random()
+              .toString(36)
+              .substr(2, 9)}`, // Force new orderId
+          });
+        } else {
+          throw createError;
+        }
+      }
 
       try {
         await createTransaction(user, order._id, totalPay, '50%');
