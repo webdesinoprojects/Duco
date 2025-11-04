@@ -37,6 +37,7 @@ import ProductRouter from "./Pages/ProductRouter.jsx";
 import UserInfo from "./Admin/UserInfo.jsx";
 import Banner from "./Admin/Components/Banner.jsx";
 import EmployeeSection from "./Admin/Components/EmployeeSection.jsx";
+import EmployeeUrlAuth from "./Admin/Components/EmployeeUrlAuth.jsx";
 import OrderBulk from "./Admin/OrderBulk.jsx";
 import AdminGuard from "./Admin/auth/AdminGuard.jsx";
 import AdminLogin from "./Admin/AdminLogin.jsx";
@@ -178,14 +179,18 @@ const App = () => {
         </Route>
 
         <Route path="/employee-login" element={<EmployeeLogin />} />
+        
+        {/* URL-based employee authentication */}
+        <Route path="/auth/:section" element={<EmployeeUrlAuth />} />
 
-        {/* Protected group */}
+        {/* Protected group - main employee dashboard */}
         <Route path="/employees" element={<EmployeePrivateRoute />}>
           <Route element={<EmployessLayout />}>
             <Route index element={<Navigate to="/employees/banners" replace />} />
             <Route path="banners" element={<Banner />} />
             <Route path="products" element={<ProdcutsCreated />} />
             <Route path="category" element={<Category />} />
+            {/* Dynamic section route - this should catch adminjatin */}
             <Route path=":section" element={<EmployeeSection />} />
           </Route>
         </Route>

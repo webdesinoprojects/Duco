@@ -1,17 +1,44 @@
 // Generic component for employee sections
-import React from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 
 const EmployeeSection = () => {
   const { section } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
+  
+  console.log("🎯 EmployeeSection - section:", section, "location:", location.pathname);
+  console.log("🎯 useParams result:", useParams());
   
   // Get employee info from localStorage
   const employeeAuth = JSON.parse(localStorage.getItem("employeeAuth") || "{}");
   const employeeName = employeeAuth.employee?.name || employeeAuth.employee?.employeeid || "Employee";
   
+  console.log("🎯 Employee auth data:", employeeAuth);
+
+  // Check if employee is authorized for this section
+  useEffect(() => {
+    console.log("🔍 Checking section authorization...");
+    if (employeeAuth.url) {
+      const urlParts = employeeAuth.url.split('/');
+      const assignedSection = urlParts[urlParts.length - 1];
+      console.log("🔍 Assigned section:", assignedSection, "Current section:", section);
+      
+      if (assignedSection.toLowerCase() !== section.toLowerCase()) {
+        // Employee is not authorized for this section
+        console.log("❌ Section mismatch, redirecting...");
+        alert(`Access denied. You are assigned to section: ${assignedSection}`);
+        navigate(`/employees/${assignedSection}`, { replace: true });
+      } else {
+        console.log("✅ Section authorized");
+      }
+    } else {
+      console.log("⚠️ No employee URL found in auth data");
+    }
+  }, [section, employeeAuth.url, navigate]);
+  
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
+    <div className="p-6">
       <div className="max-w-4xl mx-auto">
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="text-center">

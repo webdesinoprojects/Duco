@@ -46,4 +46,40 @@ router.get("/employeesacc/debug", async (req, res) => {
   }
 });
 
+// Generate temporary access token for URL-based auth
+router.post("/employeesacc/generate-token", async (req, res) => {
+  try {
+    const { employeeId } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ error: "Employee ID required" });
+    }
+
+    const employee = await require("../DataBase/Models/EmployessAcc").findById(employeeId).select("-password");
+    if (!employee) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+
+    // Generate a temporary token (valid for 1 hour)
+    const token = Buffer.from(JSON.stringify({
+      employeeId: employee._id,
+      email: employee.employeesdetails?.email,
+      timestamp: Date.now(),
+      expires: Date.now() + (60 * 60 * 1000) // 1 hour
+    })).toString('base64');
+
+    const urlParts = employee.url.split('/');
+    const section = urlParts[urlParts.length - 1];
+
+    res.json({
+      success: true,
+      token,
+      section,
+      authUrl: `/auth/${section}?token=${token}`,
+      expiresIn: '1 hour'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

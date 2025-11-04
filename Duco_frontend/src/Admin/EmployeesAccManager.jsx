@@ -6,9 +6,9 @@ import { useEffect, useMemo, useState } from "react";
    Keep endpoints centralized & typed here
    =========================================== */
 
-const API_BASE = import.meta?.env?.VITE_API_BASE_URL 
-  ? `${import.meta.env.VITE_API_BASE_URL}/api` 
-  : (import.meta.env.DEV ? "http://localhost:3000/api" : "https://duco-67o5.onrender.com/api");
+const API_BASE = import.meta?.env?.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL}/api`
+  : (import.meta.env.DEV ? "https://duco-67o5.onrender.com/api" : "https://duco-67o5.onrender.com/api");
 
 /** Build querystring for GET /employeesacc?url=&employeeid= */
 const getEmployeesAcc = async (params = {}) => {
@@ -205,6 +205,56 @@ const EmployeesAccManager = () => {
 
   const closeEdit = () => setEditId(null);
 
+  /* -----------------------------
+     URL GENERATION
+  ------------------------------*/
+  const generateAuthUrl = (employee) => {
+    const urlParts = employee.url.split('/');
+    const section = urlParts[urlParts.length - 1];
+    const email = employee.employeesdetails?.email;
+
+    if (!email) {
+      alert('Employee must have an email address to generate auth URL');
+      return;
+    }
+
+    const baseUrl = window.location.origin;
+
+    // Generate multiple URL options
+    const directUrl = `${baseUrl}/employees/${section}`;
+    const authUrlWithCreds = `${baseUrl}/auth/${section}?email=${encodeURIComponent(email)}&password=ASK_EMPLOYEE_FOR_PASSWORD`;
+    const authUrlWithoutCreds = `${baseUrl}/auth/${section}`;
+
+    const urlOptions = `Employee Access URLs for ${employee.employeesdetails?.name || employee.employeeid}:
+
+1. DIRECT ACCESS (Recommended):
+   ${directUrl}
+   - Employee will be prompted to login if not authenticated
+   - Clean URL that can be bookmarked
+
+2. PRE-FILLED LOGIN:
+   ${authUrlWithCreds}
+   - Replace 'ASK_EMPLOYEE_FOR_PASSWORD' with actual password
+   - Automatically logs in the employee
+
+3. LOGIN PAGE:
+   ${authUrlWithoutCreds}
+   - Shows login form for the specific section
+
+Instructions:
+- Share option 1 (Direct Access) with the employee
+- They can bookmark this URL for easy access
+- If not logged in, they'll see a login form for their section`;
+
+    // Copy to clipboard and show modal
+    navigator.clipboard.writeText(directUrl).then(() => {
+      alert(`Direct access URL copied to clipboard!\n\n${urlOptions}`);
+    }).catch(() => {
+      // Fallback if clipboard API fails
+      prompt('Employee Access URLs:', urlOptions);
+    });
+  };
+
   /* ===========================================
      RENDER
      =========================================== */
@@ -393,7 +443,10 @@ const EmployeesAccManager = () => {
                       <span className="line-clamp-2">{row.employeesNote || "-"}</span>
                     </td>
                     <td className="py-2 pr-4">
-                      <GhostBtn onClick={() => openEdit(row)}>Edit</GhostBtn>
+                      <div className="flex gap-2">
+                        <GhostBtn onClick={() => openEdit(row)}>Edit</GhostBtn>
+                        <GhostBtn onClick={() => generateAuthUrl(row)}>Get URL</GhostBtn>
+                      </div>
                     </td>
                   </tr>
                 ))}

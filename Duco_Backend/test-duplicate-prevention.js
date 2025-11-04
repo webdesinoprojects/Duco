@@ -34,7 +34,7 @@ async function testDuplicatePrevention() {
   try {
     // Make first request
     console.log('\n1️⃣ Making first request...');
-    const response1 = await axios.post('http://localhost:3000/api/completedorder', testPayload);
+    const response1 = await axios.post('https://duco-67o5.onrender.com/api/completedorder', testPayload);
     console.log('First request result:', {
       success: response1.data.success,
       orderId: response1.data.order?._id,
@@ -43,7 +43,7 @@ async function testDuplicatePrevention() {
 
     // Make second request immediately (should be prevented)
     console.log('\n2️⃣ Making duplicate request immediately...');
-    const response2 = await axios.post('http://localhost:3000/api/completedorder', testPayload);
+    const response2 = await axios.post('https://duco-67o5.onrender.com/api/completedorder', testPayload);
     console.log('Second request result:', {
       success: response2.data.success,
       duplicate: response2.data.duplicate,
@@ -53,7 +53,7 @@ async function testDuplicatePrevention() {
     // Wait 2 seconds and try again (should still be prevented)
     console.log('\n3️⃣ Waiting 2 seconds and trying again...');
     await new Promise(resolve => setTimeout(resolve, 2000));
-    const response3 = await axios.post('http://localhost:3000/api/completedorder', testPayload);
+    const response3 = await axios.post('https://duco-67o5.onrender.com/api/completedorder', testPayload);
     console.log('Third request result:', {
       success: response3.data.success,
       duplicate: response3.data.duplicate,
