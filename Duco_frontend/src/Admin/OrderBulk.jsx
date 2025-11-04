@@ -19,7 +19,7 @@ const OrderBulk = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/order?limit=100"); // Get more orders for bulk analysis
+      const res = await fetch("https://duco-67o5.onrender.com/api/order?limit=100"); // Get more orders for bulk analysis
       const data = await res.json();
       
       // Handle both old format (array) and new paginated format (object with orders array)

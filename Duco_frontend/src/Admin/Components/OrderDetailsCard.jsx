@@ -45,7 +45,7 @@ const OrderDetailsCard = ({ orderId }) => {
     setOrder((prev) => ({ ...prev, status: newStatus }));
     try {
       await fetch(
-        `http://localhost:3000/api/order/update/${orderId}`,
+        `https://duco-67o5.onrender.com/api/order/update/${orderId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -80,7 +80,7 @@ const OrderDetailsCard = ({ orderId }) => {
       try {
         console.log("📡 Fetching order:", orderId);
         const res = await fetch(
-          `http://localhost:3000/api/order/${orderId}`
+          `https://duco-67o5.onrender.com/api/order/${orderId}`
         );
         const data = await res.json();
         console.log("🧾 Order fetched:", data);
@@ -97,7 +97,7 @@ const OrderDetailsCard = ({ orderId }) => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("http://localhost:3000/api/products");
+        const res = await fetch("https://duco-67o5.onrender.com/api/products");
         const data = await res.json();
         if (Array.isArray(data)) setAllProducts(data);
       } catch (err) {
