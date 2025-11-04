@@ -170,7 +170,7 @@ const App = () => {
             <Route path="/admin/logistic" element={<LogisticsManager />} />
             <Route path="/admin/charges" element={<ChargePlanManager />} />
             <Route path="/admin/bankdetails" element={<BankDetailsManager />} />
-            <Route path="/admin/employess" element={<EmployeesAccManager />} />
+            <Route path="/admin/employees" element={<EmployeesAccManager />} />
             <Route path="/admin/tracking" element={<TrackingManager />} />
             <Route path="/admin/invoice" element={<Invoice />} />
           </Route>
@@ -179,7 +179,7 @@ const App = () => {
         <Route path="/employee-login" element={<EmployeeLogin />} />
 
         {/* Protected group */}
-        <Route path="/employess" element={<EmployeePrivateRoute />}>
+        <Route path="/employees" element={<EmployeePrivateRoute />}>
           <Route element={<EmployessLayout />}>
             <Route path="banners" element={<Banner />} />
             <Route path="products" element={<ProdcutsCreated />} />

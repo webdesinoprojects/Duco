@@ -66,7 +66,21 @@ exports.checkEmployeeLogin = async (req, res) => {
     const user = await EmployeesAcc.findOne({ employeeid });
     if (!user) return res.json({ ok: false });
     const ok = await bcrypt.compare(password, user.password);
-    res.json({ ok, url: user.url });
+    if (ok) {
+      res.json({ 
+        ok: true, 
+        url: user.url,
+        employee: {
+          id: user._id,
+          employeeid: user.employeeid,
+          name: user.employeesdetails?.name,
+          email: user.employeesdetails?.email,
+          role: user.employeesdetails?.role
+        }
+      });
+    } else {
+      res.json({ ok: false });
+    }
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }

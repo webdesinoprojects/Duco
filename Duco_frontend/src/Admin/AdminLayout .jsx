@@ -98,7 +98,7 @@ const AdminLayout = () => {
           <Link to="/admin/bankdetails" className="block hover:text-blue-300">
             Bank Details
           </Link>
-          <Link to="/admin/employess" className="block hover:text-blue-300">
+          <Link to="/admin/employees" className="block hover:text-blue-300">
             Employees Management
           </Link>
           <Link to="/admin/invoice" className="block hover:text-blue-300">
