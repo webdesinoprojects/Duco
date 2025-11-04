@@ -30,7 +30,7 @@ const CopyBtn = ({ text }) => {
           await navigator.clipboard.writeText(text || "");
           setCopied(true);
           setTimeout(() => setCopied(false), 1200);
-        } catch {}
+        } catch { }
       }}
       className="rounded-lg border px-3 py-2 text-xs md:text-sm active:scale-[0.98]"
       style={{ borderColor: ACCENT, color: ACCENT }}
@@ -56,7 +56,7 @@ export default function TrackOrder() {
   const [syncing, setSyncing] = useState(false);
   const [err, setErr] = useState("");
   const [rows, setRows] = useState([]);
-  
+
   // Enhanced tracking data
   const [trackingData, setTrackingData] = useState(null);
   const [timeline, setTimeline] = useState([]);
@@ -76,7 +76,7 @@ export default function TrackOrder() {
         trackingUrl: trackingData.order.printroveTrackingUrl
       };
     }
-    
+
     // Fallback to logistics data
     const first = rows?.[0];
     const o = first?.orderId;
@@ -91,16 +91,16 @@ export default function TrackOrder() {
     try {
       setLoading(true);
       setErr("");
-      
+
       // Fetch enhanced tracking data
       const trackingRes = await getOrderTracking(orderId);
       setTrackingData(trackingRes);
       setTimeline(trackingRes.timeline || []);
-      
+
       // Also fetch logistics data for backward compatibility
       const logisticsRes = await getLogisticsByOrder(orderId, { populate: true });
       setRows(Array.isArray(logisticsRes) ? logisticsRes : logisticsRes?.logistics ?? []);
-      
+
     } catch (e) {
       setErr(e?.message || "Failed to fetch tracking information");
       setRows([]);
@@ -218,8 +218,8 @@ export default function TrackOrder() {
                 {walletLoading
                   ? "Loading..."
                   : walletBalance === null
-                  ? "Wallet"
-                  : `₹${walletBalance.toLocaleString()}`}
+                    ? "Wallet"
+                    : `₹${walletBalance.toLocaleString()}`}
               </span>
             </button>
 
@@ -299,7 +299,7 @@ export default function TrackOrder() {
                 {trackingData.order.products?.length || 0}
               </div>
             </div>
-            
+
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Total Items</div>
               <div className="text-xl font-bold text-white mt-1">
@@ -308,20 +308,20 @@ export default function TrackOrder() {
                 }, 0) || 0}
               </div>
             </div>
-            
+
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Order Value</div>
               <div className="text-xl font-bold text-white mt-1">
                 ₹{(trackingData.order.totalPay || trackingData.order.price || 0).toLocaleString()}
               </div>
             </div>
-            
+
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Expected Delivery</div>
               <div className="text-lg font-bold text-white mt-1">
-                {trackingData.order.printroveEstimatedDelivery 
+                {trackingData.order.printroveEstimatedDelivery
                   ? new Date(trackingData.order.printroveEstimatedDelivery).toLocaleDateString()
-                  : trackingData.order.deliveryExpectedDate 
+                  : trackingData.order.deliveryExpectedDate
                     ? new Date(trackingData.order.deliveryExpectedDate).toLocaleDateString()
                     : 'TBD'
                 }
@@ -338,7 +338,7 @@ export default function TrackOrder() {
           <div className="mb-6">
             <h2 className="text-lg font-semibold mb-4" style={{ color: ACCENT }}>Order Details</h2>
             <div className="rounded-2xl p-4 md:p-6" style={{ backgroundColor: "#111", border: `1px solid ${ACCENT}33` }}>
-              
+
               {/* Customer Information */}
               <div className="mb-6">
                 <h3 className="text-base font-semibold text-white mb-3">Customer Information</h3>
@@ -360,31 +360,31 @@ export default function TrackOrder() {
                       <Label>Expected Delivery Date</Label>
                       <div className="mt-1 flex items-center gap-2">
                         <span className="text-lg font-semibold text-white">
-                          {trackingData.order.printroveEstimatedDelivery 
+                          {trackingData.order.printroveEstimatedDelivery
                             ? new Date(trackingData.order.printroveEstimatedDelivery).toLocaleDateString('en-IN', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })
+                            : trackingData.order.deliveryExpectedDate
+                              ? new Date(trackingData.order.deliveryExpectedDate).toLocaleDateString('en-IN', {
                                 weekday: 'long',
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric'
                               })
-                            : trackingData.order.deliveryExpectedDate 
-                              ? new Date(trackingData.order.deliveryExpectedDate).toLocaleDateString('en-IN', {
-                                  weekday: 'long',
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })
                               : 'To be determined'
                           }
                         </span>
                         {trackingData.order.printroveEstimatedDelivery && (
-                          <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
-                            Printrove
+                          <span className="">
+                            
                           </span>
                         )}
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
-                        {trackingData.order.printroveEstimatedDelivery 
+                        {trackingData.order.printroveEstimatedDelivery
                           ? 'Based on Duco Art production and shipping schedule'
                           : 'Based on standard processing time'
                         }
@@ -462,7 +462,7 @@ export default function TrackOrder() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InfoRow label="Printrove Order ID" value={trackingData.order.printroveOrderId} />
                 <InfoRow label="Production Status" value={trackingData.order.printroveStatus || 'Processing'} />
-                
+
                 {/* Enhanced External Tracking */}
                 {trackingData.order.printroveTrackingUrl && (
                   <div className="md:col-span-2">
@@ -530,14 +530,14 @@ export default function TrackOrder() {
                   const isCompleted = event.isCompleted;
                   const isCurrent = !isCompleted && index === timeline.findIndex(e => !e.isCompleted);
                   const isDeliveryEstimate = event.type === 'estimate';
-                  
+
                   return (
                     <li
                       key={index}
                       className="relative ml-8 md:ml-10 rounded-2xl p-4"
-                      style={{ 
-                        backgroundColor: isCompleted ? "#0a1a0a" : isCurrent ? "#1a1a0a" : isDeliveryEstimate ? "#0a0a1a" : "#101010", 
-                        border: `1px solid ${isCompleted ? "#22aa22" : isCurrent ? ACCENT : isDeliveryEstimate ? "#4444ff" : `${ACCENT}22`}` 
+                      style={{
+                        backgroundColor: isCompleted ? "#0a1a0a" : isCurrent ? "#1a1a0a" : isDeliveryEstimate ? "#0a0a1a" : "#101010",
+                        border: `1px solid ${isCompleted ? "#22aa22" : isCurrent ? ACCENT : isDeliveryEstimate ? "#4444ff" : `${ACCENT}22`}`
                       }}
                     >
                       {/* node dot */}
@@ -567,7 +567,7 @@ export default function TrackOrder() {
                               )}
                             </div>
                             <p className="text-sm text-gray-300">{event.description}</p>
-                            
+
                             {/* Special tracking button for tracking events */}
                             {event.trackingUrl && (
                               <div className="mt-2">
@@ -740,10 +740,10 @@ function ProductCard({ product }) {
     return match?.url?.[0] || product.image_url?.[0]?.url?.[0] || null;
   };
 
-  const productImage = getFirstImageByColor(product) || 
-                      product.previewImages?.front || 
-                      product.image_url?.[0]?.url?.[0] || 
-                      'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik0xMDAgNzBDOTQuNDc3MiA3MCA5MCA3NC40NzcyIDkwIDgwVjEyMEM5MCA5NC40NzcyIDk0LjQ3NzIgOTAgMTAwIDkwSDEwMEMxMDUuNTIzIDkwIDExMCA5NC40NzcyIDExMCAxMjBWODBDMTEwIDc0LjQ3NzIgMTA1LjUyMyA3MCAxMDAgNzBaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMTAiIGZpbGw9IiM5Q0E0QUYiLz4KPC9zdmc+';
+  const productImage = getFirstImageByColor(product) ||
+    product.previewImages?.front ||
+    product.image_url?.[0]?.url?.[0] ||
+    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik0xMDAgNzBDOTQuNDc3MiA3MCA5MCA3NC40NzcyIDkwIDgwVjEyMEM5MCA5NC40NzcyIDk0LjQ3NzIgOTAgMTAwIDkwSDEwMEMxMDUuNTIzIDkwIDExMCA5NC40NzcyIDExMCAxMjBWODBDMTEwIDc0LjQ3NzIgMTA1LjUyMyA3MCAxMDAgNzBaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMTAiIGZpbGw9IiM5Q0E0QUYiLz4KPC9zdmc+';
 
   return (
     <div className="bg-gray-800 rounded-lg p-4 flex flex-col sm:flex-row gap-4">
@@ -764,7 +764,7 @@ function ProductCard({ product }) {
         <h4 className="text-white font-semibold text-sm md:text-base">
           {product.products_name || product.name || 'Custom Product'}
         </h4>
-        
+
         {/* Product Info Grid */}
         <div className="grid grid-cols-2 gap-2 text-xs md:text-sm">
           {product.color && (
@@ -773,7 +773,7 @@ function ProductCard({ product }) {
               <span className="text-white">{product.color}</span>
             </div>
           )}
-          
+
           {product.gender && (
             <div>
               <span className="text-gray-400">Gender: </span>
@@ -827,11 +827,11 @@ function ProductCard({ product }) {
                   <span className="text-white">"{product.design.customText}"</span>
                 </div>
               )}
-              
+
               {/* Design Images */}
               {product.previewImages && (
                 <div className="flex gap-2 mt-2">
-                  {Object.entries(product.previewImages).map(([side, imageUrl]) => 
+                  {Object.entries(product.previewImages).map(([side, imageUrl]) =>
                     imageUrl ? (
                       <div key={side} className="text-center">
                         <img
@@ -854,7 +854,7 @@ function ProductCard({ product }) {
                   <span className="text-white">
                     {[
                       product.design.front && 'Front',
-                      product.design.back && 'Back', 
+                      product.design.back && 'Back',
                       product.design.left && 'Left',
                       product.design.right && 'Right'
                     ].filter(Boolean).join(', ') || 'None'}
@@ -911,7 +911,7 @@ function TimelineIcon({ type, isCompleted }) {
 function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, walletLoading, walletBalance, syncing }) {
   const hasTrack = !!onTrack;
   const gridCols = hasTrack ? "grid-cols-4" : "grid-cols-3";
-  
+
   return (
     <div
       className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur supports-[backdrop-filter]:bg-black/50 bg-black/70"
@@ -929,7 +929,7 @@ function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, wall
         >
           Refresh
         </button>
-        
+
         <button
           onClick={onSync}
           disabled={syncing}
@@ -939,7 +939,7 @@ function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, wall
           <FaSync className={`text-xs ${syncing ? 'animate-spin' : ''}`} />
           <span>{syncing ? 'Sync...' : 'Sync'}</span>
         </button>
-        
+
         {hasTrack && (
           <button
             onClick={onTrack}
@@ -950,7 +950,7 @@ function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, wall
             <span>Track</span>
           </button>
         )}
-        
+
         <button
           onClick={onInvoice}
           className="w-full rounded-xl px-2 py-3 text-xs font-semibold transition active:scale-[0.99] focus:outline-none focus:ring-2"
@@ -958,7 +958,7 @@ function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, wall
         >
           Invoice
         </button>
-        
+
         {!hasTrack && (
           <button
             onClick={onWallet}
@@ -970,8 +970,8 @@ function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, wall
               {walletLoading
                 ? "Wallet…"
                 : walletBalance === null
-                ? "Wallet"
-                : `₹${walletBalance.toLocaleString()}`}
+                  ? "Wallet"
+                  : `₹${walletBalance.toLocaleString()}`}
             </span>
           </button>
         )}
