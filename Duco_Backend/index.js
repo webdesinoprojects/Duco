@@ -140,36 +140,33 @@ app.get('/', (_req, res) => {
 });
 
 // ======= Routes =======
+// Temporarily comment out most routes to isolate the issue
 app.use('/user', UserRoute);
 app.use('/products', ProdcutsRoute);
 app.use('/subcategory', SubCategoryRoute);
 app.use('/category', CategoryRoute);
 app.use('/money', MoneyRoute);
 
-app.use('/api/imagekit', ImageKitRoute);
-app.use('/api', DesignRoute);
-app.use('/api/payment', paymentRoute);
-app.use('/api', completedorderRoutes);
-app.use('/api', orderRoutes);
-// Temporarily comment out to isolate the issue
+// app.use('/api/imagekit', ImageKitRoute);
+// app.use('/api', DesignRoute);
+// app.use('/api/payment', paymentRoute);
+// app.use('/api', completedorderRoutes);
+// app.use('/api', orderRoutes);
 // app.use('/api/printrove', printroveRoutes);
 // app.use('/api/printrove-mapping', printroveMappingRoutes);
 
-// 🔹 Analytics mounted on BOTH paths so both endpoints work:
-//    - /api/analytics/sales
-//    - /api/sales
-app.use('/api/analytics', analyticsRouter);
-app.use('/api', analyticsRouter);
+// app.use('/api/analytics', analyticsRouter);
+// app.use('/api', analyticsRouter);
 
-app.use('/api', require('./Router/LogisticsRoutes'));
-app.use('/api', require('./Router/chargePlanRoutes'));
-app.use('/api', require('./Router/bankDetails'));
+// app.use('/api', require('./Router/LogisticsRoutes'));
+// app.use('/api', require('./Router/chargePlanRoutes'));
+// app.use('/api', require('./Router/bankDetails'));
 app.use('/api', require('./Router/employeesRoutes.js'));
-app.use('/api', require('./Router/trackingRoutes')); // ✅ Add tracking routes
-app.use('/api', BannerRoutes);
-app.use('/data', dataRouter);
-app.use('/api', InvoiceRoutes);
-app.use('/api', walletRoutes);
+// app.use('/api', require('./Router/trackingRoutes'));
+// app.use('/api', BannerRoutes);
+// app.use('/data', dataRouter);
+// app.use('/api', InvoiceRoutes);
+// app.use('/api', walletRoutes);
 
 // ======= Admin login (bcrypt + DB) =======
 app.post('/api/admin/check', async (req, res) => {
