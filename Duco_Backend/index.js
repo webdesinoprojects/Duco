@@ -167,6 +167,7 @@ app.use('/api', require('./Router/LogisticsRoutes'));
 app.use('/api', require('./Router/chargePlanRoutes'));
 app.use('/api', require('./Router/bankDetails'));
 app.use('/api', require('./Router/employeesRoutes.js'));
+app.use('/api', require('./Router/corporateSettingsRoutes'));
 app.use('/api', require('./Router/trackingRoutes'));
 app.use('/api', BannerRoutes);
 app.use('/data', dataRouter);

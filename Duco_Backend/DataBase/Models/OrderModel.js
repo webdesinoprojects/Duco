@@ -108,6 +108,8 @@ const OrderSchema = new Schema(
         'Cancelled',
         'Error',
         'success', // added lowercase success (API response)
+        'Corporate Order - No Printrove', // for corporate orders that skip Printrove
+        'N/A', // for orders that don't use Printrove
       ],
       default: 'Pending',
     },

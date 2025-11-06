@@ -1,11 +1,40 @@
 const Razorpay = require('razorpay');
 const Order = require('../DataBase/Models/OrderModel');
 const Design = require('../DataBase/Models/DesignModel');
+const CorporateSettings = require('../DataBase/Models/CorporateSettings');
 const { createInvoice } = require('./invoiceService');
 const { getOrCreateSingleton } = require('../Router/DataRoutes');
 const { createTransaction } = require('./walletController');
 const { createPrintroveOrder } = require('./printroveHelper');
 const LZString = require('lz-string'); // ✅ added for decompression
+
+// Helper function to handle corporate orders
+const handleCorporateOrder = async (order) => {
+  console.log('🏢 Corporate order detected');
+  
+  // Get corporate settings to check if Printrove integration is enabled
+  const corporateSettings = await CorporateSettings.getSingletonSettings();
+  
+  if (corporateSettings.enablePrintroveIntegration) {
+    console.log('🏢 Corporate order - Printrove integration enabled, processing...');
+    try {
+      const printData = await createPrintroveOrder(order);
+      if (printData?.order?.id) {
+        order.printroveOrderId = printData.order.id;
+        order.printroveStatus = 'Processing';
+        console.log('✅ Corporate order sent to Printrove:', printData.order.id);
+      }
+    } catch (printError) {
+      console.error('❌ Corporate Printrove integration failed:', printError);
+      order.printroveStatus = 'Error';
+    }
+  } else {
+    console.log('🏢 Corporate order - Printrove integration disabled, processing manually');
+    order.printroveStatus = 'Corporate Order - No Printrove';
+  }
+  
+  await order.save();
+};
 
 // --- Razorpay client ---
 const razorpay = new Razorpay({
@@ -300,9 +329,7 @@ const completeOrder = async (req, res) => {
           await order.save();
         }
       } else if (isCorporateOrder) {
-        console.log('🏢 Corporate order - skipping Printrove integration');
-        order.printroveStatus = 'Corporate Order - No Printrove';
-        await order.save();
+        await handleCorporateOrder(order);
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
@@ -387,9 +414,7 @@ const completeOrder = async (req, res) => {
           await order.save();
         }
       } else if (isCorporateOrder) {
-        console.log('🏢 Corporate order - skipping Printrove integration');
-        order.printroveStatus = 'Corporate Order - No Printrove';
-        await order.save();
+        await handleCorporateOrder(order);
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
@@ -501,9 +526,7 @@ const completeOrder = async (req, res) => {
           await order.save();
         }
       } else if (isCorporateOrder) {
-        console.log('🏢 Corporate order - skipping Printrove integration');
-        order.printroveStatus = 'Corporate Order - No Printrove';
-        await order.save();
+        await handleCorporateOrder(order);
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }
@@ -623,9 +646,7 @@ const completeOrder = async (req, res) => {
           await order.save();
         }
       } else if (isCorporateOrder) {
-        console.log('🏢 Corporate order - skipping Printrove integration');
-        order.printroveStatus = 'Corporate Order - No Printrove';
-        await order.save();
+        await handleCorporateOrder(order);
       } else {
         console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
       }

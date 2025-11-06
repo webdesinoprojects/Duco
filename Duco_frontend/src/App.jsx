@@ -51,6 +51,7 @@ import EmployessLayout from "./Admin/EmployessLayout.jsx";
 import EmployeesAccManager from "./Admin/EmployeesAccManager.jsx";
 import EmployeeLogin from "./Admin/Components/EmployeeLogin.jsx";
 import EmployeePrivateRoute from "./Admin/Components/EmployeePrivateRoute.jsx";
+import CorporateSettings from "./Admin/CorporateSettings.jsx";
 
 import Invoice from "./Admin/Invoice.jsx";
 import InvoiceSet from "./Pages/InvoiceSet.jsx";
@@ -173,6 +174,7 @@ const App = () => {
             <Route path="charges" element={<ChargePlanManager />} />
             <Route path="bankdetails" element={<BankDetailsManager />} />
             <Route path="employees" element={<EmployeesAccManager />} />
+            <Route path="corporate-settings" element={<CorporateSettings />} />
             <Route path="tracking" element={<TrackingManager />} />
             <Route path="invoice" element={<Invoice />} />
           </Route>
