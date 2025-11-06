@@ -181,6 +181,14 @@ const InvoiceDucoTailwind = ({ data }) => {
         Subtotal: {data.formatCurrency(data.subtotal)}
       </h2>
 
+      <h2 style={{ textAlign: "right", marginTop: "5px" }}>
+        P&F Charges: {data.formatCurrency(data.pfCost || 0)}
+      </h2>
+
+      <h2 style={{ textAlign: "right", marginTop: "5px" }}>
+        Printing Charges: {data.formatCurrency(data.printingCost || 0)}
+      </h2>
+
       {data.locationTax?.percentage > 0 && (
         <h2 style={{ textAlign: "right", marginTop: "5px" }}>
           Location Adjustment ({data.locationTax.country}){" "}
@@ -192,18 +200,30 @@ const InvoiceDucoTailwind = ({ data }) => {
       )}
 
       {/* ✅ GST Breakdown */}
-      <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-        CGST ({(data.gstPercent / 2).toFixed(1)}%):{" "}
-        {data.formatCurrency((data.subtotal * (data.gstPercent / 100)) / 2)}
-      </h2>
-      <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-        SGST ({(data.gstPercent / 2).toFixed(1)}%):{" "}
-        {data.formatCurrency((data.subtotal * (data.gstPercent / 100)) / 2)}
-      </h2>
-      <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-        Total GST ({data.gstPercent}%):{" "}
-        {data.formatCurrency(data.subtotal * (data.gstPercent / 100))}
-      </h2>
+      {(() => {
+        const gstRate = data.gstPercent || 5;
+        const taxableAmount = data.subtotal + (data.printingCost || 0) + (data.pfCost || 0);
+        const totalGstAmount = (taxableAmount * gstRate) / 100;
+        const cgstAmount = totalGstAmount / 2;
+        const sgstAmount = totalGstAmount / 2;
+        
+        return (
+          <>
+            <h2 style={{ textAlign: "right", marginTop: "5px" }}>
+              CGST ({(gstRate / 2).toFixed(1)}%):{" "}
+              {data.formatCurrency(cgstAmount)}
+            </h2>
+            <h2 style={{ textAlign: "right", marginTop: "5px" }}>
+              SGST ({(gstRate / 2).toFixed(1)}%):{" "}
+              {data.formatCurrency(sgstAmount)}
+            </h2>
+            <h2 style={{ textAlign: "right", marginTop: "5px" }}>
+              Total GST ({gstRate}%):{" "}
+              {data.formatCurrency(totalGstAmount)}
+            </h2>
+          </>
+        );
+      })()}
 
       <h2 style={{ textAlign: "right", marginTop: "5px" }}>
         Grand Total: {data.formatCurrency(data.total)}
@@ -409,6 +429,7 @@ const Cart = () => {
         if (res?.success && res?.data) {
           setPfPerUnit(safeNum(res.data?.perUnit?.pakageingandforwarding, 0));
           setPrintPerUnit(safeNum(res.data?.perUnit?.printingcost, 0));
+          console.log('🔍 API Response for GST:', res?.data?.gstPercent);
           setGstPercent(safeNum(res?.data?.gstPercent, 5));
           setPfFlat(0);
           setPrintingPerSide(0);
@@ -423,11 +444,13 @@ const Cart = () => {
             safeNum(slab?.printingPerSide ?? slab?.printingPerUnit, 0)
           );
           setPrintPerUnit(0);
+          console.log('🔍 Fallback GST Rate:', res.gstRate);
           setGstPercent(safeNum((res.gstRate ?? 0.05) * 100, 5));
           return;
         }
       } catch {
         console.warn("Could not fetch charge plan; using defaults");
+        console.log('🔍 Using default GST: 5%');
         setGstPercent(5);
       } finally {
         setLoadingRates(false);
@@ -674,6 +697,7 @@ const Cart = () => {
           background: "#fff",
         }}
       >
+        {console.log('🔍 Final GST Percent being passed to invoice:', gstPercent)}
         <InvoiceDucoTailwind
           data={{
             company: {
@@ -714,6 +738,8 @@ const Cart = () => {
             subtotal: itemsSubtotal,
             total: grandTotal,
             gstPercent,
+            printingCost,
+            pfCost,
             locationTax: {
               country: resolvedLocation,
               percentage: priceIncrease || 0,
