@@ -16,10 +16,13 @@ const OrderBulk = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [minOrderQty, setMinOrderQty] = useState(50);
+  const [showSettings, setShowSettings] = useState(false);
+  const [corporateMinQty, setCorporateMinQty] = useState(100);
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("https://duco-67o5.onrender.com/api/order?limit=100"); // Get more orders for bulk analysis
+      const res = await fetch("http://localhost:3000/api/order?limit=100"); // Get more orders for bulk analysis
       const data = await res.json();
       
       // Handle both old format (array) and new paginated format (object with orders array)
@@ -43,21 +46,83 @@ const OrderBulk = () => {
   }, []);
 
 const bulkOrders = useMemo(() => {
-  return (orders ?? []).filter(order =>
-    (order.products ?? []).some(prod =>
-      Object.values(prod?.quantity ?? {}).some(qty => Number(qty) > 50)
-    )
-  );
-}, [orders]);
+  return (orders ?? []).filter(order => {
+    const isCorporate = order.orderType === 'B2B';
+    const threshold = isCorporate ? corporateMinQty : minOrderQty;
+    
+    return (order.products ?? []).some(prod =>
+      Object.values(prod?.quantity ?? {}).some(qty => Number(qty) >= threshold)
+    );
+  });
+}, [orders, minOrderQty, corporateMinQty]);
 
 
   
   console.log(bulkOrders);
   if (loading) return <div className="text-center p-4">Loading orders...</div>;
 
+  const saveSettings = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/api/bulk-order-settings", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          minOrderQty,
+          corporateMinQty
+        }),
+      });
+      
+      if (response.ok) {
+        alert('Settings saved successfully!');
+        setShowSettings(false);
+      } else {
+        alert('Failed to save settings');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Error saving settings');
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/api/bulk-order-settings");
+      if (response.ok) {
+        const settings = await response.json();
+        setMinOrderQty(settings.minOrderQty || 50);
+        setCorporateMinQty(settings.corporateMinQty || 100);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
   return (
     <div className="p-4">
-      <h2 className="text-lg font-bold mb-4">All Orders Bulk orders</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-bold">Bulk Orders Management</h2>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          ⚙️ Settings
+        </button>
+      </div>
+
+      <div className="mb-4 p-3 bg-gray-100 rounded-lg">
+        <p className="text-sm text-gray-600">
+          Current thresholds: Regular orders ≥ {minOrderQty} units, Corporate orders ≥ {corporateMinQty} units
+        </p>
+        <p className="text-sm text-gray-500 mt-1">
+          Showing {bulkOrders.length} bulk orders out of {orders.length} total orders
+        </p>
+      </div>
 
       {bulkOrders.length === 0 ? (
         <p>No orders found.</p>
@@ -98,6 +163,22 @@ const bulkOrders = useMemo(() => {
                       ? `${order.address.fullName} • ${order.address.city || ""}`
                       : "No address"}
                   </p>
+
+                  {/* Order Type and Quantity Info */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      order.orderType === 'B2B' 
+                        ? 'bg-purple-100 text-purple-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {order.orderType === 'B2B' ? '🏢 Corporate' : '👤 Retail'}
+                    </span>
+                    <span className="text-xs text-gray-600">
+                      Total Qty: {(order.products ?? []).reduce((total, prod) => 
+                        total + Object.values(prod?.quantity ?? {}).reduce((sum, qty) => sum + Number(qty), 0), 0
+                      )}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Right: Price + Actions */}
@@ -137,6 +218,68 @@ const bulkOrders = useMemo(() => {
             </div>
             <div className="p-4">
               <OrderDetailsCard orderId={selectedOrderId} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowSettings(false)}
+          />
+          <div className="relative bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Bulk Order Settings</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Minimum Order Quantity (Regular)
+                </label>
+                <input
+                  type="number"
+                  value={minOrderQty}
+                  onChange={(e) => setMinOrderQty(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Orders with quantities equal or above this will be considered bulk orders
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Minimum Order Quantity (Corporate)
+                </label>
+                <input
+                  type="number"
+                  value={corporateMinQty}
+                  onChange={(e) => setCorporateMinQty(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Corporate orders with quantities equal or above this will be considered bulk orders
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveSettings}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Save Settings
+              </button>
             </div>
           </div>
         </div>

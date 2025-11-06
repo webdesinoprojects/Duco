@@ -65,7 +65,15 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      {/* Fixed Logout Button - Top Right */}
+      <button
+        onClick={handleLogout}
+        className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-red-600 font-medium text-white hover:bg-red-700 transition shadow-lg"
+      >
+        🚪 Logout
+      </button>
+
       {/* Sidebar */}
       <aside className="w-64 bg-gray-800 text-white p-5 flex flex-col shadow-xl">
         <h2 className="text-2xl font-bold mb-6">Admin Panel</h2>
@@ -122,18 +130,10 @@ const AdminLayout = () => {
             🖨️ Printrove Dashboard
           </button>
         </nav>
-
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="mt-4 w-full rounded-lg bg-red-600 py-2 font-medium text-white hover:bg-red-700 transition"
-        >
-          Logout
-        </button>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 bg-gray-50 p-6 overflow-y-auto">
+      <main className="flex-1 bg-gray-50 p-6 overflow-y-auto pt-16">
         <Outlet />
       </main>
 

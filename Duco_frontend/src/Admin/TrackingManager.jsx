@@ -35,7 +35,7 @@ const TrackingManager = () => {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://duco-67o5.onrender.com/api/admin/orders?limit=100');
+      const response = await fetch('http://localhost:3000/api/admin/orders?limit=100');
       const data = await response.json();
       
       // Handle both old format and new paginated format

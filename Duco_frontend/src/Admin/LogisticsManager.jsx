@@ -37,6 +37,10 @@ const Button = ({ children, variant = "primary", ...props }) => {
   const styles =
     variant === "primary"
       ? "bg-indigo-600 text-white hover:bg-indigo-700"
+      : variant === "secondary"
+      ? "bg-green-600 text-white hover:bg-green-700"
+      : variant === "warning"
+      ? "bg-orange-600 text-white hover:bg-orange-700"
       : variant === "ghost"
       ? "bg-transparent text-gray-700 hover:bg-gray-100 border border-gray-300"
       : "bg-gray-200 text-gray-900";
@@ -199,6 +203,8 @@ export default function LogisticsManager() {
     shippingAddress: "",
     note: "",
     img: [{ URL: "" }],
+    speedLogistics: false,
+    labelGenerated: false,
   });
 
   // UPDATE
@@ -212,6 +218,8 @@ export default function LogisticsManager() {
     shippingAddress: "",
     note: "",
     img: [{ URL: "" }],
+    speedLogistics: false,
+    labelGenerated: false,
   });
   const [loadingLookup, setLoadingLookup] = useState(false);
 
@@ -279,6 +287,8 @@ export default function LogisticsManager() {
         estimatedDelivery: createForm.estimatedDelivery || undefined,
         shippingAddress: createForm.shippingAddress,
         note: createForm.note || undefined,
+        speedLogistics: createForm.speedLogistics,
+        labelGenerated: createForm.labelGenerated,
         img:
           createForm.img?.filter((i) => i.URL?.trim())?.map(({ URL }) => ({ URL })) ??
           [],
@@ -295,6 +305,8 @@ export default function LogisticsManager() {
         estimatedDelivery: "",
         shippingAddress: "",
         note: "",
+        speedLogistics: false,
+        labelGenerated: false,
         img: [{ URL: "" }],
       }));
       if (tab === "browse" && selectedOrderForBrowse === payload.orderId) {
@@ -333,6 +345,8 @@ export default function LogisticsManager() {
           : "",
         shippingAddress: doc.shippingAddress ?? "",
         note: doc.note ?? "",
+        speedLogistics: doc.speedLogistics ?? false,
+        labelGenerated: doc.labelGenerated ?? false,
         img: (doc.img && doc.img.length ? doc.img : [{ URL: "" }]).map((i) => ({
           URL: typeof i === "string" ? i : (i?.URL || ""),
         })),
@@ -359,6 +373,8 @@ export default function LogisticsManager() {
         estimatedDelivery: updateForm.estimatedDelivery || undefined,
         shippingAddress: updateForm.shippingAddress || undefined,
         note: updateForm.note || undefined,
+        speedLogistics: updateForm.speedLogistics,
+        labelGenerated: updateForm.labelGenerated,
         img:
           updateForm.img?.filter((i) => i.URL?.trim())?.map(({ URL }) => ({ URL })) ??
           [],
@@ -397,6 +413,65 @@ export default function LogisticsManager() {
       setLogisticsForOrder([]);
     } finally {
       setBrowseLoading(false);
+    }
+  };
+
+  // ------- Label Generation -------
+  const generateLabel = async (logisticId, format = 'pdf') => {
+    try {
+      const response = await fetch(`/api/logistics/${logisticId}/label?format=${format}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate label');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shipping-label-${logisticId}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setToast({ type: "success", msg: `Label generated and downloaded as ${format.toUpperCase()}` });
+    } catch (error) {
+      setToast({ type: "error", msg: `Failed to generate label: ${error.message}` });
+    }
+  };
+
+  // ------- Speed Logistics Toggle -------
+  const toggleSpeedLogistics = async (logisticId, currentStatus) => {
+    try {
+      const response = await fetch(`/api/logistics/${logisticId}/speed`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ speedLogistics: !currentStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update speed logistics');
+      }
+
+      setToast({ 
+        type: "success", 
+        msg: `Speed logistics ${!currentStatus ? 'enabled' : 'disabled'}` 
+      });
+      
+      // Refresh the browse data if we're viewing logistics
+      if (tab === "browse" && selectedOrderForBrowse) {
+        await triggerBrowse();
+      }
+    } catch (error) {
+      setToast({ type: "error", msg: `Failed to update speed logistics: ${error.message}` });
     }
   };
 
@@ -495,6 +570,42 @@ export default function LogisticsManager() {
               placeholder="Any special instructions..."
             />
           </Field>
+
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Speed Logistics">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="speedLogistics"
+                  checked={createForm.speedLogistics}
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, speedLogistics: e.target.checked }))
+                  }
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="speedLogistics" className="text-sm text-gray-700">
+                  Enable speed logistics for faster delivery
+                </label>
+              </div>
+            </Field>
+
+            <Field label="Label Status">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="labelGenerated"
+                  checked={createForm.labelGenerated}
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, labelGenerated: e.target.checked }))
+                  }
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="labelGenerated" className="text-sm text-gray-700">
+                  Label already generated
+                </label>
+              </div>
+            </Field>
+          </div>
 
           <div className="md:col-span-2">
             <div className="flex items-center justify-between">
@@ -603,6 +714,42 @@ export default function LogisticsManager() {
               />
             </Field>
 
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Speed Logistics">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="updateSpeedLogistics"
+                    checked={updateForm.speedLogistics}
+                    onChange={(e) =>
+                      setUpdateForm((f) => ({ ...f, speedLogistics: e.target.checked }))
+                    }
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <label htmlFor="updateSpeedLogistics" className="text-sm text-gray-700">
+                    Enable speed logistics for faster delivery
+                  </label>
+                </div>
+              </Field>
+
+              <Field label="Label Status">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="updateLabelGenerated"
+                    checked={updateForm.labelGenerated}
+                    onChange={(e) =>
+                      setUpdateForm((f) => ({ ...f, labelGenerated: e.target.checked }))
+                    }
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <label htmlFor="updateLabelGenerated" className="text-sm text-gray-700">
+                    Label already generated
+                  </label>
+                </div>
+              </Field>
+            </div>
+
             <div className="md:col-span-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700">Images</span>
@@ -669,17 +816,18 @@ export default function LogisticsManager() {
                   <th className="px-4 py-3 text-left">Tracking #</th>
                   <th className="px-4 py-3 text-left">Carrier</th>
                   <th className="px-4 py-3 text-left">Est. Delivery</th>
+                  <th className="px-4 py-3 text-left">Speed/Label</th>
                   <th className="px-4 py-3 text-left">Shipping Address</th>
                   <th className="px-4 py-3 text-left">Note</th>
                   <th className="px-4 py-3 text-left">Images</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
                   <th className="px-4 py-3 text-left">Created</th>
-                  <th className="px-4 py-3 text-left">Updated</th>
                 </tr>
               </thead>
               <tbody>
                 {logisticsForOrder.length === 0 && !browseLoading && (
                   <tr>
-                    <td colSpan="10" className="px-4 py-6 text-center text-gray-500">
+                    <td colSpan="11" className="px-4 py-6 text-center text-gray-500">
                       {selectedOrderForBrowse ? "No logistics for this order yet." : "Select an order and click Fetch Logistics."}
                     </td>
                   </tr>
@@ -717,6 +865,28 @@ export default function LogisticsManager() {
                           ? new Date(l.estimatedDelivery).toLocaleDateString()
                           : "-"}
                       </td>
+                      <td className="px-4 py-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              l.speedLogistics 
+                                ? "bg-green-100 text-green-800" 
+                                : "bg-gray-100 text-gray-800"
+                            }`}>
+                              {l.speedLogistics ? "⚡ Speed" : "📦 Normal"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              l.labelGenerated 
+                                ? "bg-blue-100 text-blue-800" 
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}>
+                              {l.labelGenerated ? "🏷️ Generated" : "⏳ Pending"}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 max-w-[260px]">
                         <div className="line-clamp-3" title={l.shippingAddress || ""}>
                           {l.shippingAddress || "-"}
@@ -752,8 +922,37 @@ export default function LogisticsManager() {
                           })}
                         </div>
                       </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="secondary"
+                              className="text-xs px-2 py-1"
+                              onClick={() => generateLabel(l._id, 'pdf')}
+                              title="Generate PDF Label"
+                            >
+                              📄 PDF
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              className="text-xs px-2 py-1"
+                              onClick={() => generateLabel(l._id, 'jpg')}
+                              title="Generate JPG Label"
+                            >
+                              🖼️ JPG
+                            </Button>
+                          </div>
+                          <Button
+                            variant={l.speedLogistics ? "warning" : "secondary"}
+                            className="text-xs px-2 py-1"
+                            onClick={() => toggleSpeedLogistics(l._id, l.speedLogistics)}
+                            title={l.speedLogistics ? "Disable Speed Logistics" : "Enable Speed Logistics"}
+                          >
+                            {l.speedLogistics ? "⚡ Disable" : "🚀 Enable"}
+                          </Button>
+                        </div>
+                      </td>
                       <td className="px-4 py-3">{l.createdAt ? new Date(l.createdAt).toLocaleString() : "-"}</td>
-                      <td className="px-4 py-3">{l.updatedAt ? new Date(l.updatedAt).toLocaleString() : "-"}</td>
                     </tr>
                   );
                 })}

@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const API_BASE = import.meta?.env?.VITE_API_BASE_URL
   ? `${import.meta.env.VITE_API_BASE_URL}/api`
-  : (import.meta.env.DEV ? "https://duco-67o5.onrender.com/api" : "https://duco-67o5.onrender.com/api");
+  : (import.meta.env.DEV ? "http://localhost:3000/api" : "http://localhost:3000/api");
 
 /** Build querystring for GET /employeesacc?url=&employeeid= */
 const getEmployeesAcc = async (params = {}) => {
@@ -366,7 +366,7 @@ Instructions:
             </Field>
 
             <Field label="Role">
-              <input
+              <select
                 value={form.employeesdetails.role}
                 onChange={(e) =>
                   setForm((s) => ({
@@ -375,8 +375,17 @@ Instructions:
                   }))
                 }
                 className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 outline-none"
-                placeholder="Manager"
-              />
+              >
+                <option value="">Select Role</option>
+                <option value="Admin">Admin</option>
+                <option value="Manager">Manager</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Executive">Executive</option>
+                <option value="Assistant">Assistant</option>
+                <option value="Intern">Intern</option>
+                <option value="Consultant">Consultant</option>
+                <option value="Specialist">Specialist</option>
+              </select>
             </Field>
 
             <div className="md:col-span-2">
@@ -518,7 +527,7 @@ Instructions:
                   />
                 </Field>
                 <Field label="Role">
-                  <input
+                  <select
                     value={edit.employeesdetails.role}
                     onChange={(e) =>
                       setEdit((s) => ({
@@ -527,7 +536,17 @@ Instructions:
                       }))
                     }
                     className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 outline-none"
-                  />
+                  >
+                    <option value="">Select Role</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Supervisor">Supervisor</option>
+                    <option value="Executive">Executive</option>
+                    <option value="Assistant">Assistant</option>
+                    <option value="Intern">Intern</option>
+                    <option value="Consultant">Consultant</option>
+                    <option value="Specialist">Specialist</option>
+                  </select>
                 </Field>
                 <div className="md:col-span-2">
                   <Field label="Note">

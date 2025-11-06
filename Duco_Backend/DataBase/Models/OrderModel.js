@@ -124,7 +124,10 @@ const OrderSchema = new Schema(
     // ----------------------------------------------------
 
     pf: { type: Number, default: 0 },
-    gst: { type: Number, default: 0 },
+    gst: { type: Number, default: 0 }, // Keep for backward compatibility
+    cgst: { type: Number, default: 0 },
+    sgst: { type: Number, default: 0 },
+    igst: { type: Number, default: 0 },
     printing: { type: Number, default: 0 },
   },
   { timestamps: true }
@@ -141,20 +144,23 @@ OrderSchema.pre('save', async function (next) {
     try {
       const today = new Date();
       const yyyy = today.getFullYear();
+      const yy = String(yyyy).slice(-2); // Last 2 digits of year
+      const nextYearYy = String(yyyy + 1).slice(-2); // Next year's last 2 digits
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const dd = String(today.getDate()).padStart(2, '0');
-      const datePrefix = `${yyyy}${mm}${dd}`;
 
-      // Use a more robust counting method with timestamp to avoid race conditions
-      const timestamp = Date.now();
-      const randomSuffix = Math.floor(Math.random() * 1000)
-        .toString()
-        .padStart(3, '0');
+      // Generate sequential number for the day
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      
+      const todayOrderCount = await mongoose.model('Order').countDocuments({
+        createdAt: { $gte: startOfDay, $lt: endOfDay }
+      });
+      
+      const sequentialNumber = String(todayOrderCount + 1).padStart(2, '0');
 
-      // Try to find a unique orderId
-      let orderId = `ORD-${datePrefix}-${String(timestamp).slice(
-        -4
-      )}-${randomSuffix}`;
+      // Format: ducoart2025/26/01 (ducoart + current_year + next_year + sequential_number)
+      let orderId = `ducoart${yyyy}/${yy}/${sequentialNumber}`;
 
       // Check if this orderId already exists
       const existingOrder = await mongoose.model('Order').findOne({ orderId });
@@ -165,18 +171,10 @@ OrderSchema.pre('save', async function (next) {
 
       attempts++;
 
-      // If we've tried too many times, use a fallback with UUID
+      // If we've tried too many times, add timestamp suffix
       if (attempts >= maxAttempts) {
-        try {
-          const { v4: uuidv4 } = require('uuid');
-          this.orderId = `ORD-${datePrefix}-${uuidv4()
-            .substring(0, 8)
-            .toUpperCase()}`;
-        } catch (uuidError) {
-          // Fallback if UUID is not available
-          console.warn('UUID not available, using timestamp fallback');
-          this.orderId = `ORD-${datePrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        }
+        const timestamp = Date.now().toString().slice(-4);
+        this.orderId = `ducoart${yyyy}/${yy}/${sequentialNumber}-${timestamp}`;
         return next();
       }
 
@@ -190,9 +188,9 @@ OrderSchema.pre('save', async function (next) {
         // Final fallback
         const today = new Date();
         const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        this.orderId = `ORD-${yyyy}${mm}${dd}-${Date.now()}`;
+        const yy = String(yyyy).slice(-2);
+        const timestamp = Date.now().toString().slice(-6);
+        this.orderId = `ducoart${yyyy}/${yy}/${timestamp}`;
         return next();
       }
     }
