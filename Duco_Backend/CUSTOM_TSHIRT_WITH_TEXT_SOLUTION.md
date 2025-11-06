@@ -210,7 +210,7 @@ Your custom t-shirt design functionality with text addition is now completely wo
    ```
 
 2. **Test the design flow**:
-   - Go to: `http://localhost:3000/design/[product-id]/[color]`
+   - Go to: `https://duco-67o5.onrender.com/design/[product-id]/[color]`
    - Add custom text with different sizes, colors, fonts
    - Upload custom images
    - Preview your design

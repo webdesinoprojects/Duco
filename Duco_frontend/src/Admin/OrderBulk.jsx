@@ -22,7 +22,7 @@ const OrderBulk = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/order?limit=100"); // Get more orders for bulk analysis
+      const res = await fetch("https://duco-67o5.onrender.com/api/order?limit=100"); // Get more orders for bulk analysis
       const data = await res.json();
       
       // Handle both old format (array) and new paginated format (object with orders array)
@@ -63,7 +63,7 @@ const bulkOrders = useMemo(() => {
 
   const saveSettings = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/bulk-order-settings", {
+      const response = await fetch("https://duco-67o5.onrender.com/api/bulk-order-settings", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,7 +88,7 @@ const bulkOrders = useMemo(() => {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/bulk-order-settings");
+      const response = await fetch("https://duco-67o5.onrender.com/api/bulk-order-settings");
       if (response.ok) {
         const settings = await response.json();
         setMinOrderQty(settings.minOrderQty || 50);
