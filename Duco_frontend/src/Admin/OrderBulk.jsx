@@ -71,17 +71,29 @@ const OrderBulk = () => {
   }, []);
 
   const bulkOrders = useMemo(() => {
-    return (orders ?? []).filter(order => {
+    console.log('📊 Filtering bulk orders from', orders.length, 'total orders');
+    console.log('📊 Thresholds - Retail:', minOrderQty, 'Corporate:', corporateMinQty);
+    
+    const filtered = (orders ?? []).filter(order => {
       const isCorporate = order.orderType === 'B2B';
       const threshold = isCorporate ? corporateMinQty : minOrderQty;
       
-      return (order.products ?? []).some(prod =>
-        Object.values(prod?.quantity ?? {}).some(qty => Number(qty) >= threshold)
-      );
+      // Check if any product has quantity >= threshold
+      const hasBulkQuantity = (order.products ?? []).some(prod => {
+        const quantities = Object.values(prod?.quantity ?? {});
+        const totalQty = quantities.reduce((sum, qty) => sum + Number(qty || 0), 0);
+        
+        console.log(`  Order ${order.orderId || order._id}: Type=${order.orderType}, Total Qty=${totalQty}, Threshold=${threshold}`);
+        
+        return totalQty >= threshold;
+      });
+      
+      return hasBulkQuantity;
     });
+    
+    console.log('✅ Found', filtered.length, 'bulk orders');
+    return filtered;
   }, [orders, minOrderQty, corporateMinQty]);
-
-  console.log(bulkOrders);
   
   if (loading) return <div className="text-center p-4">Loading orders...</div>;
 
@@ -137,7 +149,25 @@ const OrderBulk = () => {
       </div>
 
       {bulkOrders.length === 0 ? (
-        <p>No orders found.</p>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+          <p className="text-lg font-semibold text-gray-700 mb-2">No Bulk Orders Found</p>
+          <p className="text-sm text-gray-600 mb-4">
+            No orders meet the current quantity thresholds:
+          </p>
+          <ul className="text-sm text-gray-600 mb-4">
+            <li>• Regular orders: ≥ {minOrderQty} units per product</li>
+            <li>• Corporate (B2B) orders: ≥ {corporateMinQty} units per product</li>
+          </ul>
+          <p className="text-xs text-gray-500">
+            Total orders in system: {orders.length}
+          </p>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+          >
+            Adjust Thresholds
+          </button>
+        </div>
       ) : (
         <div className="space-y-4">
           {bulkOrders.map((order) => {
