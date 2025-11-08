@@ -47,29 +47,44 @@ const OrderBulk = () => {
     }
   };
 
+  const loadSettings = async () => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await fetch(`${API_BASE}/api/bulk-order-settings`);
+      if (response.ok) {
+        const settings = await response.json();
+        setMinOrderQty(settings.minOrderQty || 50);
+        setCorporateMinQty(settings.corporateMinQty || 100);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
+    loadSettings();
   }, []);
 
-const bulkOrders = useMemo(() => {
-  return (orders ?? []).filter(order => {
-    const isCorporate = order.orderType === 'B2B';
-    const threshold = isCorporate ? corporateMinQty : minOrderQty;
-    
-    return (order.products ?? []).some(prod =>
-      Object.values(prod?.quantity ?? {}).some(qty => Number(qty) >= threshold)
-    );
-  });
-}, [orders, minOrderQty, corporateMinQty]);
+  const bulkOrders = useMemo(() => {
+    return (orders ?? []).filter(order => {
+      const isCorporate = order.orderType === 'B2B';
+      const threshold = isCorporate ? corporateMinQty : minOrderQty;
+      
+      return (order.products ?? []).some(prod =>
+        Object.values(prod?.quantity ?? {}).some(qty => Number(qty) >= threshold)
+      );
+    });
+  }, [orders, minOrderQty, corporateMinQty]);
 
-
-  
   console.log(bulkOrders);
+  
   if (loading) return <div className="text-center p-4">Loading orders...</div>;
 
   const saveSettings = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/bulk-order-settings", {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await fetch(`${API_BASE}/api/bulk-order-settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,23 +106,6 @@ const bulkOrders = useMemo(() => {
       alert('Error saving settings');
     }
   };
-
-  const loadSettings = async () => {
-    try {
-      const response = await fetch("http://localhost:3000/api/bulk-order-settings");
-      if (response.ok) {
-        const settings = await response.json();
-        setMinOrderQty(settings.minOrderQty || 50);
-        setCorporateMinQty(settings.corporateMinQty || 100);
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadSettings();
-  }, []);
 
   return (
     <div className="p-4">
