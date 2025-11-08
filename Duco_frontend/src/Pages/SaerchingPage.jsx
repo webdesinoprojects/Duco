@@ -97,7 +97,7 @@ const SaerchingPage = () => {
           {/* Product grid */}
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {prodcuts?.map((item) => (
-              <Link to={`/products/${item._id}`} key={item} className="border rounded-xl overflow-hidden shadow-sm hover:shadow-md">
+              <Link to={`/products/${item._id}`} key={item._id} className="border rounded-xl overflow-hidden shadow-sm hover:shadow-md">
                 <div className="relative p-3">
                   <img
                     src={item.image_url[0]?.url[0]}

@@ -1121,7 +1121,7 @@ const TshirtDesigner = () => {
         }}
       >
         <img
-          src={sideimage[getViewIndex(view)] || menstshirt}
+          src={sideimage[getViewIndex(view)] && sideimage[getViewIndex(view)] !== '' ? sideimage[getViewIndex(view)] : menstshirt}
           alt={`${view} T-shirt`}
           className={`absolute inset-0 w-full h-full object-contain pointer-events-none z-0 ${view === 'back' ? 'scale-x-[-1]' : // Flip horizontally for back view
               view === 'left' ? 'rotate-[-10deg]' : // Slight rotation for left view

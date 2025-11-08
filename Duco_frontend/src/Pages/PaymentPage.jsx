@@ -117,11 +117,57 @@ const PaymentPage = () => {
     setPickupPhone(onlyDigits(phoneGuess).slice(-10));
   }, [orderpayload?.user, orderpayload?.address]);
 
-  // Determine if B2B
+  // Determine if B2B (Corporate/Bulk Order)
+  const [minOrderQty, setMinOrderQty] = useState(100);
+  
+  // Load minimum order quantity from corporate settings
+  useEffect(() => {
+    const loadMinQty = async () => {
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const response = await fetch(`${API_BASE}/api/corporate-settings`);
+        if (response.ok) {
+          const result = await response.json();
+          const settings = result.data || result;
+          setMinOrderQty(settings.minOrderQuantity || 100);
+        }
+      } catch (error) {
+        console.log('Using default minimum order quantity (100)');
+      }
+    };
+    loadMinQty();
+  }, []);
+
   const isB2B = useMemo(() => {
     const items = orderpayload?.items ?? cart ?? [];
-    return items.some((item) => item?.isCorporate === true);
-  }, [orderpayload, cart]);
+    
+    // Check if any item is marked as corporate
+    const hasCorporateFlag = items.some((item) => item?.isCorporate === true);
+    
+    // Check if any item has bulk quantity (>= minimum order quantity)
+    const itemsWithQuantity = items.map((item) => {
+      const quantities = Object.values(item?.quantity ?? {});
+      const totalQty = quantities.reduce((sum, qty) => sum + Number(qty || 0), 0);
+      return {
+        name: item?.products_name || item?.name || 'Unknown',
+        totalQty,
+        isBulk: totalQty >= minOrderQty,
+        quantities: item?.quantity
+      };
+    });
+    
+    const hasBulkQuantity = itemsWithQuantity.some(item => item.isBulk);
+    
+    console.log('🔍 Payment Page - Order Type Detection:', {
+      minOrderQty,
+      hasCorporateFlag,
+      hasBulkQuantity,
+      itemsBreakdown: itemsWithQuantity,
+      finalIsB2B: hasCorporateFlag || hasBulkQuantity
+    });
+    
+    return hasCorporateFlag || hasBulkQuantity;
+  }, [orderpayload, cart, minOrderQty]);
 
   // Dynamic payment options
   const paymentOptions = useMemo(() => {
@@ -702,8 +748,14 @@ const PaymentPage = () => {
 
         {/* Debug Info */}
         <div className="mt-8 p-3 bg-gray-50 border rounded text-sm text-gray-700">
-          <div>Order Type: {isB2B ? "Corporate (B2B)" : "Retail (B2C)"}</div>
-          <div>Available Options: {paymentOptions.join(", ")}</div>
+          <div>Order Type: {isB2B ? "Corporate/Bulk Order (B2B)" : "Retail (B2C)"}</div>
+          <div>Minimum Order Quantity: {minOrderQty} units</div>
+          <div>Available Payment Options: {paymentOptions.join(", ")}</div>
+          {isB2B && (
+            <div className="mt-2 text-xs text-green-700">
+              ✅ Bulk order detected - Additional payment methods available
+            </div>
+          )}
         </div>
 
         {/* 🪟 Netbanking Confirmation Modal */}

@@ -383,6 +383,9 @@ const ProductPage = () => {
                     colortext,
                     price: Math.round(price),
                     gender,
+                    isCorporate: product?.isCorporate || false, // From database
+                    isBulkProduct: product?.isCorporate || false, // Flag for bulk items
+                    category: product?.category || null, // Include category for validation
                   });
                   setShowModal(false);
                   navigate("/cart");

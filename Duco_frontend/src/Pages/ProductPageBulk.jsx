@@ -43,7 +43,7 @@ const ProductPageBulk = () => {
   const [defaultColorGroup, setDefaultColorGroup] = useState(null);
   const [designs, setDesigns] = useState([]);
   const [loadingDesigns, setLoadingDesigns] = useState(false);
-  const { addtocart } = useContext(CartContext);
+  const { addToCart } = useContext(CartContext);
   const { id } = useParams();
     const SIZES = ["S", "M", "L", "XL", "2XL", "3XL"];
   const initialQty = SIZES.reduce((acc, k) => ({ ...acc, [k]: 0 }), {});
@@ -52,7 +52,27 @@ const ProductPageBulk = () => {
   const[gender,setGender] = useState("")
 
   const[iscount,setIscount]= useState(0)
+  const [minOrderQty, setMinOrderQty] = useState(100); // Minimum order quantity from admin settings
 
+
+  // Load minimum order quantity from corporate settings
+  useEffect(() => {
+    const loadMinQty = async () => {
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const response = await fetch(`${API_BASE}/api/corporate-settings`);
+        if (response.ok) {
+          const result = await response.json();
+          const settings = result.data || result;
+          setMinOrderQty(settings.minOrderQuantity || 100);
+          console.log('✅ Loaded minimum order quantity:', settings.minOrderQuantity);
+        }
+      } catch (error) {
+        console.log('⚠️ Using default minimum order quantity (100)');
+      }
+    };
+    loadMinQty();
+  }, []);
 
   // Fetch product
   useEffect(() => {
@@ -71,10 +91,7 @@ const ProductPageBulk = () => {
          setGender(p.gender)
 
       }
-      if(!priceIncrease){
-        navigate("/")
-      }
-      
+      // Removed redirect - priceIncrease might not be loaded yet
     };
     fetchProduct();
   }, [id]);
@@ -125,6 +142,21 @@ const ProductPageBulk = () => {
 const handleQty = (k, v) => {
   const n = Math.max(0, Math.min(9999, Number(v.replace(/[^0-9]/g, "")) || 0));
   setQty((p) => ({ ...p, [k]: n }));
+};
+
+// Calculate total quantity
+const getTotalQty = () => {
+  return Object.values(qty).reduce((sum, q) => sum + Number(q || 0), 0);
+};
+
+// Validate minimum quantity
+const validateMinimumQuantity = () => {
+  const totalQty = getTotalQty();
+  if (totalQty < minOrderQty) {
+    toast.error(`Minimum order quantity is ${minOrderQty} units. You have selected ${totalQty} units.`);
+    return false;
+  }
+  return true;
 };
 
 
@@ -234,14 +266,37 @@ const handleQty = (k, v) => {
   ))}
 </div>
 
+            {/* Quantity Summary */}
+            <div className={`mt-4 p-3 rounded-lg ${getTotalQty() >= minOrderQty ? 'bg-green-900/30 border border-green-600' : 'bg-yellow-900/30 border border-yellow-600'}`}>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white">Total Quantity:</span>
+                <span className={`font-bold ${getTotalQty() >= minOrderQty ? 'text-green-400' : 'text-yellow-400'}`}>
+                  {getTotalQty()} / {minOrderQty} units
+                </span>
+              </div>
+              {getTotalQty() < minOrderQty && (
+                <p className="text-xs text-yellow-300 mt-2">
+                  ⚠️ Minimum order quantity is {minOrderQty} units. Add {minOrderQty - getTotalQty()} more units to proceed.
+                </p>
+              )}
+              {getTotalQty() >= minOrderQty && (
+                <p className="text-xs text-green-300 mt-2">
+                  ✅ Minimum quantity requirement met!
+                </p>
+              )}
+            </div>
+
           </div>
 
           <button
             onClick={() =>{
-           
               if(!user){
                   toast.error("Log In / Sign Up")
                   setIsOpenLog(true)
+              }
+              else if(!validateMinimumQuantity()){
+                  // Validation error already shown by validateMinimumQuantity
+                  return;
               }
               else{
                    setShowModal(true)
@@ -331,14 +386,17 @@ const handleQty = (k, v) => {
             <div className="space-y-4 mb-6">
               <button
                 onClick={() => {
-                 addtocart({
+                 addToCart({
                 id,
                 design:[],
                 color:selectedColorCode,
                 quantity: qty,
                 colortext,
                 price: price,
-                gender
+                gender,
+                isBulkProduct: true, // Flag to identify bulk order items
+                isCorporate: product?.isCorporate !== false, // From database (default true for bulk pages)
+                category: product?.category || 'Corporate T-Shirt', // Include category
                  })
                  setShowModal(false);
                  navigate("/cart")
@@ -374,12 +432,13 @@ const handleQty = (k, v) => {
         selectedDesign={selectedDesign}
         onClose={() => setSelectedDesign(null)}
         id={id}
-        addtocart={addtocart}
+        addtocart={addToCart}
         size={qty}
         color={selectedColorCode}
         colortext={colortext}
         gender={gender}
         price={price}
+        minOrderQty={minOrderQty}
       />
     </section>
   );

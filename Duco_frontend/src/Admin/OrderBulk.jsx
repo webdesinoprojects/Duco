@@ -16,9 +16,8 @@ const OrderBulk = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [minOrderQty, setMinOrderQty] = useState(50);
+  const [minOrderQty, setMinOrderQty] = useState(100); // Default from corporate settings
   const [showSettings, setShowSettings] = useState(false);
-  const [corporateMinQty, setCorporateMinQty] = useState(100);
 
   const fetchOrders = async () => {
     try {
@@ -50,18 +49,17 @@ const OrderBulk = () => {
   const loadSettings = async () => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-      const response = await fetch(`${API_BASE}/api/bulk-order-settings`);
+      const response = await fetch(`${API_BASE}/api/corporate-settings`);
       if (response.ok) {
-        const settings = await response.json();
-        setMinOrderQty(settings.minOrderQty || 50);
-        setCorporateMinQty(settings.corporateMinQty || 100);
+        const result = await response.json();
+        const settings = result.data || result;
+        setMinOrderQty(settings.minOrderQuantity || 100);
+        console.log('✅ Loaded minimum order quantity from admin settings:', settings.minOrderQuantity);
       } else if (response.status === 404) {
-        // Settings endpoint doesn't exist yet, use defaults
-        console.log('Settings API not available, using defaults');
+        console.log('⚠️ Corporate settings API not available, using default (100)');
       }
     } catch (error) {
-      // Settings API not available, use defaults
-      console.log('Settings API not available, using defaults');
+      console.log('⚠️ Could not load corporate settings, using default (100)');
     }
   };
 
@@ -72,20 +70,17 @@ const OrderBulk = () => {
 
   const bulkOrders = useMemo(() => {
     console.log('📊 Filtering bulk orders from', orders.length, 'total orders');
-    console.log('📊 Thresholds - Retail:', minOrderQty, 'Corporate:', corporateMinQty);
+    console.log('📊 Minimum order quantity threshold:', minOrderQty);
     
     const filtered = (orders ?? []).filter(order => {
-      const isCorporate = order.orderType === 'B2B';
-      const threshold = isCorporate ? corporateMinQty : minOrderQty;
-      
       // Check if any product has quantity >= threshold
       const hasBulkQuantity = (order.products ?? []).some(prod => {
         const quantities = Object.values(prod?.quantity ?? {});
         const totalQty = quantities.reduce((sum, qty) => sum + Number(qty || 0), 0);
         
-        console.log(`  Order ${order.orderId || order._id}: Type=${order.orderType}, Total Qty=${totalQty}, Threshold=${threshold}`);
+        console.log(`  Order ${order.orderId || order._id}: Type=${order.orderType || 'B2C'}, Total Qty=${totalQty}, Threshold=${minOrderQty}`);
         
-        return totalQty >= threshold;
+        return totalQty >= minOrderQty;
       });
       
       return hasBulkQuantity;
@@ -93,36 +88,35 @@ const OrderBulk = () => {
     
     console.log('✅ Found', filtered.length, 'bulk orders');
     return filtered;
-  }, [orders, minOrderQty, corporateMinQty]);
+  }, [orders, minOrderQty]);
   
   if (loading) return <div className="text-center p-4">Loading orders...</div>;
 
   const saveSettings = async () => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-      const response = await fetch(`${API_BASE}/api/bulk-order-settings`, {
+      const response = await fetch(`${API_BASE}/api/corporate-settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          minOrderQty,
-          corporateMinQty
+          minOrderQuantity: minOrderQty
         }),
       });
       
       if (response.ok) {
-        alert('Settings saved successfully!');
+        alert('✅ Minimum order quantity saved successfully!');
         setShowSettings(false);
       } else if (response.status === 404) {
-        alert('Settings API not available. Settings will be used for this session only.');
+        alert('⚠️ Settings API not available. Settings will be used for this session only.');
         setShowSettings(false);
       } else {
-        alert('Failed to save settings');
+        alert('❌ Failed to save settings');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Settings API not available. Settings will be used for this session only.');
+      alert('⚠️ Settings API not available. Settings will be used for this session only.');
       setShowSettings(false);
     }
   };
@@ -141,7 +135,7 @@ const OrderBulk = () => {
 
       <div className="mb-4 p-3 bg-gray-100 rounded-lg">
         <p className="text-sm text-gray-600">
-          Current thresholds: Regular orders ≥ {minOrderQty} units, Corporate orders ≥ {corporateMinQty} units
+          Minimum order quantity: ≥ {minOrderQty} units (configured in admin settings)
         </p>
         <p className="text-sm text-gray-500 mt-1">
           Showing {bulkOrders.length} bulk orders out of {orders.length} total orders
@@ -152,20 +146,16 @@ const OrderBulk = () => {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
           <p className="text-lg font-semibold text-gray-700 mb-2">No Bulk Orders Found</p>
           <p className="text-sm text-gray-600 mb-4">
-            No orders meet the current quantity thresholds:
+            No orders meet the minimum quantity threshold of ≥ {minOrderQty} units per product
           </p>
-          <ul className="text-sm text-gray-600 mb-4">
-            <li>• Regular orders: ≥ {minOrderQty} units per product</li>
-            <li>• Corporate (B2B) orders: ≥ {corporateMinQty} units per product</li>
-          </ul>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 mb-4">
             Total orders in system: {orders.length}
           </p>
           <button
             onClick={() => setShowSettings(true)}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
           >
-            Adjust Thresholds
+            Adjust Minimum Quantity
           </button>
         </div>
       ) : (
@@ -208,13 +198,11 @@ const OrderBulk = () => {
 
                   {/* Order Type and Quantity Info */}
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      order.orderType === 'B2B' 
-                        ? 'bg-purple-100 text-purple-800' 
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {order.orderType === 'B2B' ? '🏢 Corporate' : '👤 Retail'}
-                    </span>
+                    {order.orderType === 'B2B' && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        🏢 Corporate
+                      </span>
+                    )}
                     <span className="text-xs text-gray-600">
                       Total Qty: {(order.products ?? []).reduce((total, prod) => 
                         total + Object.values(prod?.quantity ?? {}).reduce((sum, qty) => sum + Number(qty), 0), 0
@@ -278,7 +266,7 @@ const OrderBulk = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Minimum Order Quantity (Regular)
+                  Minimum Order Quantity
                 </label>
                 <input
                   type="number"
@@ -290,21 +278,8 @@ const OrderBulk = () => {
                 <p className="text-xs text-gray-500 mt-1">
                   Orders with quantities equal or above this will be considered bulk orders
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Minimum Order Quantity (Corporate)
-                </label>
-                <input
-                  type="number"
-                  value={corporateMinQty}
-                  onChange={(e) => setCorporateMinQty(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="1"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Corporate orders with quantities equal or above this will be considered bulk orders
+                <p className="text-xs text-blue-600 mt-2">
+                  💡 This setting is synced with the Corporate Settings page
                 </p>
               </div>
             </div>

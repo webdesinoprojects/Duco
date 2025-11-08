@@ -29,7 +29,7 @@ import RefundReturnPolicy from "./Pages/RefundReturnPolicy.jsx";
 import PrivacyPolicy from "./Pages/PrivacyPolicy.jsx";
 import ShippingPolicy from "./Pages/ShippingPolicy.jsx";
 import TermsConditions from "./Pages/TermsConditions.jsx";
-import OrderProcessing from "./Components/OrderProcessing.jsx";
+import OrderProcessing from "./Pages/OrderProcessing.jsx";
 import OrderSection from "./Admin/OderSection.jsx";
 import SizeChange from "./Pages/SizeChange.jsx";
 import AnalyticsDashboard from "./Admin/AnalyticsDashboard.jsx";

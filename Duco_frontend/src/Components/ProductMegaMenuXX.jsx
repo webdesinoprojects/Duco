@@ -26,6 +26,8 @@ const ProductMegaMenuXX = ({ category }) => {
     Women: "Women's Clothing",
     Kid: "Kid's Clothing",
     Kids: "Kid's Clothing",
+    "Corporate T-Shirt": "Corporate T-Shirt",
+    "Bulk Order": "Corporate T-Shirt",
   };
 
   const IconRenderer = ({ iconName, size = 22, color = "#0A0A0A" }) => {

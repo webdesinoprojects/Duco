@@ -8,10 +8,10 @@ import ProductMegaMenu from './ProductMegaMenuXX';
 import MobileSidebar from './MobileSidebar';
  const menuItems = [
     { name: "Home", link: "/" ,isbold:false},
-    { name: "Men", link: "/men", hasMegaMenu: true ,isbold:true},
-    { name: "Women", link: "/women", hasMegaMenu: true ,isbold:true},
-    { name: "Kid", link: "/kid", hasMegaMenu: true ,isbold:true},
-    { name: "Bulk Order", link: "/corporate" ,hasMegaMenu: true,isbold:true}
+    { name: "Men", link: "/men", hasMegaMenu: true, megaCategory: "Men", isbold:true},
+    { name: "Women", link: "/women", hasMegaMenu: true, megaCategory: "Women", isbold:true},
+    { name: "Kid", link: "/kid", hasMegaMenu: true, megaCategory: "Kid", isbold:true},
+    { name: "Bulk Order", link: "/corporate", hasMegaMenu: true, megaCategory: "Corporate T-Shirt", isbold:true}
   ];
 
   const menuItemss = [
@@ -77,7 +77,7 @@ const [islineclick, setIslineClick] = useState("home");
 
       {item.hasMegaMenu && isclick === key && (     // <-- compare lowercase
         <div className="absolute top-full left-[-20px] mt-1 z-50">
-          <ProductMegaMenu category={item.name} />
+          <ProductMegaMenu category={item.megaCategory || item.name} />
         </div>
       )}
     </div>

@@ -1,12 +1,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color ,colortext,price,gender }) => {
+const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color ,colortext,price,gender, minOrderQty = 100 }) => {
   if (!selectedDesign) return null;
   console.log(colortext)
 
   console.log(price)
  const navigator = useNavigate()
+ 
+ // Calculate total quantity
+ const getTotalQty = () => {
+   return Object.values(size || {}).reduce((sum, q) => sum + Number(q || 0), 0);
+ };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -64,7 +69,10 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
   quantity: size,
   colortext,
   price: price,
-  gender
+  gender,
+  isBulkProduct: true, // Flag to identify bulk order items
+  isCorporate: true, // Bulk items are corporate by default
+  category: 'Corporate T-Shirt', // Include category
 
 });
 
