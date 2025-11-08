@@ -23,13 +23,16 @@ const CorporateSettings = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch('/api/corporate-settings');
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await fetch(`${API_BASE}/api/corporate-settings`);
       if (response.ok) {
         const data = await response.json();
         setSettings(prev => ({ ...prev, ...data }));
+      } else if (response.status === 404) {
+        console.log('Corporate settings API not available, using defaults');
       }
     } catch (error) {
-      console.error('Error loading corporate settings:', error);
+      console.log('Corporate settings API not available, using defaults');
     }
   };
 
@@ -38,7 +41,8 @@ const CorporateSettings = () => {
     setMessage('');
     
     try {
-      const response = await fetch('/api/corporate-settings', {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await fetch(`${API_BASE}/api/corporate-settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -48,12 +52,14 @@ const CorporateSettings = () => {
 
       if (response.ok) {
         setMessage('✅ Corporate settings saved successfully!');
+      } else if (response.status === 404) {
+        setMessage('⚠️ Settings API not available. Settings will be used for this session only.');
       } else {
         setMessage('❌ Failed to save settings');
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
-      setMessage('❌ Error saving settings');
+      console.log('Corporate settings API not available');
+      setMessage('⚠️ Settings API not available. Settings will be used for this session only.');
     } finally {
       setLoading(false);
     }
