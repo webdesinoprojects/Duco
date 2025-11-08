@@ -427,7 +427,8 @@ export default function LogisticsManager() {
   // ------- Label Generation -------
   const generateLabel = async (logisticId, format = 'pdf') => {
     try {
-      const response = await fetch(`/api/logistics/${logisticId}/label?format=${format}`, {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await fetch(`${API_BASE}/api/logistics/${logisticId}/label?format=${format}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -435,20 +436,21 @@ export default function LogisticsManager() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate label');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Failed to generate label');
       }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `shipping-label-${logisticId}.${format}`;
+      link.download = `shipping-label-${logisticId}.${format === 'pdf' ? 'txt' : format}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      setToast({ type: "success", msg: `Label generated and downloaded as ${format.toUpperCase()}` });
+      setToast({ type: "success", msg: `Label generated and downloaded` });
     } catch (error) {
       setToast({ type: "error", msg: `Failed to generate label: ${error.message}` });
     }
@@ -457,7 +459,8 @@ export default function LogisticsManager() {
   // ------- Speed Logistics Toggle -------
   const toggleSpeedLogistics = async (logisticId, currentStatus) => {
     try {
-      const response = await fetch(`/api/logistics/${logisticId}/speed`, {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await fetch(`${API_BASE}/api/logistics/${logisticId}/speed`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -466,7 +469,8 @@ export default function LogisticsManager() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update speed logistics');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update speed logistics');
       }
 
       setToast({ 

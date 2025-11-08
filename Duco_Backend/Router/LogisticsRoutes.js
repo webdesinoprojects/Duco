@@ -6,6 +6,8 @@ const {
   updateLogistic,
   getLogisticsByOrder,
   getLogisticById,
+  generateLabel,
+  toggleSpeedLogistics,
 } = require("../Controller/logisticsController");
 
 // Create
@@ -17,7 +19,13 @@ router.patch("/logistic/:id", updateLogistic);
 // Get by Order ID
 router.get("/logistic/order/:orderId", getLogisticsByOrder);
 
-// (Optional) Get one by logistic _id
+// Get one by logistic _id
 router.get("/logisticid/:id", getLogisticById);
+
+// Generate shipping label
+router.get("/logistics/:id/label", generateLabel);
+
+// Toggle speed logistics
+router.patch("/logistics/:id/speed", toggleSpeedLogistics);
 
 module.exports = router;

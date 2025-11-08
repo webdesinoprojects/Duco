@@ -154,9 +154,110 @@ const getLogisticById = async (req, res) => {
   }
 };
 
+/**
+ * Generate Shipping Label
+ * Params: :id
+ * Query: ?format=pdf|jpg (default: pdf)
+ */
+const generateLabel = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const format = req.query.format || 'pdf';
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid logistic id" });
+    }
+
+    const logistic = await Logistic.findById(id).populate({
+      path: "orderId",
+      select: "_id orderId status total address",
+    });
+
+    if (!logistic) {
+      return res.status(404).json({ error: "Logistic not found" });
+    }
+
+    // For now, generate a simple text-based label
+    // In production, you'd use a PDF library like pdfkit or an image library
+    const labelContent = `
+SHIPPING LABEL
+==============
+Order ID: ${logistic.orderId?.orderId || logistic.orderId?._id || 'N/A'}
+Tracking Number: ${logistic.trackingNumber || 'N/A'}
+Carrier: ${logistic.carrier || 'N/A'}
+Estimated Delivery: ${logistic.estimatedDelivery ? new Date(logistic.estimatedDelivery).toLocaleDateString() : 'N/A'}
+
+SHIPPING ADDRESS:
+${logistic.shippingAddress}
+
+Speed Logistics: ${logistic.speedLogistics ? 'YES' : 'NO'}
+Generated: ${new Date().toLocaleString()}
+    `.trim();
+
+    // Set appropriate headers based on format
+    if (format === 'jpg' || format === 'jpeg') {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Disposition', `attachment; filename="label-${id}.jpg"`);
+      // For now, return text. In production, generate actual image
+      return res.status(501).json({ 
+        error: "JPG generation not yet implemented. Use PDF format.",
+        message: "Please install image generation library (e.g., canvas, sharp)"
+      });
+    } else {
+      // Return as plain text for now (in production, use pdfkit)
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename="label-${id}.txt"`);
+      return res.send(labelContent);
+    }
+  } catch (err) {
+    console.error("generateLabel error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+/**
+ * Toggle Speed Logistics
+ * Params: :id
+ * Body: { speedLogistics: boolean }
+ */
+const toggleSpeedLogistics = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { speedLogistics } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid logistic id" });
+    }
+
+    if (typeof speedLogistics !== 'boolean') {
+      return res.status(400).json({ error: "speedLogistics must be a boolean" });
+    }
+
+    const updated = await Logistic.findByIdAndUpdate(
+      id,
+      { speedLogistics, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).populate({ path: "orderId", select: "_id status total" });
+
+    if (!updated) {
+      return res.status(404).json({ error: "Logistic not found" });
+    }
+
+    return res.json({
+      message: `Speed logistics ${speedLogistics ? 'enabled' : 'disabled'}`,
+      logistic: updated
+    });
+  } catch (err) {
+    console.error("toggleSpeedLogistics error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
 module.exports = {
   createLogistic,
   updateLogistic,
-    getLogisticsByOrder,
-    getLogisticById,
-}
+  getLogisticsByOrder,
+  getLogisticById,
+  generateLabel,
+  toggleSpeedLogistics,
+};
