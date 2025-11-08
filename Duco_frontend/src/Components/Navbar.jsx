@@ -11,7 +11,7 @@ import MobileSidebar from './MobileSidebar';
     { name: "Men", link: "/men", hasMegaMenu: true ,isbold:true},
     { name: "Women", link: "/women", hasMegaMenu: true ,isbold:true},
     { name: "Kid", link: "/kid", hasMegaMenu: true ,isbold:true},
-    { name: "Bulk order", link: "/corporate" ,hasMegaMenu: true,isbold:true}
+    { name: "Bulk Order", link: "/corporate" ,hasMegaMenu: true,isbold:true}
   ];
 
   const menuItemss = [
@@ -19,7 +19,7 @@ import MobileSidebar from './MobileSidebar';
   { name: "Men",   megaCategory: "Men" },    // dropdown fetched from API
   { name: "Women", megaCategory: "Women" },  // dropdown fetched from API
   { name: "Kids",  megaCategory: "Kids" },
-  { name: "Bulk order",  megaCategory: "Bulk order" },
+  { name: "Bulk Order",  megaCategory: "Corporate T-Shirt" },
      // dropdown fetched from API
 
 ];
