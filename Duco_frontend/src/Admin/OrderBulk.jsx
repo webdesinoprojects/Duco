@@ -55,9 +55,13 @@ const OrderBulk = () => {
         const settings = await response.json();
         setMinOrderQty(settings.minOrderQty || 50);
         setCorporateMinQty(settings.corporateMinQty || 100);
+      } else if (response.status === 404) {
+        // Settings endpoint doesn't exist yet, use defaults
+        console.log('Settings API not available, using defaults');
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
+      // Settings API not available, use defaults
+      console.log('Settings API not available, using defaults');
     }
   };
 
@@ -98,12 +102,16 @@ const OrderBulk = () => {
       if (response.ok) {
         alert('Settings saved successfully!');
         setShowSettings(false);
+      } else if (response.status === 404) {
+        alert('Settings API not available. Settings will be used for this session only.');
+        setShowSettings(false);
       } else {
         alert('Failed to save settings');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Error saving settings');
+      alert('Settings API not available. Settings will be used for this session only.');
+      setShowSettings(false);
     }
   };
 
