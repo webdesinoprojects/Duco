@@ -38,12 +38,35 @@ const LabelGenerator = ({ order, onClose }) => {
 
     try {
       console.log('📄 Generating PDF...');
-      const canvas = await html2canvas(element, {
+      
+      // Clone and fix oklch colors
+      const clonedElement = element.cloneNode(true);
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.left = '-9999px';
+      document.body.appendChild(clonedElement);
+      
+      const allElements = clonedElement.querySelectorAll('*');
+      allElements.forEach(el => {
+        const computedStyle = window.getComputedStyle(el);
+        if (computedStyle.backgroundColor && computedStyle.backgroundColor.includes('oklch')) {
+          el.style.backgroundColor = 'rgb(255, 255, 255)';
+        }
+        if (computedStyle.color && computedStyle.color.includes('oklch')) {
+          el.style.color = 'rgb(0, 0, 0)';
+        }
+        if (computedStyle.borderColor && computedStyle.borderColor.includes('oklch')) {
+          el.style.borderColor = 'rgb(209, 213, 219)';
+        }
+      });
+      
+      const canvas = await html2canvas(clonedElement, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
       });
+      
+      document.body.removeChild(clonedElement);
 
       console.log('✅ Canvas created, converting to PDF...');
       const imgData = canvas.toDataURL('image/png');
@@ -77,12 +100,35 @@ const LabelGenerator = ({ order, onClose }) => {
 
     try {
       console.log('🖼️ Generating image...');
-      const canvas = await html2canvas(element, {
+      
+      // Clone and fix oklch colors
+      const clonedElement = element.cloneNode(true);
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.left = '-9999px';
+      document.body.appendChild(clonedElement);
+      
+      const allElements = clonedElement.querySelectorAll('*');
+      allElements.forEach(el => {
+        const computedStyle = window.getComputedStyle(el);
+        if (computedStyle.backgroundColor && computedStyle.backgroundColor.includes('oklch')) {
+          el.style.backgroundColor = 'rgb(255, 255, 255)';
+        }
+        if (computedStyle.color && computedStyle.color.includes('oklch')) {
+          el.style.color = 'rgb(0, 0, 0)';
+        }
+        if (computedStyle.borderColor && computedStyle.borderColor.includes('oklch')) {
+          el.style.borderColor = 'rgb(209, 213, 219)';
+        }
+      });
+      
+      const canvas = await html2canvas(clonedElement, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
       });
+      
+      document.body.removeChild(clonedElement);
 
       console.log('✅ Canvas created, downloading image...');
       const link = document.createElement('a');
@@ -107,13 +153,42 @@ const LabelGenerator = ({ order, onClose }) => {
     try {
       console.log('🖨️ Generating print preview...');
       
+      // Clone element and fix oklch colors before rendering
+      const clonedElement = element.cloneNode(true);
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.left = '-9999px';
+      document.body.appendChild(clonedElement);
+      
+      // Replace oklch colors with standard colors
+      const allElements = clonedElement.querySelectorAll('*');
+      allElements.forEach(el => {
+        const computedStyle = window.getComputedStyle(el);
+        if (computedStyle.backgroundColor && computedStyle.backgroundColor.includes('oklch')) {
+          el.style.backgroundColor = 'rgb(255, 255, 255)';
+        }
+        if (computedStyle.color && computedStyle.color.includes('oklch')) {
+          el.style.color = 'rgb(0, 0, 0)';
+        }
+        if (computedStyle.borderColor && computedStyle.borderColor.includes('oklch')) {
+          el.style.borderColor = 'rgb(209, 213, 219)';
+        }
+      });
+      
       // Use html2canvas to create an image for printing
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(clonedElement, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          // Additional cleanup in cloned document
+          const clonedBody = clonedDoc.body;
+          clonedBody.style.backgroundColor = '#ffffff';
+        }
       });
+      
+      // Remove cloned element
+      document.body.removeChild(clonedElement);
 
       const imgData = canvas.toDataURL('image/png');
       
@@ -227,7 +302,16 @@ const LabelGenerator = ({ order, onClose }) => {
           <div
             ref={labelRef}
             className="bg-white border-2 border-gray-300 p-8"
-            style={{ width: '794px', maxWidth: '100%', margin: '0 auto' }}
+            style={{ 
+              width: '794px', 
+              maxWidth: '100%', 
+              margin: '0 auto',
+              // Override oklch colors with standard colors for html2canvas compatibility
+              '--tw-bg-opacity': '1',
+              backgroundColor: 'rgb(255 255 255)',
+              borderColor: 'rgb(209 213 219)',
+              color: 'rgb(0 0 0)'
+            }}
           >
             {/* Header Section */}
             <div className="border-b-2 border-black pb-4 mb-4">
