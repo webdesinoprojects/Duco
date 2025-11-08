@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import OrderDetailsCard from "../Admin/Components/OrderDetailsCard"; // ✅ ensure path is correct
+import LabelGenerator from "../Admin/Components/LabelGenerator";
 
 // ✅ Better status badge colors
 const statusClass = (s = "") => {
@@ -19,6 +20,7 @@ const OderSection = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [labelOrder, setLabelOrder] = useState(null);
 
   const fetchOrders = async () => {
     try {
@@ -47,9 +49,55 @@ const OderSection = () => {
 
   if (loading) return <div className="text-center p-4">Loading orders...</div>;
 
+  const [selectedOrders, setSelectedOrders] = useState([]);
+
+  const toggleOrderSelection = (orderId) => {
+    setSelectedOrders(prev => 
+      prev.includes(orderId) 
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
+
+  const generateBulkLabels = async () => {
+    if (selectedOrders.length === 0) {
+      alert('Please select at least one order');
+      return;
+    }
+
+    const selectedOrdersData = orders.filter(order => selectedOrders.includes(order._id));
+    
+    // Generate labels for each selected order
+    for (const order of selectedOrdersData) {
+      setLabelOrder(order);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between labels
+    }
+  };
+
   return (
     <div className="p-4">
-      <h2 className="text-lg font-bold mb-4">All Orders</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-bold">All Orders</h2>
+        {selectedOrders.length > 0 && (
+          <div className="flex gap-2 items-center">
+            <span className="text-sm text-gray-600">
+              {selectedOrders.length} selected
+            </span>
+            <button
+              onClick={generateBulkLabels}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+            >
+              🏷️ Generate Labels ({selectedOrders.length})
+            </button>
+            <button
+              onClick={() => setSelectedOrders([])}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+            >
+              Clear Selection
+            </button>
+          </div>
+        )}
+      </div>
 
       {orders.length === 0 ? (
         <p>No orders found.</p>
@@ -64,8 +112,18 @@ const OderSection = () => {
                 key={order._id}
                 className="bg-white rounded-lg p-4 shadow flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               >
+                {/* Checkbox for bulk selection */}
+                <div className="flex items-start">
+                  <input
+                    type="checkbox"
+                    checked={selectedOrders.includes(order._id)}
+                    onChange={() => toggleOrderSelection(order._id)}
+                    className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                </div>
+
                 {/* Left: Basic info */}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass(
@@ -120,12 +178,21 @@ const OderSection = () => {
                   <p className="font-semibold text-right">
                     ₹{Number(order.price || 0).toFixed(2)}
                   </p>
-                  <button
-                    onClick={() => setSelectedOrderId(order._id)}
-                    className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50"
-                  >
-                    View
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedOrderId(order._id)}
+                      className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50"
+                    >
+                      View
+                    </button>
+                    <button
+                      onClick={() => setLabelOrder(order)}
+                      className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                      title="Generate Shipping Label"
+                    >
+                      🏷️ Label
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -155,6 +222,14 @@ const OderSection = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Label Generator Modal */}
+      {labelOrder && (
+        <LabelGenerator
+          order={labelOrder}
+          onClose={() => setLabelOrder(null)}
+        />
       )}
     </div>
   );
