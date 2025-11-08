@@ -208,12 +208,26 @@ exports.getOrdersByUser = async (req, res) => {
 // ================================================================
 exports.getAllOrders = async (req, res) => {
   try {
-    // Add pagination to prevent memory issues
+    // Check if this is a lightweight request (for dropdowns, etc.)
+    const lightweight = req.query.lightweight === 'true';
+    
+    if (lightweight) {
+      // For logistics dropdown - just return basic order info without enrichment
+      const orders = await Order.find()
+        .select('_id orderId status createdAt user')
+        .populate('user', 'name email')
+        .sort({ createdAt: -1 })
+        .limit(500) // Limit to recent 500 orders
+        .lean();
+      
+      return res.json({ success: true, orders });
+    }
+
+    // Full enrichment for admin dashboard
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50; // Default to 50 orders per page
+    const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
 
-    // Get total count for pagination info
     const totalOrders = await Order.countDocuments();
 
     const orders = await Order.find()
@@ -231,6 +245,7 @@ exports.getAllOrders = async (req, res) => {
     );
 
     res.json({
+      success: true,
       orders: enrichedOrders,
       pagination: {
         currentPage: page,

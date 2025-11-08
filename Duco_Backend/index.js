@@ -42,7 +42,8 @@ app.use(compression()); //this is for compression
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
-      'http://localhost:5173', 
+      'http://localhost:5173',
+      'http://localhost:5174',
       'http://localhost:3000', 
       'https://duco-frontend.vercel.app',
       'https://ducoart.com',
@@ -227,3 +228,4 @@ try {
 app.listen(port, () => {
   console.log(`Connected Express on port ${port}`);
 });
+

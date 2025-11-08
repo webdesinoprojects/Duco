@@ -26,7 +26,7 @@ const handle = async (res) => {
 };
 
 export const getOrders = async () =>
-  handle(await fetch(`${API_BASE}/order`, { method: "GET" }));
+  handle(await fetch(`${API_BASE}/order?lightweight=true`, { method: "GET" }));
 
 export const createLogistic = async (payload) =>
   handle(await fetch(`${API_BASE}/logistic`, {
