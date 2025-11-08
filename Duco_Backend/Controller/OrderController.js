@@ -231,20 +231,26 @@ exports.getAllOrders = async (req, res) => {
     console.log(`📦 Fetching orders: page ${page}, limit ${limit}`);
 
     try {
-      // Get total count
+      // Get total count with timeout
       const totalOrders = await Order.countDocuments().maxTimeMS(5000);
       console.log(`📦 Total orders in DB: ${totalOrders}`);
 
-      // Fetch orders - simple query without populate
+      // Fetch orders - ULTRA SIMPLE query (no sort to avoid index issues)
+      console.log(`📦 Executing find query...`);
       const orders = await Order.find()
-        .select('-__v') // Exclude version key
-        .sort({ createdAt: -1 })
-        .skip(skip)
         .limit(limit)
+        .skip(skip)
         .lean()
         .maxTimeMS(10000); // 10 second timeout
 
       console.log(`✅ Found ${orders.length} orders`);
+
+      // Sort in memory (faster than database sort without index)
+      orders.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return dateB - dateA; // Newest first
+      });
 
       // Return raw orders without enrichment for speed
       res.json({
@@ -260,6 +266,7 @@ exports.getAllOrders = async (req, res) => {
       });
     } catch (queryErr) {
       console.error('❌ Database query failed:', queryErr.message);
+      console.error('❌ Query error details:', queryErr);
       
       // Fallback: return empty result instead of crashing
       res.json({
