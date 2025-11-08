@@ -9,9 +9,11 @@ const LabelGenerator = ({ order, onClose }) => {
 
   // Generate barcode when component mounts
   React.useEffect(() => {
-    if (barcodeRef.current && order?.orderId) {
+    if (barcodeRef.current && (order?.orderId || order?._id)) {
       try {
-        JsBarcode(barcodeRef.current, order.orderId, {
+        const barcodeValue = order.orderId || order._id;
+        console.log('📊 Generating barcode for:', barcodeValue);
+        JsBarcode(barcodeRef.current, barcodeValue, {
           format: 'CODE128',
           width: 2,
           height: 50,
@@ -19,11 +21,12 @@ const LabelGenerator = ({ order, onClose }) => {
           fontSize: 12,
           margin: 5
         });
+        console.log('✅ Barcode generated successfully');
       } catch (error) {
-        console.error('Error generating barcode:', error);
+        console.error('❌ Error generating barcode:', error);
       }
     }
-  }, [order?.orderId]);
+  }, [order?.orderId, order?._id]);
 
   const downloadAsPDF = async () => {
     const element = labelRef.current;
@@ -93,7 +96,7 @@ const LabelGenerator = ({ order, onClose }) => {
     }
   };
 
-  const printLabel = () => {
+  const printLabel = async () => {
     const element = labelRef.current;
     if (!element) {
       console.error('Label element not found');
@@ -102,7 +105,18 @@ const LabelGenerator = ({ order, onClose }) => {
     }
 
     try {
-      console.log('🖨️ Opening print dialog...');
+      console.log('🖨️ Generating print preview...');
+      
+      // Use html2canvas to create an image for printing
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
         alert('Please allow popups to print labels');
@@ -114,23 +128,50 @@ const LabelGenerator = ({ order, onClose }) => {
           <head>
             <title>Print Label - ${order.orderId || order._id}</title>
             <style>
-              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                margin: 0; 
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+              }
+              img {
+                max-width: 100%;
+                height: auto;
+                display: block;
+              }
               @media print {
                 body { margin: 0; padding: 0; }
-                @page { margin: 0; }
+                @page { 
+                  margin: 0;
+                  size: A4 portrait;
+                }
+                img {
+                  width: 100%;
+                  height: auto;
+                  page-break-inside: avoid;
+                }
               }
             </style>
           </head>
           <body>
-            ${element.innerHTML}
+            <img src="${imgData}" alt="Shipping Label" />
           </body>
         </html>
       `);
       printWindow.document.close();
+      
+      // Wait for image to load before printing
       setTimeout(() => {
         printWindow.print();
-        printWindow.close();
-      }, 250);
+        // Don't close immediately to allow user to cancel
+        setTimeout(() => {
+          printWindow.close();
+        }, 100);
+      }, 500);
+      
       console.log('✅ Print dialog opened');
     } catch (error) {
       console.error('❌ Error printing label:', error);
