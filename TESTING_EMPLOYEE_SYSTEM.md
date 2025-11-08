@@ -2,7 +2,7 @@
 
 ## Current Setup
 - **Frontend**: http://localhost:5174
-- **Backend**: https://duco-67o5.onrender.com
+- **Backend**: http://localhost:3000
 - **Employee Created**: 
   - Section: `adminjatin`
   - Email: `jatingarg850@gmail.com`

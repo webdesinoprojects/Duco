@@ -31,6 +31,14 @@ const LogisticSchema = new mongoose.Schema({
     note: {
         type: String
     },
+    speedLogistics: {
+        type: Boolean,
+        default: false
+    },
+    labelGenerated: {
+        type: Boolean,
+        default: false
+    },
     createdAt: {
         type: Date,
         default: Date.now

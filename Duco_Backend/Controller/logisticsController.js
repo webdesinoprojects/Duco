@@ -19,6 +19,8 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
       shippingAddress,
       img = [],
       note,
+      speedLogistics = false,
+      labelGenerated = false,
     } = req.body;
 
     if (!orderId || !isValidObjectId(orderId)) {
@@ -41,6 +43,8 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
       shippingAddress,
       img: imgArr,
       note,
+      speedLogistics,
+      labelGenerated,
     });
 
     // Optional: populate order basic fields

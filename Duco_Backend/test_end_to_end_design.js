@@ -12,7 +12,7 @@ async function testEndToEndDesign() {
     // Test 1: Check if TShirtDesigner page is accessible
     console.log('1️⃣ Testing TShirtDesigner accessibility...');
     try {
-      const response = await axios.get('https://duco-67o5.onrender.com/');
+      const response = await axios.get('http://localhost:3000/');
       console.log('✅ Backend server is running');
     } catch (error) {
       console.log(
@@ -25,7 +25,7 @@ async function testEndToEndDesign() {
     console.log('\n2️⃣ Testing product availability for design...');
     try {
       const productsResponse = await axios.get(
-        'https://duco-67o5.onrender.com/products/get'
+        'http://localhost:3000/products/get'
       );
       const products = productsResponse.data || [];
 
@@ -117,7 +117,7 @@ async function testEndToEndDesign() {
         console.log('\n🚀 Your Custom T-Shirt Design Feature is Working!');
         console.log('\nTo test in the browser:');
         console.log(
-          '1. Go to: https://duco-67o5.onrender.com/design/[product-id]/[color]'
+          '1. Go to: http://localhost:3000/design/[product-id]/[color]'
         );
         console.log('2. Create your design with text and images');
         console.log('3. Add to cart and place order');

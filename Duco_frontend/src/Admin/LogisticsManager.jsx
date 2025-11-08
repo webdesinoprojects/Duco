@@ -233,9 +233,17 @@ export default function LogisticsManager() {
     (async () => {
       try {
         setOrdersLoading(true);
+        console.log('📦 Fetching orders for logistics...');
         const data = await getOrders();
-        setOrders(Array.isArray(data) ? data : (data?.orders ?? []));
+        console.log('📦 Orders received:', data);
+        const ordersList = Array.isArray(data) ? data : (data?.orders ?? []);
+        console.log('📦 Processed orders list:', ordersList.length, 'orders');
+        setOrders(ordersList);
+        if (ordersList.length === 0) {
+          setToast({ type: "error", msg: "No orders found. Please create some orders first." });
+        }
       } catch (e) {
+        console.error('❌ Failed to load orders:', e);
         setToast({ type: "error", msg: `Failed to load orders: ${e.message}` });
       } finally {
         setOrdersLoading(false);
@@ -248,9 +256,9 @@ export default function LogisticsManager() {
       orders.map((o) => ({
         id: o._id,
         label:
-          o._id +
-          (o?.orderNumber ? ` — ${o.orderNumber}` : "") +
-          (o?.customerName ? ` — ${o.customerName}` : ""),
+          (o?.orderId || o._id) +
+          (o?.address?.fullName ? ` — ${o.address.fullName}` : "") +
+          (o?.status ? ` — ${o.status}` : ""),
       })),
     [orders]
   );
@@ -287,8 +295,8 @@ export default function LogisticsManager() {
         estimatedDelivery: createForm.estimatedDelivery || undefined,
         shippingAddress: createForm.shippingAddress,
         note: createForm.note || undefined,
-        speedLogistics: createForm.speedLogistics,
-        labelGenerated: createForm.labelGenerated,
+        speedLogistics: Boolean(createForm.speedLogistics),
+        labelGenerated: Boolean(createForm.labelGenerated),
         img:
           createForm.img?.filter((i) => i.URL?.trim())?.map(({ URL }) => ({ URL })) ??
           [],
@@ -345,8 +353,8 @@ export default function LogisticsManager() {
           : "",
         shippingAddress: doc.shippingAddress ?? "",
         note: doc.note ?? "",
-        speedLogistics: doc.speedLogistics ?? false,
-        labelGenerated: doc.labelGenerated ?? false,
+        speedLogistics: Boolean(doc.speedLogistics),
+        labelGenerated: Boolean(doc.labelGenerated),
         img: (doc.img && doc.img.length ? doc.img : [{ URL: "" }]).map((i) => ({
           URL: typeof i === "string" ? i : (i?.URL || ""),
         })),
@@ -373,8 +381,8 @@ export default function LogisticsManager() {
         estimatedDelivery: updateForm.estimatedDelivery || undefined,
         shippingAddress: updateForm.shippingAddress || undefined,
         note: updateForm.note || undefined,
-        speedLogistics: updateForm.speedLogistics,
-        labelGenerated: updateForm.labelGenerated,
+        speedLogistics: Boolean(updateForm.speedLogistics),
+        labelGenerated: Boolean(updateForm.labelGenerated),
         img:
           updateForm.img?.filter((i) => i.URL?.trim())?.map(({ URL }) => ({ URL })) ??
           [],
