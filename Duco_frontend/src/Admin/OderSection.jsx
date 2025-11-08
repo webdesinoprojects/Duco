@@ -21,6 +21,7 @@ const OderSection = () => {
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [labelOrder, setLabelOrder] = useState(null);
+  const [selectedOrders, setSelectedOrders] = useState([]);
 
   const fetchOrders = async () => {
     try {
@@ -54,8 +55,6 @@ const OderSection = () => {
   }, []);
 
   if (loading) return <div className="text-center p-4">Loading orders...</div>;
-
-  const [selectedOrders, setSelectedOrders] = useState([]);
 
   const toggleOrderSelection = (orderId) => {
     setSelectedOrders(prev => 
