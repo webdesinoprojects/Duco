@@ -225,24 +225,56 @@ exports.getAllOrders = async (req, res) => {
 
     // Full enrichment for admin dashboard
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100); // Cap at 100
     const skip = (page - 1) * limit;
 
-    const totalOrders = await Order.countDocuments();
+    console.log(`📦 Fetching orders: page ${page}, limit ${limit}`);
 
-    const orders = await Order.find()
-      .populate('user', 'name email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    // Use Promise.race to add timeout
+    const fetchWithTimeout = (promise, timeout = 10000) => {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout')), timeout)
+        )
+      ]);
+    };
 
-    const enrichedOrders = await Promise.all(
-      orders.map(async (o) => ({
-        ...o,
-        items: await enrichOrderProducts(o.products || []),
-      }))
+    const totalOrders = await fetchWithTimeout(Order.countDocuments());
+    console.log(`📦 Total orders in DB: ${totalOrders}`);
+
+    const orders = await fetchWithTimeout(
+      Order.find()
+        .populate('user', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .maxTimeMS(10000) // MongoDB server-side timeout
     );
+
+    console.log(`📦 Found ${orders.length} orders, enriching...`);
+
+    // Enrich orders with timeout protection
+    const enrichedOrders = await Promise.all(
+      orders.map(async (o) => {
+        try {
+          return {
+            ...o,
+            items: await enrichOrderProducts(o.products || []),
+          };
+        } catch (enrichErr) {
+          console.error(`⚠️ Failed to enrich order ${o._id}:`, enrichErr.message);
+          // Return order without enrichment if it fails
+          return {
+            ...o,
+            items: o.products || [],
+          };
+        }
+      })
+    );
+
+    console.log(`✅ Successfully enriched ${enrichedOrders.length} orders`);
 
     res.json({
       success: true,
@@ -256,8 +288,12 @@ exports.getAllOrders = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching orders:', err);
-    res.status(500).json({ error: 'Failed to fetch orders' });
+    console.error('❌ Error fetching orders:', err);
+    console.error('❌ Stack:', err.stack);
+    res.status(500).json({ 
+      error: 'Failed to fetch orders',
+      message: err.message 
+    });
   }
 };
 

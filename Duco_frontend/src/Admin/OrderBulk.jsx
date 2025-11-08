@@ -22,7 +22,13 @@ const OrderBulk = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/order?limit=100"); // Get more orders for bulk analysis
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const res = await fetch(`${API_BASE}/api/order?page=1&limit=100`);
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const data = await res.json();
       
       // Handle both old format (array) and new paginated format (object with orders array)

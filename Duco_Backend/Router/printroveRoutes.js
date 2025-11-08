@@ -140,18 +140,25 @@ router.post('/sync', async (req, res) => {
 router.get('/products', async (req, res) => {
   try {
     const { listPrintroveProducts } = require('../Controller/printroveHelper');
+    
+    console.log('📦 Fetching Printrove products...');
     const productsData = await listPrintroveProducts();
+    console.log('📦 Products data received:', productsData);
 
     res.json({
       success: true,
-      products: productsData.products || [],
-      total: productsData.products?.length || 0
+      products: productsData?.products || [],
+      total: productsData?.products?.length || 0
     });
   } catch (error) {
-    console.error('Error fetching Printrove products:', error);
-    res.status(500).json({
+    console.error('❌ Error fetching Printrove products:', error.message);
+    
+    // Return empty array instead of error to prevent frontend crashes
+    res.json({
       success: false,
-      message: 'Failed to fetch Printrove products',
+      products: [],
+      total: 0,
+      message: 'Printrove API temporarily unavailable. Please try again later.',
       error: error.message
     });
   }
