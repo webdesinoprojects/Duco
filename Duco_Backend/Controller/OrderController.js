@@ -231,11 +231,11 @@ exports.getAllOrders = async (req, res) => {
     console.log(`📦 Fetching orders: page ${page}, limit ${limit}`);
 
     // Use Promise.race to add timeout
-    const fetchWithTimeout = (promise, timeout = 10000) => {
+    const fetchWithTimeout = (promise, timeout = 30000) => {
       return Promise.race([
         promise,
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Query timeout')), timeout)
+          setTimeout(() => reject(new Error('Query timeout after 30s')), timeout)
         )
       ]);
     };
@@ -243,14 +243,14 @@ exports.getAllOrders = async (req, res) => {
     const totalOrders = await fetchWithTimeout(Order.countDocuments());
     console.log(`📦 Total orders in DB: ${totalOrders}`);
 
+    // Fetch orders without populate first (faster)
     const orders = await fetchWithTimeout(
       Order.find()
-        .populate('user', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean()
-        .maxTimeMS(10000) // MongoDB server-side timeout
+        .maxTimeMS(25000) // MongoDB server-side timeout
     );
 
     console.log(`📦 Found ${orders.length} orders, enriching...`);
