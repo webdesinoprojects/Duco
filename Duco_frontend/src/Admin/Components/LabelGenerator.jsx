@@ -27,9 +27,14 @@ const LabelGenerator = ({ order, onClose }) => {
 
   const downloadAsPDF = async () => {
     const element = labelRef.current;
-    if (!element) return;
+    if (!element) {
+      console.error('Label element not found');
+      alert('Label element not found. Please try again.');
+      return;
+    }
 
     try {
+      console.log('📄 Generating PDF...');
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -37,6 +42,7 @@ const LabelGenerator = ({ order, onClose }) => {
         backgroundColor: '#ffffff'
       });
 
+      console.log('✅ Canvas created, converting to PDF...');
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -50,18 +56,24 @@ const LabelGenerator = ({ order, onClose }) => {
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
       pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pdfHeight - 20));
-      pdf.save(`shipping-label-${order.orderId}.pdf`);
+      pdf.save(`shipping-label-${order.orderId || order._id}.pdf`);
+      console.log('✅ PDF downloaded successfully');
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      console.error('❌ Error generating PDF:', error);
+      alert(`Failed to generate PDF: ${error.message}`);
     }
   };
 
   const downloadAsImage = async () => {
     const element = labelRef.current;
-    if (!element) return;
+    if (!element) {
+      console.error('Label element not found');
+      alert('Label element not found. Please try again.');
+      return;
+    }
 
     try {
+      console.log('🖼️ Generating image...');
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -69,43 +81,61 @@ const LabelGenerator = ({ order, onClose }) => {
         backgroundColor: '#ffffff'
       });
 
+      console.log('✅ Canvas created, downloading image...');
       const link = document.createElement('a');
-      link.download = `shipping-label-${order.orderId}.png`;
+      link.download = `shipping-label-${order.orderId || order._id}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
+      console.log('✅ Image downloaded successfully');
     } catch (error) {
-      console.error('Error generating image:', error);
-      alert('Failed to generate image. Please try again.');
+      console.error('❌ Error generating image:', error);
+      alert(`Failed to generate image: ${error.message}`);
     }
   };
 
   const printLabel = () => {
     const element = labelRef.current;
-    if (!element) return;
+    if (!element) {
+      console.error('Label element not found');
+      alert('Label element not found. Please try again.');
+      return;
+    }
 
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Print Label - ${order.orderId}</title>
-          <style>
-            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-            @media print {
-              body { margin: 0; padding: 0; }
-              @page { margin: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          ${element.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+    try {
+      console.log('🖨️ Opening print dialog...');
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Please allow popups to print labels');
+        return;
+      }
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print Label - ${order.orderId || order._id}</title>
+            <style>
+              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+              @media print {
+                body { margin: 0; padding: 0; }
+                @page { margin: 0; }
+              }
+            </style>
+          </head>
+          <body>
+            ${element.innerHTML}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+      console.log('✅ Print dialog opened');
+    } catch (error) {
+      console.error('❌ Error printing label:', error);
+      alert(`Failed to print label: ${error.message}`);
+    }
   };
 
   if (!order) return null;
