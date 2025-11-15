@@ -16,7 +16,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 
-const API_BASE = 'https://duco-67o5.onrender.com/'; // e.g. "http://localhost:5000"; keep empty for same-origin
+const API_BASE = 'http://localhost:3000/'; // e.g. "http://localhost:5000"; keep empty for same-origin
 
 const STATUSES = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
 

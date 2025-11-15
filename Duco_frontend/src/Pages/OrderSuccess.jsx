@@ -8,19 +8,6 @@ import JsBarcode from "jsbarcode";
 
 /* ----------------------------- INVOICE TEMPLATE ----------------------------- */
 const InvoiceDucoTailwind = ({ data }) => {
-  const barcodeRef = useRef(null);
-
-  useEffect(() => {
-    if (barcodeRef.current && data?.invoice?.number) {
-      JsBarcode(barcodeRef.current, data.invoice.number, {
-        format: "CODE128",
-        width: 2,
-        height: 40,
-        displayValue: true,
-      });
-    }
-  }, [data?.invoice?.number]);
-
   const {
     company,
     invoice,
@@ -44,6 +31,7 @@ const InvoiceDucoTailwind = ({ data }) => {
       : 0;
 
   const adjustedTotal = total + locationAdj;
+  const totalInWords = numberToWords(Math.round(adjustedTotal));
 
   return (
     <div
@@ -51,194 +39,357 @@ const InvoiceDucoTailwind = ({ data }) => {
         fontFamily: "Arial, sans-serif",
         color: "#000",
         backgroundColor: "#fff",
-        padding: "20px 30px",
-        width: "800px",
+        padding: "20px",
+        width: "210mm",
+        minHeight: "297mm",
         margin: "0 auto",
-        border: "1px solid #ccc",
+        border: "2px solid #000",
+        boxSizing: "border-box",
       }}
     >
-      <h1 style={{ textAlign: "center", fontSize: "22px", fontWeight: "bold" }}>
-        Tax Invoice
-      </h1>
+      {/* HEADER */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px", borderBottom: "2px solid #000", paddingBottom: "10px" }}>
+        <div style={{ fontSize: "12px", fontWeight: "bold" }}>
+          GSTIN : {company.gstin}
+        </div>
+        <div style={{ fontSize: "12px", fontWeight: "bold", textAlign: "right" }}>
+          {invoice.copyType || "Original Copy"}
+        </div>
+      </div>
 
-      {/* COMPANY INFO */}
-      <div style={{ textAlign: "center", marginBottom: "10px" }}>
-        <h2 style={{ fontSize: "18px", marginBottom: "4px" }}>
+      {/* COMPANY NAME */}
+      <div style={{ textAlign: "center", marginBottom: "15px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: "bold", margin: "0 0 5px 0" }}>
           {company.name}
-        </h2>
-        <p>{company.address}</p>
-        <p>GSTIN: {company.gstin}</p>
-        <p>Email: {company.email}</p>
+        </h1>
+        <p style={{ fontSize: "11px", margin: "2px 0" }}>{company.address}</p>
+        <p style={{ fontSize: "11px", margin: "2px 0" }}>CIN : {company.cin || "U52601CT2020PTC010997"}</p>
+        <p style={{ fontSize: "11px", margin: "2px 0" }}>email : {company.email}</p>
       </div>
 
-      <svg ref={barcodeRef}></svg>
-      <hr style={{ margin: "15px 0" }} />
+      <div style={{ border: "1px solid #000", marginBottom: "0" }}></div>
 
-      {/* INVOICE DETAILS */}
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <div>
-          <p>
-            Invoice No: <b>{invoice.number}</b>
+      {/* INVOICE DETAILS & PLACE OF SUPPLY */}
+      <div style={{ display: "flex", borderBottom: "1px solid #000" }}>
+        <div style={{ flex: 1, padding: "8px", borderRight: "1px solid #000" }}>
+          <p style={{ margin: "2px 0", fontSize: "11px" }}>
+            <span>Invoice No.</span>
+            <span style={{ marginLeft: "20px" }}>: {invoice.number}</span>
           </p>
-          <p>Date: {invoice.date}</p>
-          <p>Place of Supply: {invoice.placeOfSupply}</p>
+          <p style={{ margin: "2px 0", fontSize: "11px" }}>
+            <span>Dated</span>
+            <span style={{ marginLeft: "52px" }}>: {invoice.date}</span>
+          </p>
         </div>
-        <div>
-          <p>Copy Type: {invoice.copyType}</p>
+        <div style={{ flex: 1, padding: "8px" }}>
+          <p style={{ margin: "2px 0", fontSize: "11px" }}>
+            <span>Place of Supply</span>
+            <span style={{ marginLeft: "10px" }}>: {invoice.placeOfSupply}</span>
+          </p>
+          <p style={{ margin: "2px 0", fontSize: "11px" }}>
+            <span>Reverse Charge</span>
+            <span style={{ marginLeft: "10px" }}>: N</span>
+          </p>
         </div>
       </div>
 
-      <hr style={{ margin: "15px 0" }} />
-
-      {/* BILL TO */}
-      <div>
-        <h3>Bill To:</h3>
-        <p>{billTo.name}</p>
-        <p>{billTo.address}</p>
-        {billTo.gstin && <p>GSTIN: {billTo.gstin}</p>}
+      {/* BILLED TO & SHIPPED TO */}
+      <div style={{ display: "flex", borderBottom: "1px solid #000" }}>
+        <div style={{ flex: 1, padding: "8px", borderRight: "1px solid #000", minHeight: "100px" }}>
+          <p style={{ margin: "0 0 5px 0", fontSize: "11px", fontWeight: "bold" }}>Billed to :</p>
+          <p style={{ margin: "2px 0", fontSize: "11px", fontWeight: "bold" }}>{billTo.name}</p>
+          <p style={{ margin: "2px 0", fontSize: "11px" }}>{billTo.address}</p>
+          {billTo.gstin && (
+            <p style={{ margin: "5px 0 0 0", fontSize: "11px" }}>
+              GSTIN / UIN : {billTo.gstin}
+            </p>
+          )}
+        </div>
+        <div style={{ flex: 1, padding: "8px", minHeight: "100px" }}>
+          <p style={{ margin: "0 0 5px 0", fontSize: "11px", fontWeight: "bold" }}>Shipped to :</p>
+          <p style={{ margin: "2px 0", fontSize: "11px", fontWeight: "bold" }}>{billTo.name}</p>
+          <p style={{ margin: "2px 0", fontSize: "11px" }}>{billTo.address}</p>
+          {billTo.gstin && (
+            <p style={{ margin: "5px 0 0 0", fontSize: "11px" }}>
+              GSTIN / UIN : {billTo.gstin}
+            </p>
+          )}
+        </div>
       </div>
-
-      <hr style={{ margin: "15px 0" }} />
 
       {/* ITEMS TABLE */}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
         <thead>
-          <tr
-            style={{
-              borderBottom: "2px solid #000",
-              background: "#f2f2f2",
-            }}
-          >
-            <th style={{ textAlign: "left", padding: "6px" }}>S.No</th>
-            <th style={{ textAlign: "left", padding: "6px" }}>Description</th>
-            <th style={{ textAlign: "left", padding: "6px" }}>Qty</th>
-            <th style={{ textAlign: "left", padding: "6px" }}>Unit</th>
-            <th style={{ textAlign: "left", padding: "6px" }}>Price</th>
-            <th style={{ textAlign: "right", padding: "6px" }}>Amount</th>
+          <tr style={{ borderBottom: "1px solid #000", backgroundColor: "#f5f5f5" }}>
+            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "left", width: "30px" }}>S.N.</th>
+            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "left" }}>Description of Goods</th>
+            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "center", width: "80px" }}>BARCODE NO.</th>
+            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "center", width: "60px" }}>HSN</th>
+            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "center", width: "80px" }}>Qty. Unit</th>
+            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "right", width: "70px" }}>Price</th>
+            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "right", width: "90px" }}>Amount ( )</th>
           </tr>
         </thead>
         <tbody>
           {items.map((it, i) => (
-            <tr key={i} style={{ borderBottom: "1px solid #ddd" }}>
-              <td style={{ padding: "6px" }}>{i + 1}</td>
-              <td style={{ padding: "6px" }}>
+            <tr key={i}>
+              <td style={{ border: "1px solid #000", padding: "6px", textAlign: "center" }}>{i + 1}</td>
+              <td style={{ border: "1px solid #000", padding: "6px" }}>
                 {it.description}
-                {it.printSides && it.printSides > 0
-                  ? ` • ${it.printSides} sides × ${it.qty}`
-                  : ""}
+                {it.printSides && it.printSides > 0 ? ` (${it.printSides} sides printing)` : ""}
               </td>
-              <td style={{ padding: "6px" }}>{it.qty}</td>
-              <td style={{ padding: "6px" }}>{it.unit}</td>
-              <td style={{ padding: "6px" }}>₹{it.price}</td>
-              <td style={{ textAlign: "right", padding: "6px" }}>
-                ₹{(it.qty * it.price).toFixed(2)}
+              <td style={{ border: "1px solid #000", padding: "6px", textAlign: "center" }}>
+                {it.barcode || "000002"}
               </td>
+              <td style={{ border: "1px solid #000", padding: "6px", textAlign: "center" }}>
+                {it.hsn || "4901101"}
+              </td>
+              <td style={{ border: "1px solid #000", padding: "6px", textAlign: "center" }}>
+                {it.qty} {it.unit}
+              </td>
+              <td style={{ border: "1px solid #000", padding: "6px", textAlign: "right" }}>
+                {Number(it.price).toFixed(2)}
+              </td>
+              <td style={{ border: "1px solid #000", padding: "6px", textAlign: "right" }}>
+                {(it.qty * it.price).toFixed(2)}
+              </td>
+            </tr>
+          ))}
+          {/* Empty rows for spacing */}
+          {[...Array(Math.max(0, 5 - items.length))].map((_, i) => (
+            <tr key={`empty-${i}`} style={{ height: "40px" }}>
+              <td style={{ border: "1px solid #000", padding: "6px" }}>&nbsp;</td>
+              <td style={{ border: "1px solid #000", padding: "6px" }}>&nbsp;</td>
+              <td style={{ border: "1px solid #000", padding: "6px" }}>&nbsp;</td>
+              <td style={{ border: "1px solid #000", padding: "6px" }}>&nbsp;</td>
+              <td style={{ border: "1px solid #000", padding: "6px" }}>&nbsp;</td>
+              <td style={{ border: "1px solid #000", padding: "6px" }}>&nbsp;</td>
+              <td style={{ border: "1px solid #000", padding: "6px" }}>&nbsp;</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* SUMMARY BOX */}
-      <div
-        style={{
-          marginTop: "25px",
-          borderTop: "2px solid #000",
-          paddingTop: "10px",
-          width: "100%",
-          display: "flex",
-          justifyContent: "flex-end",
-        }}
-      >
-        <table
-          style={{
-            borderCollapse: "collapse",
-            width: "300px",
-            fontSize: "14px",
-          }}
-        >
-          <tbody>
-            <tr>
-              <td style={{ padding: "6px" }}>Subtotal:</td>
-              <td style={{ textAlign: "right", padding: "6px" }}>
-                ₹{subtotal.toFixed(2)}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ padding: "6px" }}>P&F Charges:</td>
-              <td style={{ textAlign: "right", padding: "6px" }}>
-                ₹{charges.pf.toFixed(2)}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ padding: "6px" }}>Printing Charges:</td>
-              <td style={{ textAlign: "right", padding: "6px" }}>
-                ₹{charges.printing.toFixed(2)}
-              </td>
-            </tr>
-
-            {/* ✅ Location-based Adjustment */}
-            {locationTax && locationTax.percentage ? (
+      {/* TAX SUMMARY */}
+      <div style={{ display: "flex", borderTop: "1px solid #000" }}>
+        <div style={{ flex: 1 }}></div>
+        <div style={{ width: "300px" }}>
+          <table style={{ width: "100%", fontSize: "11px" }}>
+            <tbody>
               <tr>
-                <td style={{ padding: "6px" }}>
-                  Location Adjustment ({locationTax.country})
-                </td>
-                <td style={{ textAlign: "right", padding: "6px" }}>
-                  +{locationTax.percentage}%{" "}
-                  {locationTax.currency?.country
-                    ? `(${locationTax.currency.country})`
-                    : ""}
-                  <br />₹{locationAdj.toFixed(2)}
-                </td>
+                <td style={{ padding: "4px", textAlign: "right" }}></td>
+                <td style={{ padding: "4px", textAlign: "right" }}></td>
+                <td style={{ padding: "4px", textAlign: "right", fontWeight: "bold" }}>{subtotal.toFixed(2)}</td>
               </tr>
-            ) : null}
-
-            <tr>
-              <td style={{ padding: "6px" }}>
-                CGST ({tax.cgstRate}%)
-              </td>
-              <td style={{ textAlign: "right", padding: "6px" }}>
-                ₹{tax.cgstAmount.toFixed(2)}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ padding: "6px" }}>
-                SGST ({tax.sgstRate}%)
-              </td>
-              <td style={{ textAlign: "right", padding: "6px" }}>
-                ₹{tax.sgstAmount.toFixed(2)}
-              </td>
-            </tr>
-
-            <tr
-              style={{
-                borderTop: "2px solid #000",
-                fontWeight: "bold",
-                fontSize: "15px",
-              }}
-            >
-              <td style={{ padding: "6px" }}>Grand Total:</td>
-              <td style={{ textAlign: "right", padding: "6px" }}>
-                ₹{adjustedTotal.toFixed(2)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              
+              {/* Show CGST + SGST + IGST for same state (Chhattisgarh) */}
+              {tax.type === 'INTRASTATE' && (
+                <>
+                  <tr>
+                    <td style={{ padding: "4px" }}>Add : CGST</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.cgstRate} %</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.cgstAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "4px" }}>Add : SGST</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.sgstRate} %</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.sgstAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "4px" }}>Add : IGST</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.igstRate} %</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
+                  </tr>
+                </>
+              )}
+              
+              {/* Show CGST + SGST + IGST for different state in India */}
+              {tax.type === 'INTERSTATE' && (
+                <>
+                  <tr>
+                    <td style={{ padding: "4px" }}>Add : CGST</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.cgstRate} %</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.cgstAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "4px" }}>Add : SGST</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.sgstRate} %</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.sgstAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "4px" }}>Add : IGST</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.igstRate} %</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
+                  </tr>
+                </>
+              )}
+              
+              {/* Show TAX for international */}
+              {tax.type === 'INTERNATIONAL' && (
+                <tr>
+                  <td style={{ padding: "4px" }}>Add : TAX</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.taxRate} %</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{tax.taxAmount.toFixed(2)}</td>
+                </tr>
+              )}
+              
+              {/* Fallback for old invoices without type */}
+              {!tax.type && (
+                <>
+                  {tax.sgstRate > 0 && (
+                    <tr>
+                      <td style={{ padding: "4px" }}>Add : SGST</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.sgstRate} %</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>{tax.sgstAmount.toFixed(2)}</td>
+                    </tr>
+                  )}
+                  {tax.cgstRate > 0 && (
+                    <tr>
+                      <td style={{ padding: "4px" }}>Add : CGST</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.cgstRate} %</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>{tax.cgstAmount.toFixed(2)}</td>
+                    </tr>
+                  )}
+                  {tax.igstRate > 0 && (
+                    <tr>
+                      <td style={{ padding: "4px" }}>Add : IGST</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.igstRate} %</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
+                    </tr>
+                  )}
+                </>
+              )}
+              
+              {/* Round off - always added */}
+              {Math.abs(Math.ceil(adjustedTotal) - adjustedTotal) > 0.01 && (
+                <tr>
+                  <td style={{ padding: "4px" }} colSpan="2">Round Off</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>
+                    +{(Math.ceil(adjustedTotal) - adjustedTotal).toFixed(2)}
+                  </td>
+                </tr>
+              )}
+              
+              <tr style={{ borderTop: "1px solid #000", fontWeight: "bold" }}>
+                <td style={{ padding: "4px" }}>Grand Total</td>
+                <td style={{ padding: "4px", textAlign: "right" }}>
+                  {items.reduce((sum, it) => sum + Number(it.qty), 0)} {items[0]?.unit || "Pcs"}.
+                </td>
+                <td style={{ padding: "4px", textAlign: "right" }}>{Math.ceil(adjustedTotal).toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <hr style={{ margin: "20px 0" }} />
+      {/* TAX BREAKDOWN TABLE */}
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", marginTop: "10px", border: "1px solid #000" }}>
+        <thead>
+          <tr style={{ backgroundColor: "#f5f5f5" }}>
+            <th style={{ border: "1px solid #000", padding: "4px" }}>Tax Rate</th>
+            <th style={{ border: "1px solid #000", padding: "4px" }}>Taxable Amt.</th>
+            {tax.type === 'INTRASTATE' && (
+              <>
+                <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
+                <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
+                <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
+              </>
+            )}
+            {tax.type === 'INTERSTATE' && (
+              <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
+            )}
+            {tax.type === 'INTERNATIONAL' && (
+              <th style={{ border: "1px solid #000", padding: "4px" }}>TAX Amt.</th>
+            )}
+            {!tax.type && (
+              <>
+                <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
+                <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
+              </>
+            )}
+            <th style={{ border: "1px solid #000", padding: "4px" }}>Total Tax</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "center" }}>
+              {tax.type === 'INTRASTATE' && `${tax.cgstRate + tax.sgstRate + tax.igstRate}%`}
+              {tax.type === 'INTERSTATE' && `${tax.igstRate}%`}
+              {tax.type === 'INTERNATIONAL' && `${tax.taxRate}%`}
+              {!tax.type && `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%`}
+            </td>
+            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
+            
+            {tax.type === 'INTRASTATE' && (
+              <>
+                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.cgstAmount.toFixed(2)}</td>
+                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.sgstAmount.toFixed(2)}</td>
+                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
+              </>
+            )}
+            {tax.type === 'INTERSTATE' && (
+              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
+            )}
+            {tax.type === 'INTERNATIONAL' && (
+              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.taxAmount.toFixed(2)}</td>
+            )}
+            {!tax.type && (
+              <>
+                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{(tax.cgstAmount || 0).toFixed(2)}</td>
+                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{(tax.sgstAmount || 0).toFixed(2)}</td>
+              </>
+            )}
+            
+            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>
+              {tax.type === 'INTRASTATE' && (tax.cgstAmount + tax.sgstAmount + tax.igstAmount).toFixed(2)}
+              {tax.type === 'INTERSTATE' && tax.igstAmount.toFixed(2)}
+              {tax.type === 'INTERNATIONAL' && tax.taxAmount.toFixed(2)}
+              {!tax.type && ((tax.cgstAmount || 0) + (tax.sgstAmount || 0) + (tax.igstAmount || 0)).toFixed(2)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-      <ul>
-        {terms.map((t, i) => (
-          <li key={i}>{t}</li>
-        ))}
-      </ul>
+      {/* AMOUNT IN WORDS */}
+      <div style={{ marginTop: "10px", fontSize: "11px", fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: "10px" }}>
+        Rupees {totalInWords} Only
+      </div>
 
-      <p style={{ marginTop: "30px", fontWeight: "bold", textAlign: "right" }}>
-        For {forCompany}
-      </p>
+      {/* TERMS & SIGNATURE */}
+      <div style={{ display: "flex", marginTop: "10px", minHeight: "120px" }}>
+        <div style={{ flex: 1, fontSize: "10px", paddingRight: "10px" }}>
+          <p style={{ fontWeight: "bold", marginBottom: "5px" }}>Terms & Conditions</p>
+          <p style={{ margin: "2px 0" }}>E.& O.E.</p>
+          {terms.map((t, i) => (
+            <p key={i} style={{ margin: "2px 0" }}>{i + 1}. {t}</p>
+          ))}
+        </div>
+        <div style={{ width: "250px", textAlign: "right", paddingTop: "60px" }}>
+          <p style={{ fontSize: "11px", fontWeight: "bold", marginBottom: "5px" }}>
+            For {forCompany}
+          </p>
+          <p style={{ fontSize: "10px", marginTop: "30px" }}>Authorised Signatory</p>
+        </div>
+      </div>
     </div>
   );
 };
+
+// Helper function to convert number to words
+function numberToWords(num) {
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+
+  if (num === 0) return 'Zero';
+  if (num < 10) return ones[num];
+  if (num < 20) return teens[num - 10];
+  if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + ones[num % 10] : '');
+  if (num < 1000) return ones[Math.floor(num / 100)] + ' Hundred' + (num % 100 !== 0 ? ' ' + numberToWords(num % 100) : '');
+  if (num < 100000) return numberToWords(Math.floor(num / 1000)) + ' Thousand' + (num % 1000 !== 0 ? ' ' + numberToWords(num % 1000) : '');
+  if (num < 10000000) return numberToWords(Math.floor(num / 100000)) + ' Lakh' + (num % 100000 !== 0 ? ' ' + numberToWords(num % 100000) : '');
+  return numberToWords(Math.floor(num / 10000000)) + ' Crore' + (num % 10000000 !== 0 ? ' ' + numberToWords(num % 10000000) : '');
+}
 
 /* ------------------------------ ORDER SUCCESS ------------------------------ */
 export default function OrderSuccess() {
@@ -269,11 +420,16 @@ export default function OrderSuccess() {
 
   /* ✅ FIXED INVOICE LOGIC: accurate charges + gst like cart + side printing info */
   useEffect(() => {
+    let isMounted = true;
+    
     async function fetchInvoice() {
       try {
         if (!orderId) throw new Error("No Order ID found");
 
         const res = await getInvoiceByOrder(orderId);
+        
+        if (!isMounted) return; // Prevent state update if unmounted
+        
         const inv = res?.invoice;
         if (!inv) throw new Error("No invoice found");
 
@@ -323,15 +479,25 @@ export default function OrderSuccess() {
         };
 
         console.log("🧾 Normalized Invoice for Success Page:", formatted);
-        setInvoiceData(formatted);
-        clearCart();
+        
+        if (isMounted) {
+          setInvoiceData(formatted);
+          clearCart();
+        }
       } catch (err) {
         console.error("Error fetching invoice:", err);
-        navigate("/");
+        if (isMounted) {
+          navigate("/");
+        }
       }
     }
+    
     fetchInvoice();
-  }, [orderId, clearCart, navigate]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [orderId]); // Only depend on orderId
 
   // ✅ PDF DOWNLOAD
   const downloadPDF = async () => {

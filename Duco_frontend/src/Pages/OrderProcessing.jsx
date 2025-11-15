@@ -31,21 +31,31 @@ const OrderProcessing = () => {
 
         // Send to backend
         const API_BASE = `${API_BASE_URL}/`;
-        const response = await axios.post(`${API_BASE}api/complete-order`, {
+        console.log('📤 Sending order to backend:', { paymentId, paymentmode });
+        
+        const response = await axios.post(`${API_BASE}api/completedorder`, {
           paymentId,
           orderData: finalOrderData,
           paymentmode: paymentmode || 'online',
           compressed: false, // Already decompressed
         });
 
-        if (response.data.success) {
+        console.log('📥 Backend response:', response.data);
+
+        if (response.data && response.data.success && response.data.order) {
           const order = response.data.order;
-          setOrderId(order._id);
+          const orderId = order._id || order.id;
+          
+          if (!orderId) {
+            throw new Error('Order created but no ID returned');
+          }
+          
+          setOrderId(orderId);
           setStatus('success');
           setMessage('Order placed successfully!');
 
           // Store order ID for success page
-          localStorage.setItem('lastOrderId', order._id);
+          localStorage.setItem('lastOrderId', orderId);
           localStorage.setItem('lastOrderMeta', JSON.stringify({
             mode: paymentmode || 'online',
             isCorporate: order.orderType === 'B2B'
@@ -53,10 +63,11 @@ const OrderProcessing = () => {
 
           // Redirect to success page after 2 seconds
           setTimeout(() => {
-            navigate(`/order-success/${order._id}`);
+            navigate(`/order-success/${orderId}`);
           }, 2000);
         } else {
-          throw new Error(response.data.message || 'Order creation failed');
+          console.error('❌ Invalid response structure:', response.data);
+          throw new Error(response.data?.message || 'Order creation failed - invalid response');
         }
       } catch (error) {
         console.error('❌ Order processing error:', error);

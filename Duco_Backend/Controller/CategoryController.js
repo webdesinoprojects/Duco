@@ -118,12 +118,112 @@ const getSubcategoriesByCategoryId = async (req, res) => {
   }
 };
 
+// Update Category
+const updateCategory = async (req, res) => {
+  const { id } = req.params;
+  const { category } = req.body;
 
+  try {
+    const updatedCategory = await CategoryModel.findByIdAndUpdate(
+      id,
+      { category },
+      { new: true }
+    );
+
+    if (!updatedCategory) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    res.status(200).json({
+      message: "Category updated successfully",
+      category: updatedCategory,
+    });
+  } catch (error) {
+    console.error("Error updating category:", error);
+    res.status(500).json({ message: "Failed to update category", error });
+  }
+};
+
+// Delete Category
+const deleteCategory = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // First, delete all subcategories associated with this category
+    await SubCategoryModel.deleteMany({ categoryId: id });
+
+    // Then delete the category
+    const deletedCategory = await CategoryModel.findByIdAndDelete(id);
+
+    if (!deletedCategory) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    res.status(200).json({
+      message: "Category and associated subcategories deleted successfully",
+      category: deletedCategory,
+    });
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    res.status(500).json({ message: "Failed to delete category", error });
+  }
+};
+
+// Update Subcategory
+const updateSubcategory = async (req, res) => {
+  const { id } = req.params;
+  const { subcatogry, categoryId } = req.body;
+
+  try {
+    const updatedSubcategory = await SubCategoryModel.findByIdAndUpdate(
+      id,
+      { subcatogry, categoryId },
+      { new: true }
+    ).populate("categoryId");
+
+    if (!updatedSubcategory) {
+      return res.status(404).json({ message: "Subcategory not found" });
+    }
+
+    res.status(200).json({
+      message: "Subcategory updated successfully",
+      subcategory: updatedSubcategory,
+    });
+  } catch (error) {
+    console.error("Error updating subcategory:", error);
+    res.status(500).json({ message: "Failed to update subcategory", error });
+  }
+};
+
+// Delete Subcategory
+const deleteSubcategory = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deletedSubcategory = await SubCategoryModel.findByIdAndDelete(id);
+
+    if (!deletedSubcategory) {
+      return res.status(404).json({ message: "Subcategory not found" });
+    }
+
+    res.status(200).json({
+      message: "Subcategory deleted successfully",
+      subcategory: deletedSubcategory,
+    });
+  } catch (error) {
+    console.error("Error deleting subcategory:", error);
+    res.status(500).json({ message: "Failed to delete subcategory", error });
+  }
+};
 
 module.exports = {
         CreateCatogry,
         SubCreateCatogry,
         getallCatgory,
         getallsubcategory,
-        getSubcategoriesByCategoryId
+        getSubcategoriesByCategoryId,
+        updateCategory,
+        deleteCategory,
+        updateSubcategory,
+        deleteSubcategory
 }

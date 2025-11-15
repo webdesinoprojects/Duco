@@ -7,22 +7,26 @@ const InvoiceHelper = require("../DataBase/Models/InvoiceHelper");
 // ---- Default (initial) document ----
 const INITIAL_DOC = {
   company: {
-    name: "",
-    address: "",
-    gstin: "",
-    cin: "",
-    email: "",
+    name: "DUCO ART PRIVATE LIMITED",
+    address: "SADIJA COMPOUND AVANTI VIHAR LIG 64\nNEAR BANK OF BARODA , RAIPUR C.G",
+    gstin: "22AAICD1719N1ZM",
+    cin: "U52601CT2020PTC010997",
+    email: "ducoart1@gmail.com",
     pan: "",
     iec: "",
     gst: ""
   },
   invoice: {
-    placeOfSupply: "",
+    placeOfSupply: "Chhattisgarh (22)",
     reverseCharge: false,
     copyType: "Original Copy"
   },
-  terms: [],
-  forCompany: ""
+  terms: [
+    "Goods once sold will not be taken back.",
+    "Interest @ 18% p.a. will be charged if the payment is not made with in the stipulated time.",
+    "Subject to 'Chhattisgarh' Jurisdiction only."
+  ],
+  forCompany: "DUCO ART PRIVATE LIMITED"
 };
 
 // ---- Helpers ----

@@ -43,13 +43,51 @@ const MobileSidebar = ({ menuItems, setMobileMenuOpen, mobileMenuOpen }) => {
   // Helper to match menu label -> category object from API
   const matchCategory = (label) => {
     const incoming = (label || "").toLowerCase();
-    const mapped = (fallbackMap[label] || "").toLowerCase();
+    if (!incoming || !allCategories.length) return null;
 
-    return (
-      allCategories.find(c => c?.category?.toLowerCase().includes(incoming)) ||
-      allCategories.find(c => c?.category?.toLowerCase() === mapped) ||
-      null
-    );
+    // Try multiple matching strategies
+    const strategies = [
+      // 1. Exact match
+      () => allCategories.find(c => c?.category?.toLowerCase() === incoming),
+      
+      // 2. Contains match
+      () => allCategories.find(c => c?.category?.toLowerCase().includes(incoming)),
+      
+      // 3. Reverse contains
+      () => allCategories.find(c => incoming.includes(c?.category?.toLowerCase())),
+      
+      // 4. Fallback map exact match
+      () => allCategories.find(c => 
+        c?.category?.toLowerCase() === (fallbackMap[label] || "").toLowerCase()
+      ),
+      
+      // 5. Fallback map contains
+      () => allCategories.find(c => 
+        c?.category?.toLowerCase().includes((fallbackMap[label] || "").toLowerCase())
+      ),
+      
+      // 6. Remove common words and try again
+      () => allCategories.find(c => {
+        const cleaned = c?.category?.toLowerCase()
+          .replace(/['s]/g, '')
+          .replace(/clothing/g, '')
+          .replace(/shirt/g, '')
+          .trim();
+        return cleaned === incoming || cleaned.includes(incoming) || incoming.includes(cleaned);
+      })
+    ];
+
+    // Try each strategy until one works
+    for (const strategy of strategies) {
+      const match = strategy();
+      if (match) {
+        console.log(`✅ Mobile: Matched "${label}" to category:`, match.category);
+        return match;
+      }
+    }
+
+    console.warn(`⚠️ Mobile: No match found for "${label}". Available:`, allCategories.map(c => c.category));
+    return null;
   };
 
   const handleItemTap = async (item) => {

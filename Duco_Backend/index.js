@@ -44,7 +44,7 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:5174',
-      'https://duco-67o5.onrender.com', 
+      'http://localhost:3000', 
       'https://duco-frontend.vercel.app',
       'https://ducoart.com',
       'https://www.ducoart.com'

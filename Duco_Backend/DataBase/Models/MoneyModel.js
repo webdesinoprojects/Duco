@@ -7,6 +7,11 @@ const PriceSchema = new mongoose.Schema({
         unique : true,
         trim : true
     },
+    aliases: {
+        type: [String],
+        default: [],
+        trim: true
+    },
     price_increase : {
         type : Number,
         required : true,

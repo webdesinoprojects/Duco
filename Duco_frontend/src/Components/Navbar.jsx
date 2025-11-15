@@ -1,4 +1,4 @@
-import React,{useState} from 'react'
+import React,{useState, useEffect} from 'react'
 import { FaSearch, FaShoppingBag, FaBars, FaTimes   } from "react-icons/fa";
 import { RiAccountCircle2Fill } from "react-icons/ri";
 import logo from "../assets/image.png"
@@ -6,31 +6,16 @@ import logo from "../assets/image.png"
 import { NavLink, useLocation ,Link , useNavigate } from "react-router-dom";
 import ProductMegaMenu from './ProductMegaMenuXX';
 import MobileSidebar from './MobileSidebar';
- const menuItems = [
-    { name: "Home", link: "/" ,isbold:false},
-    { name: "Men", link: "/men", hasMegaMenu: true, megaCategory: "Men", isbold:true},
-    { name: "Women", link: "/women", hasMegaMenu: true, megaCategory: "Women", isbold:true},
-    { name: "Kid", link: "/kid", hasMegaMenu: true, megaCategory: "Kid", isbold:true},
-    { name: "Bulk Order", link: "/corporate", hasMegaMenu: true, megaCategory: "Corporate T-Shirt", isbold:true}
-  ];
-
-  const menuItemss = [
-  { name: "Home", link: "/" },
-  { name: "Men",   megaCategory: "Men" },    // dropdown fetched from API
-  { name: "Women", megaCategory: "Women" },  // dropdown fetched from API
-  { name: "Kids",  megaCategory: "Kids" },
-  { name: "Bulk Order",  megaCategory: "Corporate T-Shirt" },
-     // dropdown fetched from API
-
-];
-
-
 const Navbar = ({setIsOpenLog ,user}) => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   const [mobileMegaOpen, setMobileMegaOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dynamicCategories, setDynamicCategories] = useState([]);
+  const [menuItems, setMenuItems] = useState([{ name: "Home", link: "/" ,isbold:false}]);
+  const [menuItemss, setMenuItemss] = useState([{ name: "Home", link: "/" }]);
 
   // helper to normalize to lowercase safely
 const toKey = (s) => (s ?? "").toLowerCase();
@@ -39,10 +24,69 @@ const toKey = (s) => (s ?? "").toLowerCase();
 const [isclick, setIsClick] = useState("home");
 const [islineclick, setIslineClick] = useState("home");
 
+// Fetch categories dynamically from API and build menu
+useEffect(() => {
+  const fetchCategories = async () => {
+    try {
+      const { getCategories } = await import('../Service/APIservice');
+      const cats = await getCategories();
+      if (Array.isArray(cats) && cats.length > 0) {
+        console.log('📁 Navbar: Fetched categories:', cats);
+        setDynamicCategories(cats);
+        
+        // Build dynamic menu items from categories
+        const homeItem = { name: "Home", link: "/" ,isbold:false};
+        const dynamicDesktopItems = cats
+          .filter(cat => cat.category && cat.category.trim() !== '') // Filter out empty categories
+          .map(cat => {
+            const routeName = cat.category.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return {
+              name: cat.category,
+              link: `/${routeName}`,
+              hasMegaMenu: true,
+              megaCategory: cat.category,
+              isbold: true
+            };
+          });
+        
+        const dynamicMobileItems = cats
+          .filter(cat => cat.category && cat.category.trim() !== '')
+          .map(cat => ({
+            name: cat.category,
+            megaCategory: cat.category
+          }));
+        
+        setMenuItems([homeItem, ...dynamicDesktopItems]);
+        setMenuItemss([{ name: "Home", link: "/" }, ...dynamicMobileItems]);
+        
+        console.log('✅ Dynamic menu items created:', dynamicDesktopItems.length, 'categories');
+      }
+    } catch (error) {
+      console.error('❌ Navbar: Error fetching categories:', error);
+    }
+  };
+  fetchCategories();
+}, []);
+
+// Handle search
+const handleSearch = (e) => {
+  e.preventDefault();
+  if (searchQuery.trim()) {
+    navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    setSearchQuery("");
+  }
+};
+
+const handleSearchKeyPress = (e) => {
+  if (e.key === 'Enter') {
+    handleSearch(e);
+  }
+};
+
 
   return (
    <>
-      <nav className="w-full flex sm:items-center sm:justify-center sm:gap-[250px] gap-[180px] items-center justify-evenly sm:px-6 py-4 bg-[#0A0A0A] text-white font-semibold">
+      <nav className="w-full flex items-center justify-center px-6 py-4 bg-[#0A0A0A] text-white font-semibold">
         
         {/* Left Nav */}
         <div className="hidden md:flex items-center gap-6 text-sm">
@@ -62,13 +106,10 @@ const [islineclick, setIslineClick] = useState("home");
     >
       <Link to={item.link}>
       <span
-  className={`font-['Poppins',ui-sans-serif,system-ui,sans-serif]  font-bold  text-[16px] leading-[1.1]  uppercase`}
+  className={`font-['Poppins',ui-sans-serif,system-ui,sans-serif] font-semibold text-[13px] leading-[1.1] uppercase whitespace-nowrap tracking-wide`}
 >
   {item.name}
 </span>
-
-
-
       </Link>
 
       {key === islineclick && (                         // <-- compare lowercase
@@ -86,7 +127,7 @@ const [islineclick, setIslineClick] = useState("home");
         </div>
 
         {/* Center Logo */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 mx-8">
          <Link to={'/'}> <img src={logo} alt="DUCO ART Logo" className="h-6 object-contain" /></Link>
         </div>
 
@@ -94,10 +135,16 @@ const [islineclick, setIslineClick] = useState("home");
         <div className="flex items-center gap-4">
           {/* Search */}
           <div className="hidden md:flex items-center border-b border-white gap-2 px-2 py-1">
-            <FaSearch className="text-white" />
+            <FaSearch 
+              className="text-white cursor-pointer" 
+              onClick={handleSearch}
+            />
             <input
               type="text"
               placeholder="Search For Products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
               className="bg-transparent placeholder-white text-white outline-none"
             />
           </div>
@@ -141,10 +188,16 @@ const [islineclick, setIslineClick] = useState("home");
 
       {/* Mobile Search */}
       <div className="md:hidden mt-2 relative flex items-center gap-2 px-2 py-1">
-        <FaSearch className="text-white" />
+        <FaSearch 
+          className="text-white cursor-pointer" 
+          onClick={handleSearch}
+        />
         <input
           type="text"
           placeholder="Search For Products..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyPress={handleSearchKeyPress}
           className="bg-transparent placeholder-white text-white outline-none w-full"
         />
         {!user ? (

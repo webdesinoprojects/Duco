@@ -38,19 +38,51 @@ const ProductMegaMenuXX = ({ category }) => {
   // Normalize and match incoming `category` to API category name
   const matchCategory = useMemo(() => {
     const incoming = (category || "").toLowerCase();
-    if (!incoming) return null;
+    if (!incoming || !allCategories.length) return null;
 
-    // Try exact-ish matches first
-    const direct =
-      allCategories.find(c =>
-        c?.category?.toLowerCase().includes(incoming)
-      ) ||
-      // Try mapping (Men -> Men's Clothing, etc.)
-      allCategories.find(c =>
+    // Try multiple matching strategies
+    const strategies = [
+      // 1. Exact match
+      () => allCategories.find(c => c?.category?.toLowerCase() === incoming),
+      
+      // 2. Contains match (e.g., "Men" matches "Men's Clothing")
+      () => allCategories.find(c => c?.category?.toLowerCase().includes(incoming)),
+      
+      // 3. Reverse contains (e.g., "Men's Clothing" contains "men")
+      () => allCategories.find(c => incoming.includes(c?.category?.toLowerCase())),
+      
+      // 4. Fallback map exact match
+      () => allCategories.find(c => 
         c?.category?.toLowerCase() === (fallbackMap[category] || "").toLowerCase()
-      );
+      ),
+      
+      // 5. Fallback map contains
+      () => allCategories.find(c => 
+        c?.category?.toLowerCase().includes((fallbackMap[category] || "").toLowerCase())
+      ),
+      
+      // 6. Remove common words and try again (e.g., "Men's Clothing" -> "Men")
+      () => allCategories.find(c => {
+        const cleaned = c?.category?.toLowerCase()
+          .replace(/['s]/g, '')
+          .replace(/clothing/g, '')
+          .replace(/shirt/g, '')
+          .trim();
+        return cleaned === incoming || cleaned.includes(incoming) || incoming.includes(cleaned);
+      })
+    ];
 
-    return direct || null;
+    // Try each strategy until one works
+    for (const strategy of strategies) {
+      const match = strategy();
+      if (match) {
+        console.log(`✅ Matched "${category}" to category:`, match.category);
+        return match;
+      }
+    }
+
+    console.warn(`⚠️ No match found for "${category}". Available:`, allCategories.map(c => c.category));
+    return null;
   }, [allCategories, category]);
 
   // Fetch all categories once
@@ -60,7 +92,13 @@ const ProductMegaMenuXX = ({ category }) => {
       setLoading(true);
       try {
         const cats = await getCategories();
-        if (mounted && Array.isArray(cats)) setAllCategories(cats);
+        console.log('📁 Fetched categories:', cats);
+        if (mounted && Array.isArray(cats)) {
+          setAllCategories(cats);
+          console.log('✅ Categories set:', cats);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching categories:', error);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -73,24 +111,30 @@ const ProductMegaMenuXX = ({ category }) => {
     let mounted = true;
     const fetchSubs = async () => {
       if (!matchCategory?._id) {
+        console.log('⚠️ No matching category found for:', category);
+        console.log('Available categories:', allCategories.map(c => c.category));
         setSubcats([]);
         setCurrentCat(null);
         return;
       }
+      console.log('🔍 Fetching subcategories for:', matchCategory.category, matchCategory._id);
       setLoading(true);
       try {
         const subs = await getSubcategoriesByCategoryId(matchCategory._id);
+        console.log('📂 Fetched subcategories:', subs);
         if (mounted) {
           setCurrentCat(matchCategory);
           setSubcats(Array.isArray(subs) ? subs : []);
         }
+      } catch (error) {
+        console.error('❌ Error fetching subcategories:', error);
       } finally {
         if (mounted) setLoading(false);
       }
     };
     fetchSubs();
     return () => { mounted = false; };
-  }, [matchCategory]);
+  }, [matchCategory, category, allCategories]);
 
   // UI
   return (

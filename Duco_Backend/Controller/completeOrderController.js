@@ -6,6 +6,7 @@ const { createInvoice } = require('./invoiceService');
 const { getOrCreateSingleton } = require('../Router/DataRoutes');
 const { createTransaction } = require('./walletController');
 const { createPrintroveOrder } = require('./printroveHelper');
+const { calculateOrderTotal } = require('../Service/TaxCalculationService');
 const LZString = require('lz-string'); // ✅ added for decompression
 
 // Helper function to handle corporate orders
@@ -178,10 +179,8 @@ const completeOrder = async (req, res) => {
   });
 
   // ✅ Normalize charge structure (accept both orderData.charges.* or flat fields)
-  // TODO: Commented out packaging and forwarding for testing - uncomment later
-  // const pfCharge =
-  //   safeNum(orderData?.charges?.pf, 0) || safeNum(orderData?.pf, 0) || 0;
-  const pfCharge = 0; // Temporarily set to 0 for testing
+  const pfCharge =
+    safeNum(orderData?.charges?.pf, 0) || safeNum(orderData?.pf, 0) || 0;
   const printingCharge =
     safeNum(orderData?.charges?.printing, 0) ||
     safeNum(orderData?.printing, 0) ||
@@ -351,9 +350,7 @@ const completeOrder = async (req, res) => {
         },
         items: buildInvoiceItems(items),
         charges: {
-          // TODO: Commented out packaging and forwarding for testing - uncomment later
-          // pf: pfCharge,
-          pf: 0, // Temporarily set to 0 for testing
+          pf: pfCharge,
           printing: printingCharge,
         },
         tax: {
@@ -548,9 +545,7 @@ const completeOrder = async (req, res) => {
         },
         items: buildInvoiceItems(items),
         charges: {
-          // TODO: Commented out packaging and forwarding for testing - uncomment later
-          // pf: pfCharge,
-          pf: 0, // Temporarily set to 0 for testing
+          pf: pfCharge,
           printing: printingCharge,
         },
         tax: {
@@ -668,9 +663,7 @@ const completeOrder = async (req, res) => {
         },
         items: buildInvoiceItems(items),
         charges: {
-          // TODO: Commented out packaging and forwarding for testing - uncomment later
-          // pf: pfCharge,
-          pf: 0, // Temporarily set to 0 for testing
+          pf: pfCharge,
           printing: printingCharge,
         },
         tax: {
@@ -789,3 +782,4 @@ const getAllOrders = async (req, res) => {
 };
 
 module.exports = { completeOrder, getOrderById, getAllOrders };
+

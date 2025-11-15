@@ -140,8 +140,25 @@ router.post('/sync', async (req, res) => {
 router.get('/products', async (req, res) => {
   try {
     const { listPrintroveProducts } = require('../Controller/printroveHelper');
+    const { getPrintroveToken } = require('../Controller/printroveAuth');
     
     console.log('📦 Fetching Printrove products...');
+    
+    // Test token first
+    try {
+      const token = await getPrintroveToken();
+      console.log('✅ Printrove token obtained:', token ? 'Valid' : 'Invalid');
+    } catch (tokenError) {
+      console.error('❌ Token error:', tokenError.message);
+      return res.json({
+        success: false,
+        products: [],
+        total: 0,
+        message: 'Printrove authentication failed. Please check API credentials.',
+        error: tokenError.message
+      });
+    }
+    
     const productsData = await listPrintroveProducts();
     console.log('📦 Products data received:', productsData);
 
@@ -152,13 +169,14 @@ router.get('/products', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching Printrove products:', error.message);
+    console.error('❌ Full error:', error);
     
     // Return empty array instead of error to prevent frontend crashes
     res.json({
       success: false,
       products: [],
       total: 0,
-      message: 'Printrove API temporarily unavailable. Please try again later.',
+      message: 'Printrove API temporarily unavailable. Please check credentials and try again.',
       error: error.message
     });
   }

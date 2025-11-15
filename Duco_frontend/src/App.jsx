@@ -58,6 +58,7 @@ import InvoiceSet from "./Pages/InvoiceSet.jsx";
 import WalletPage from "./Pages/WalletPage.jsx";
 import OrderSuccess from "./Pages/OrderSuccess.jsx";
 import ScrollToTop from "./Components/ScrollToTop.jsx";
+import SearchResults from "./Pages/SearchResults.jsx";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -139,6 +140,7 @@ const App = () => {
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/order-processing" element={<OrderProcessing />} />
           <Route path="/order-success/:orderId" element={<OrderSuccess />} />
+          <Route path="/search" element={<SearchResults />} />
 
           <Route
             path="/products/subcategory/:id/:catogory_name"

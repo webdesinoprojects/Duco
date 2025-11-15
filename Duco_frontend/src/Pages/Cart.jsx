@@ -396,18 +396,15 @@ const Cart = () => {
         itemTotal = safeNum(item.price);
         console.log(`💰 Custom item ${item.name}: Using pre-converted price ${itemTotal}`);
       } else {
-        // ✅ Regular products need location pricing applied
+        // ✅ Regular products - just use base price (printing is calculated separately)
         const basePrice = safeNum(item.price);
-        const printingCost = calculatePrintingCost(item);
-        const designCost = calculateDesignCost(item);
-        const itemTotalBeforeLocation = basePrice + printingCost + designCost;
         
         itemTotal = applyLocationPricing(
-          itemTotalBeforeLocation,
+          basePrice,
           priceIncrease,
           conversionRate
         );
-        console.log(`💰 Regular item ${item.name}: Applied location pricing ${itemTotalBeforeLocation} → ${itemTotal}`);
+        console.log(`💰 Regular item ${item.name}: Base price ${basePrice} → ${itemTotal} (after location pricing)`);
       }
 
       return sum + itemTotal * qty;
@@ -462,17 +459,29 @@ const Cart = () => {
 
   const printingCost = useMemo(() => {
     // ✅ Calculate printing cost based on actual sides used (₹15 per side)
-    return actualData.reduce((total, item) => {
+    const cost = actualData.reduce((total, item) => {
       const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
       const sides = countDesignSides(item);
       const costPerSide = 15; // ₹15 per side
-      return total + (qty * sides * costPerSide);
+      const itemCost = qty * sides * costPerSide;
+      console.log(`🖨️ Printing cost for ${item.products_name || item.name}:`, {
+        qty,
+        sides,
+        costPerSide,
+        itemCost,
+        design: item.design
+      });
+      return total + itemCost;
     }, 0);
+    console.log(`🖨️ Total printing cost: ₹${cost}`);
+    return cost;
   }, [actualData]);
 
   const pfCost = useMemo(() => {
-    return safeNum(pfPerUnit) * safeNum(totalQuantity) + safeNum(pfFlat);
-  }, [pfPerUnit, pfFlat, totalQuantity]);
+    // ✅ Fixed P&F charge: ₹15 flat
+    console.log(`📦 P&F Cost: ₹15`);
+    return 15;
+  }, []);
 
   const taxableAmount = useMemo(() => {
     return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
@@ -488,30 +497,49 @@ const Cart = () => {
   );
 
   const grandTotal = useMemo(() => {
-    // ✅ Apply location pricing to printing and P&F costs (items already handled in itemsSubtotal)
-    const printingWithLocation = applyLocationPricing(printingCost, priceIncrease, conversionRate);
+    // ✅ P&F charges get location pricing, printing charges stay fixed
     const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
     
-    // Taxable amount = items (already properly adjusted) + printing + P&F (both adjusted)
-    const adjustedTaxable = safeNum(itemsSubtotal) + printingWithLocation + pfWithLocation;
+    // Taxable amount = items (with location pricing) + printing (fixed) + P&F (with location pricing)
+    const adjustedTaxable = safeNum(itemsSubtotal) + safeNum(printingCost) + pfWithLocation;
+    
+    // Determine GST rate based on location
+    const customerState = address?.state || '';
+    const customerCountry = address?.country || 'India';
+    const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
+    const isIndia = customerCountry.toLowerCase().includes('india') || customerCountry.toLowerCase().includes('bharat');
+    
+    let gstRate = 0;
+    if (!isIndia) {
+      gstRate = 1; // TAX 1% for outside India
+    } else if (isChhattisgarh) {
+      gstRate = 5; // CGST 2.5% + SGST 2.5% + IGST 0% = 5%
+    } else {
+      gstRate = 6; // CGST 2.5% + SGST 2.5% + IGST 1% = 6%
+    }
     
     // GST on adjusted taxable amount
-    const adjustedGst = (adjustedTaxable * safeNum(gstPercent)) / 100;
+    const adjustedGst = (adjustedTaxable * gstRate) / 100;
     
-    const total = Math.round(adjustedTaxable + adjustedGst);
+    // Total before round off
+    const total = adjustedTaxable + adjustedGst;
     
     console.log(`💰 Grand Total Calculation:`, {
       itemsSubtotal: safeNum(itemsSubtotal),
-      printingWithLocation,
+      printingCost: safeNum(printingCost),
+      pfCost: safeNum(pfCost),
       pfWithLocation,
       adjustedTaxable,
+      gstRate,
       adjustedGst,
-      total,
-      currency: currencySymbol
+      totalBeforeRoundOff: total,
+      totalAfterRoundOff: Math.ceil(total),
+      currency: currencySymbol,
+      location: { state: customerState, country: customerCountry, isChhattisgarh, isIndia }
     });
     
-    return total;
-  }, [itemsSubtotal, printingCost, pfCost, gstPercent, priceIncrease, conversionRate, currencySymbol]);
+    return total; // Return before round off, we'll round in display
+  }, [itemsSubtotal, printingCost, pfCost, priceIncrease, conversionRate, currencySymbol, address]);
 
   if (loadingProducts) return <Loading />;
   if (!cart.length)
@@ -563,7 +591,7 @@ const Cart = () => {
               </div>
               <div className="flex justify-between">
                 <span>Printing Charges ({printingUnits} sides)</span>
-                <span>{formatCurrency(applyLocationPricing(printingCost, priceIncrease, conversionRate))}</span>
+                <span>{formatCurrency(printingCost)}</span>
               </div>
               <div className="flex justify-between">
                 <span>P&F Charges</span>
@@ -573,14 +601,82 @@ const Cart = () => {
               {/* Subtotal before GST - matching invoice format */}
               <div className="flex justify-between border-t pt-2 mt-2">
                 <span className="font-medium">Subtotal</span>
-                <span className="font-medium">{formatCurrency(itemsSubtotal + applyLocationPricing(printingCost, priceIncrease, conversionRate) + applyLocationPricing(pfCost, priceIncrease, conversionRate))}</span>
+                <span className="font-medium">{formatCurrency(itemsSubtotal + printingCost + applyLocationPricing(pfCost, priceIncrease, conversionRate))}</span>
               </div>
               
-              {/* GST - simplified format */}
-              <div className="flex justify-between">
-                <span>GST ({safeNum(gstPercent)}%)</span>
-                <span>{formatCurrency((itemsSubtotal + applyLocationPricing(printingCost, priceIncrease, conversionRate) + applyLocationPricing(pfCost, priceIncrease, conversionRate)) * (safeNum(gstPercent) / 100))}</span>
-              </div>
+              {/* GST Breakdown based on location */}
+              {(() => {
+                const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
+                const taxableAmount = itemsSubtotal + printingCost + pfWithLocation;
+                const customerState = address?.state || '';
+                const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
+                
+                // Check if in India
+                const customerCountry = address?.country || 'India';
+                const isIndia = customerCountry.toLowerCase().includes('india') || customerCountry.toLowerCase().includes('bharat');
+                
+                if (!isIndia) {
+                  // Outside India: TAX 1% (no GST)
+                  const taxAmount = (taxableAmount * 1) / 100;
+                  return (
+                    <div className="flex justify-between">
+                      <span>TAX (1%)</span>
+                      <span>{formatCurrency(taxAmount)}</span>
+                    </div>
+                  );
+                } else if (isChhattisgarh) {
+                  // Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% + IGST 0% = 5%
+                  const cgstAmount = (taxableAmount * 2.5) / 100;
+                  const sgstAmount = (taxableAmount * 2.5) / 100;
+                  const totalGst = cgstAmount + sgstAmount;
+                  return (
+                    <>
+                      <div className="flex justify-between">
+                        <span>CGST (2.5%)</span>
+                        <span>{formatCurrency(cgstAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>SGST (2.5%)</span>
+                        <span>{formatCurrency(sgstAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>IGST (0%)</span>
+                        <span>{formatCurrency(0)}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2 mt-2 font-medium">
+                        <span>Total GST (5%)</span>
+                        <span>{formatCurrency(totalGst)}</span>
+                      </div>
+                    </>
+                  );
+                } else {
+                  // Different state in India: CGST 2.5% + SGST 2.5% + IGST 1% = 6%
+                  const cgstAmount = (taxableAmount * 2.5) / 100;
+                  const sgstAmount = (taxableAmount * 2.5) / 100;
+                  const igstAmount = (taxableAmount * 1) / 100;
+                  const totalGst = cgstAmount + sgstAmount + igstAmount;
+                  return (
+                    <>
+                      <div className="flex justify-between">
+                        <span>CGST (2.5%)</span>
+                        <span>{formatCurrency(cgstAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>SGST (2.5%)</span>
+                        <span>{formatCurrency(sgstAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>IGST (1%)</span>
+                        <span>{formatCurrency(igstAmount)}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2 mt-2 font-medium">
+                        <span>Total GST (6%)</span>
+                        <span>{formatCurrency(totalGst)}</span>
+                      </div>
+                    </>
+                  );
+                }
+              })()}
               
               {/* Location pricing adjustment if applicable */}
               {priceIncrease && priceIncrease > 0 && (
@@ -589,11 +685,26 @@ const Cart = () => {
                   <span>+{safeNum(priceIncrease)}%</span>
                 </div>
               )}
+              
+              {/* Round Off - always added */}
+              {(() => {
+                const beforeRoundOff = grandTotal;
+                const roundOff = Math.ceil(beforeRoundOff) - beforeRoundOff;
+                if (roundOff > 0.01) {
+                  return (
+                    <div className="flex justify-between text-sm">
+                      <span>Round Off</span>
+                      <span>+{formatCurrency(roundOff)}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <div className="flex justify-between border-t pt-4 mb-6">
               <span className="font-bold">Grand Total</span>
-              <span className="font-bold">{formatCurrency(grandTotal)}</span>
+              <span className="font-bold">{formatCurrency(Math.ceil(grandTotal))}</span>
             </div>
 
             {/* Bulk Order Minimum Quantity Warning */}
@@ -642,7 +753,7 @@ const Cart = () => {
 
                 // ✅ Check minimum quantity for bulk orders
                 try {
-                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
                   const response = await fetch(`${API_BASE}/api/corporate-settings`);
                   let minOrderQty = 100; // default
                   

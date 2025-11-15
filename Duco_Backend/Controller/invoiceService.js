@@ -57,14 +57,32 @@ async function createInvoice(data) {
   if (!data?.forCompany) throw new Error("forCompany is required");
 
   // ------- DYNAMIC TAX CALCULATION -------
-  const companyState = (data.company?.state || "").trim().toLowerCase();
-  const supplyState = (data.invoice?.placeOfSupply || "").trim().toLowerCase();
-  const isSameState = companyState && supplyState && companyState === supplyState;
-
+  const { calculateTax } = require('../Service/TaxCalculationService');
+  
+  // Calculate tax based on customer location
+  const customerState = data.invoice?.placeOfSupply || data.billTo?.state || '';
+  const customerCountry = data.billTo?.country || 'India';
+  
+  // Calculate taxable amount
+  const items = Array.isArray(data.items) ? data.items : [];
+  const charges = data.charges || {};
+  const subtotal = items.reduce((sum, i) => sum + safeNum(i.price) * safeNum(i.qty), 0);
+  const chargesTotal = safeNum(charges.pf) + safeNum(charges.printing);
+  const taxableAmount = subtotal + chargesTotal;
+  
+  const taxInfo = calculateTax(taxableAmount, customerState, customerCountry);
+  
   data.tax = {
-    cgstRate: isSameState ? 2.5 : 0,
-    sgstRate: isSameState ? 2.5 : 0,
-    igstRate: isSameState ? 0 : 5
+    cgstRate: taxInfo.cgstRate,
+    sgstRate: taxInfo.sgstRate,
+    igstRate: taxInfo.igstRate,
+    taxRate: taxInfo.taxRate,
+    cgstAmount: taxInfo.cgstAmount,
+    sgstAmount: taxInfo.sgstAmount,
+    igstAmount: taxInfo.igstAmount,
+    totalTax: taxInfo.totalTax,
+    type: taxInfo.type,
+    label: taxInfo.label
   };
   // --------------------------------------
 

@@ -25,7 +25,7 @@ const OderSection = () => {
 
   const fetchOrders = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
       const res = await fetch(`${API_BASE}/api/order?page=1&limit=50`);
       
       if (!res.ok) {

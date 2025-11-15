@@ -16,6 +16,33 @@ router.get('/tracking/:orderId', getOrderTracking);
 // Sync order status with Printrove
 router.post('/tracking/:orderId/sync', syncOrderStatus);
 
+// Get Printrove product catalog
+router.get('/printrove/products', async (req, res) => {
+  try {
+    const { getPrintroveToken } = require('../Controller/printroveAuth');
+    const axios = require('axios');
+    
+    const token = await getPrintroveToken();
+    const response = await axios.get('https://api.printrove.com/api/external/products', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    res.json({
+      success: true,
+      products: response.data.data || response.data.products || []
+    });
+  } catch (error) {
+    console.error('Error fetching Printrove products:', error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch Printrove products'
+    });
+  }
+});
+
 // Get Printrove order status directly
 router.get('/printrove/:printroveOrderId', getPrintroveOrderStatus);
 
