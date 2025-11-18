@@ -9,32 +9,31 @@ const { createPrintroveOrder } = require('./printroveHelper');
 const { calculateOrderTotal } = require('../Service/TaxCalculationService');
 const LZString = require('lz-string'); // ✅ added for decompression
 
-// Helper function to handle corporate orders
-const handleCorporateOrder = async (order) => {
-  console.log('🏢 Corporate order detected');
-  
-  // Get corporate settings to check if Printrove integration is enabled
-  const corporateSettings = await CorporateSettings.getSingletonSettings();
-  
-  if (corporateSettings.enablePrintroveIntegration) {
-    console.log('🏢 Corporate order - Printrove integration enabled, processing...');
-    try {
-      const printData = await createPrintroveOrder(order);
-      if (printData?.order?.id) {
-        order.printroveOrderId = printData.order.id;
-        order.printroveStatus = 'Processing';
-        console.log('✅ Corporate order sent to Printrove:', printData.order.id);
-      }
-    } catch (printError) {
-      console.error('❌ Corporate Printrove integration failed:', printError);
-      order.printroveStatus = 'Error';
-    }
-  } else {
-    console.log('🏢 Corporate order - Printrove integration disabled, processing manually');
-    order.printroveStatus = 'Corporate Order - No Printrove';
+// ✅ Helper function to handle Printrove routing based on order type
+const handlePrintroveRouting = async (order, isCorporateOrder) => {
+  // B2B orders NEVER go to Printrove - managed internally
+  if (isCorporateOrder) {
+    console.log('🏢 B2B Order - Skipping Printrove, managing internally');
+    order.printroveStatus = 'B2B Order - Internal Management';
+    await order.save();
+    return;
   }
   
-  await order.save();
+  // ✅ ALL B2C orders (both regular AND designer) go to Printrove
+  console.log('🛍️ B2C Order - Sending to Printrove');
+  try {
+    const printData = await createPrintroveOrder(order);
+    order.printroveOrderId = printData?.order?.id || printData?.id || null;
+    order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
+    order.printroveItems = printData?.order?.order_products || printData?.items || [];
+    order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
+    await order.save();
+    console.log('✅ B2C Order sent to Printrove:', order.printroveOrderId);
+  } catch (err) {
+    console.error('❌ Printrove sync failed:', err.message);
+    order.printroveStatus = 'Error';
+    await order.save();
+  }
 };
 
 // --- Razorpay client ---
@@ -312,26 +311,8 @@ const completeOrder = async (req, res) => {
         }
       }
 
-      // ✅ Only send to Printrove if not already sent AND not a corporate order
-      if (!order.printroveOrderId && !isCorporateOrder) {
-        try {
-          const printData = await createPrintroveOrder(order);
-          order.printroveOrderId = printData?.order?.id || printData?.id || null;
-          order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
-          order.printroveItems = printData?.order?.order_products || printData?.items || [];
-          order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
-          await order.save();
-          console.log('✅ Sent to Printrove:', order.printroveOrderId);
-        } catch (err) {
-          console.error('❌ Printrove sync failed (store pickup):', err.message);
-          order.printroveStatus = 'Error';
-          await order.save();
-        }
-      } else if (isCorporateOrder) {
-        await handleCorporateOrder(order);
-      } else {
-        console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
-      }
+      // ✅ Handle Printrove routing based on order type
+      await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
       const invoicePayload = {
@@ -339,7 +320,7 @@ const completeOrder = async (req, res) => {
         invoice: {
           number: String(order._id),
           date: formatDateDDMMYYYY(),
-          placeOfSupply: settings?.invoice?.placeOfSupply,
+          placeOfSupply: address?.state || settings?.invoice?.placeOfSupply,
           reverseCharge: !!settings?.invoice?.reverseCharge,
           copyType: settings?.invoice?.copyType || 'Original Copy',
         },
@@ -347,16 +328,15 @@ const completeOrder = async (req, res) => {
           name: orderData.user?.name || '',
           address: addressToLine(address),
           gstin: '',
+          state: address?.state || '',
+          country: address?.country || 'India',
         },
         items: buildInvoiceItems(items),
         charges: {
           pf: pfCharge,
           printing: printingCharge,
         },
-        tax: {
-          cgstRate: safeNum(orderData.gst, 0) / 2,
-          sgstRate: safeNum(orderData.gst, 0) / 2,
-        },
+        // Remove hardcoded tax - let invoiceService calculate dynamically
         terms: settings?.terms,
         forCompany: settings?.forCompany,
         order: order._id,
@@ -395,26 +375,8 @@ const completeOrder = async (req, res) => {
         orderType,
       });
 
-      // ✅ Only send to Printrove if not already sent AND not a corporate order
-      if (!order.printroveOrderId && !isCorporateOrder) {
-        try {
-          const printData = await createPrintroveOrder(order);
-          order.printroveOrderId = printData?.order?.id || printData?.id || null;
-          order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
-          order.printroveItems = printData?.order?.order_products || printData?.items || [];
-          order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
-          await order.save();
-          console.log('✅ Sent to Printrove:', order.printroveOrderId);
-        } catch (err) {
-          console.error('❌ Printrove sync failed (netbanking):', err.message);
-          order.printroveStatus = 'Error';
-          await order.save();
-        }
-      } else if (isCorporateOrder) {
-        await handleCorporateOrder(order);
-      } else {
-        console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
-      }
+      // ✅ Handle Printrove routing based on order type
+      await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
       const invoicePayload = {
@@ -422,7 +384,7 @@ const completeOrder = async (req, res) => {
         invoice: {
           number: String(order._id),
           date: formatDateDDMMYYYY(),
-          placeOfSupply: settings?.invoice?.placeOfSupply,
+          placeOfSupply: address?.state || settings?.invoice?.placeOfSupply,
           reverseCharge: !!settings?.invoice?.reverseCharge,
           copyType: settings?.invoice?.copyType || 'Original Copy',
         },
@@ -430,16 +392,15 @@ const completeOrder = async (req, res) => {
           name: orderData.user?.name || '',
           address: addressToLine(address),
           gstin: '',
+          state: address?.state || '',
+          country: address?.country || 'India',
         },
         items: buildInvoiceItems(items),
         charges: {
           pf: pfCharge,
           printing: printingCharge,
         },
-        tax: {
-          cgstRate: safeNum(orderData.gst, 0) / 2,
-          sgstRate: safeNum(orderData.gst, 0) / 2,
-        },
+        // Remove hardcoded tax - let invoiceService calculate dynamically
         terms: settings?.terms,
         forCompany: settings?.forCompany,
         order: order._id,
@@ -507,26 +468,8 @@ const completeOrder = async (req, res) => {
         }
       }
 
-      // ✅ Only send to Printrove if not already sent AND not a corporate order
-      if (!order.printroveOrderId && !isCorporateOrder) {
-        try {
-          const printData = await createPrintroveOrder(order);
-          order.printroveOrderId = printData?.order?.id || printData?.id || null;
-          order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
-          order.printroveItems = printData?.order?.order_products || printData?.items || [];
-          order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
-          await order.save();
-          console.log('✅ Sent to Printrove:', order.printroveOrderId);
-        } catch (err) {
-          console.error('❌ Printrove sync failed (online):', err.message);
-          order.printroveStatus = 'Error';
-          await order.save();
-        }
-      } else if (isCorporateOrder) {
-        await handleCorporateOrder(order);
-      } else {
-        console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
-      }
+      // ✅ Handle Printrove routing based on order type
+      await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
       const invoicePayload = {
@@ -534,7 +477,7 @@ const completeOrder = async (req, res) => {
         invoice: {
           number: String(order._id),
           date: formatDateDDMMYYYY(),
-          placeOfSupply: settings?.invoice?.placeOfSupply,
+          placeOfSupply: address?.state || settings?.invoice?.placeOfSupply,
           reverseCharge: !!settings?.invoice?.reverseCharge,
           copyType: settings?.invoice?.copyType || 'Original Copy',
         },
@@ -542,16 +485,15 @@ const completeOrder = async (req, res) => {
           name: orderData.user?.name || '',
           address: addressToLine(address),
           gstin: '',
+          state: address?.state || '',
+          country: address?.country || 'India',
         },
         items: buildInvoiceItems(items),
         charges: {
           pf: pfCharge,
           printing: printingCharge,
         },
-        tax: {
-          cgstRate: safeNum(orderData.gst, 0) / 2,
-          sgstRate: safeNum(orderData.gst, 0) / 2,
-        },
+        // Remove hardcoded tax - let invoiceService calculate dynamically
         terms: settings?.terms,
         forCompany: settings?.forCompany,
         order: order._id,
@@ -625,26 +567,8 @@ const completeOrder = async (req, res) => {
         console.error('Wallet creation failed (halfpay):', error);
       }
 
-      // ✅ Only send to Printrove if not already sent AND not a corporate order
-      if (!order.printroveOrderId && !isCorporateOrder) {
-        try {
-          const printData = await createPrintroveOrder(order);
-          order.printroveOrderId = printData?.order?.id || printData?.id || null;
-          order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
-          order.printroveItems = printData?.order?.order_products || printData?.items || [];
-          order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
-          await order.save();
-          console.log('✅ Sent to Printrove:', order.printroveOrderId);
-        } catch (err) {
-          console.error('❌ Printrove sync failed (50%):', err.message);
-          order.printroveStatus = 'Error';
-          await order.save();
-        }
-      } else if (isCorporateOrder) {
-        await handleCorporateOrder(order);
-      } else {
-        console.log('⚠️ Order already sent to Printrove:', order.printroveOrderId);
-      }
+      // ✅ Handle Printrove routing based on order type
+      await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
       const invoicePayload = {
@@ -652,7 +576,7 @@ const completeOrder = async (req, res) => {
         invoice: {
           number: String(order._id),
           date: formatDateDDMMYYYY(),
-          placeOfSupply: settings?.invoice?.placeOfSupply,
+          placeOfSupply: address?.state || settings?.invoice?.placeOfSupply,
           reverseCharge: !!settings?.invoice?.reverseCharge,
           copyType: settings?.invoice?.copyType || 'Original Copy',
         },
@@ -660,16 +584,15 @@ const completeOrder = async (req, res) => {
           name: orderData.user?.name || '',
           address: addressToLine(address),
           gstin: '',
+          state: address?.state || '',
+          country: address?.country || 'India',
         },
         items: buildInvoiceItems(items),
         charges: {
           pf: pfCharge,
           printing: printingCharge,
         },
-        tax: {
-          cgstRate: safeNum(orderData.gst, 0) / 2,
-          sgstRate: safeNum(orderData.gst, 0) / 2,
-        },
+        // Remove hardcoded tax - let invoiceService calculate dynamically
         terms: settings?.terms,
         forCompany: settings?.forCompany,
         order: order._id,

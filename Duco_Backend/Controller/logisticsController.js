@@ -253,6 +253,125 @@ const toggleSpeedLogistics = async (req, res) => {
   }
 };
 
+/**
+ * Add Delivery Slip to Logistic
+ * Params: :id (logistic ID)
+ * Body: { deliverySlips: [{ URL, fileSize, fileName }] }
+ */
+const addDeliverySlip = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { deliverySlips } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid logistic id" });
+    }
+
+    if (!deliverySlips || !Array.isArray(deliverySlips)) {
+      return res.status(400).json({ error: "deliverySlips array is required" });
+    }
+
+    const logistic = await Logistic.findById(id);
+    if (!logistic) {
+      return res.status(404).json({ error: "Logistic not found" });
+    }
+
+    // Check if adding these would exceed the limit
+    const currentCount = logistic.deliverySlips?.length || 0;
+    const newCount = currentCount + deliverySlips.length;
+
+    if (newCount > 2) {
+      return res.status(400).json({ 
+        error: `Cannot add ${deliverySlips.length} slip(s). Maximum 2 delivery slips allowed. Current: ${currentCount}` 
+      });
+    }
+
+    // Validate file sizes
+    const maxSize = 4 * 1024 * 1024; // 4MB
+    for (const slip of deliverySlips) {
+      if (slip.fileSize && slip.fileSize > maxSize) {
+        return res.status(400).json({ 
+          error: `File ${slip.fileName || 'unknown'} exceeds 4MB limit` 
+        });
+      }
+    }
+
+    // Add delivery slips
+    const slipsToAdd = deliverySlips.map(slip => ({
+      URL: slip.URL,
+      uploadedAt: new Date(),
+      fileSize: slip.fileSize || 0,
+      fileName: slip.fileName || 'delivery-slip.jpg'
+    }));
+
+    logistic.deliverySlips = [...(logistic.deliverySlips || []), ...slipsToAdd];
+    logistic.updatedAt = new Date();
+    await logistic.save();
+
+    return res.json({
+      success: true,
+      message: `Added ${slipsToAdd.length} delivery slip(s)`,
+      logistic
+    });
+  } catch (err) {
+    console.error("addDeliverySlip error:", err);
+    return res.status(500).json({ error: err.message || "Server error" });
+  }
+};
+
+/**
+ * Remove Delivery Slip from Logistic
+ * Params: :id (logistic ID)
+ * Body: { slipIndex: number } or { slipURL: string }
+ */
+const removeDeliverySlip = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { slipIndex, slipURL } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid logistic id" });
+    }
+
+    const logistic = await Logistic.findById(id);
+    if (!logistic) {
+      return res.status(404).json({ error: "Logistic not found" });
+    }
+
+    if (!logistic.deliverySlips || logistic.deliverySlips.length === 0) {
+      return res.status(400).json({ error: "No delivery slips to remove" });
+    }
+
+    // Remove by index or URL
+    if (typeof slipIndex === 'number') {
+      if (slipIndex < 0 || slipIndex >= logistic.deliverySlips.length) {
+        return res.status(400).json({ error: "Invalid slip index" });
+      }
+      logistic.deliverySlips.splice(slipIndex, 1);
+    } else if (slipURL) {
+      const indexToRemove = logistic.deliverySlips.findIndex(slip => slip.URL === slipURL);
+      if (indexToRemove === -1) {
+        return res.status(404).json({ error: "Delivery slip not found" });
+      }
+      logistic.deliverySlips.splice(indexToRemove, 1);
+    } else {
+      return res.status(400).json({ error: "Provide either slipIndex or slipURL" });
+    }
+
+    logistic.updatedAt = new Date();
+    await logistic.save();
+
+    return res.json({
+      success: true,
+      message: "Delivery slip removed",
+      logistic
+    });
+  } catch (err) {
+    console.error("removeDeliverySlip error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
 module.exports = {
   createLogistic,
   updateLogistic,
@@ -260,4 +379,6 @@ module.exports = {
   getLogisticById,
   generateLabel,
   toggleSpeedLogistics,
+  addDeliverySlip,
+  removeDeliverySlip,
 };

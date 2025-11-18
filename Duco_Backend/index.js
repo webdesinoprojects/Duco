@@ -174,6 +174,7 @@ app.use('/api', BannerRoutes);
 app.use('/data', dataRouter);
 app.use('/api', InvoiceRoutes);
 app.use('/api', walletRoutes);
+app.use('/api', require('./Router/adminForgotPasswordRoutes'));
 
 // ======= Admin login (bcrypt + DB) =======
 app.post('/api/admin/check', async (req, res) => {

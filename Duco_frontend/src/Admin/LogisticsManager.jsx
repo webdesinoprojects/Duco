@@ -7,6 +7,7 @@ import {
   getLogisticsByOrder,
   getLogisticById,
 } from "../Service/logisticsApi";
+import ImageKitUpload from "../Components/ImageKitUpload";
 
 const Field = ({ label, children, required }) => (
   <label className="block">
@@ -628,20 +629,29 @@ export default function LogisticsManager() {
             </div>
             <div className="mt-2 space-y-2">
               {createForm.img.map((row, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <Input
-                    value={row.URL}
-                    onChange={(e) => handleCreateImageRow(idx, e.target.value)}
-                    placeholder="https://..."
+                <div key={idx} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={row.URL}
+                      onChange={(e) => handleCreateImageRow(idx, e.target.value)}
+                      placeholder="https://..."
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="shrink-0"
+                      onClick={() => removeCreateImageRow(idx)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                  <ImageKitUpload
+                    onUploadSuccess={(url) => handleCreateImageRow(idx, url)}
+                    folder="logistics"
+                    buttonText="📤 Upload Image"
+                    buttonClassName="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    showPreview={false}
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="shrink-0"
-                    onClick={() => removeCreateImageRow(idx)}
-                  >
-                    Remove
-                  </Button>
                 </div>
               ))}
             </div>
@@ -771,20 +781,29 @@ export default function LogisticsManager() {
               </div>
               <div className="mt-2 space-y-2">
                 {updateForm.img.map((row, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Input
-                      value={row.URL}
-                      onChange={(e) => handleUpdateImageRow(idx, e.target.value)}
-                      placeholder="https://..."
+                  <div key={idx} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={row.URL}
+                        onChange={(e) => handleUpdateImageRow(idx, e.target.value)}
+                        placeholder="https://..."
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="shrink-0"
+                        onClick={() => removeUpdateImageRow(idx)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    <ImageKitUpload
+                      onUploadSuccess={(url) => handleUpdateImageRow(idx, url)}
+                      folder="logistics"
+                      buttonText="📤 Upload Image"
+                      buttonClassName="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      showPreview={false}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="shrink-0"
-                      onClick={() => removeUpdateImageRow(idx)}
-                    >
-                      Remove
-                    </Button>
                   </div>
                 ))}
               </div>

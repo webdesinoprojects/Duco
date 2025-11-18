@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../config/api.js";
+import ImageKitUpload from "../Components/ImageKitUpload";
 
 const ProductsCreated = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -286,16 +287,37 @@ const ProductsCreated = () => {
                 </div>
                 <div className="mt-3 space-y-2">
                   {img.url.map((url, urlIndex) => (
-                    <input
-                      key={urlIndex}
-                      type="text"
-                      placeholder={`Image URL #${urlIndex + 1}`}
-                      value={url}
-                      onChange={(e) =>
-                        handleImageUrlChange(e, imgIndex, urlIndex)
-                      }
-                      className="w-full border p-2 rounded"
-                    />
+                    <div key={urlIndex} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder={`Image URL #${urlIndex + 1}`}
+                          value={url}
+                          onChange={(e) =>
+                            handleImageUrlChange(e, imgIndex, urlIndex)
+                          }
+                          className="flex-1 border p-2 rounded"
+                        />
+                        <ImageKitUpload
+                          onUploadSuccess={(uploadedUrl) => {
+                            const updated = [...formData.image_url];
+                            updated[imgIndex].url[urlIndex] = uploadedUrl;
+                            setFormData({ ...formData, image_url: updated });
+                          }}
+                          folder="products"
+                          buttonText="📤 Upload"
+                          buttonClassName="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
+                          showPreview={false}
+                        />
+                      </div>
+                      {url && (
+                        <img
+                          src={url}
+                          alt={`Preview ${urlIndex + 1}`}
+                          className="w-32 h-32 object-cover rounded border"
+                        />
+                      )}
+                    </div>
                   ))}
                   <button
                     type="button"
@@ -311,17 +333,40 @@ const ProductsCreated = () => {
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Design T-shirt Views</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {['Front View', 'Back View', 'Left View', 'Right View'].map((viewName, designIndex) => (
-                      <div key={designIndex}>
+                      <div key={designIndex} className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">
                           {viewName} Image URL
                         </label>
-                        <input
-                          type="text"
-                          value={img.designtshirt?.[designIndex] || ''}
-                          onChange={(e) => handleDesignTshirtChange(e, imgIndex, designIndex)}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
-                          placeholder={`Enter ${viewName.toLowerCase()} image URL`}
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={img.designtshirt?.[designIndex] || ''}
+                            onChange={(e) => handleDesignTshirtChange(e, imgIndex, designIndex)}
+                            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2"
+                            placeholder={`Enter ${viewName.toLowerCase()} image URL`}
+                          />
+                          <ImageKitUpload
+                            onUploadSuccess={(uploadedUrl) => {
+                              const updated = [...formData.image_url];
+                              if (!updated[imgIndex].designtshirt) {
+                                updated[imgIndex].designtshirt = ["", "", "", ""];
+                              }
+                              updated[imgIndex].designtshirt[designIndex] = uploadedUrl;
+                              setFormData({ ...formData, image_url: updated });
+                            }}
+                            folder="products/design-tshirts"
+                            buttonText="📤"
+                            buttonClassName="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm"
+                            showPreview={false}
+                          />
+                        </div>
+                        {img.designtshirt?.[designIndex] && (
+                          <img
+                            src={img.designtshirt[designIndex]}
+                            alt={`${viewName} preview`}
+                            className="w-full h-32 object-contain rounded border bg-gray-50"
+                          />
+                        )}
                       </div>
                     ))}
                   </div>

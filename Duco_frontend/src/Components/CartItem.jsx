@@ -27,8 +27,8 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         <div className="w-full sm:w-32 h-32 bg-gray-200 flex items-center justify-center rounded-lg overflow-hidden shadow-md">
           <img
             src={
-              item.image_url?.[0]?.url?.[0] ||
               item.previewImages?.front ||
+              item.image_url?.[0]?.url?.[0] ||
               "/fallback.png" // ✅ safe fallback
             }
             alt={item.products_name || item.name || "Custom T-Shirt"}
@@ -92,14 +92,49 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 mt-2">
-            {/* Design Preview */}
-            <button
-              onClick={() => setPreviewImage(item.design)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#E5C870] text-black text-sm rounded-md hover:bg-gray-800 hover:text-white transition"
-            >
-              <RiEyeFill size={18} />
-              Preview
-            </button>
+            {/* Design Preview - Only show if item has design */}
+            {(item.design || item.previewImages) && (
+              <button
+                onClick={() => {
+                  // Check for different design data structures
+                  if (item.previewImages) {
+                    // New structure from TShirtDesigner
+                    const previews = [
+                      item.previewImages.front && { url: item.previewImages.front, view: 'Front' },
+                      item.previewImages.back && { url: item.previewImages.back, view: 'Back' },
+                      item.previewImages.left && { url: item.previewImages.left, view: 'Left' },
+                      item.previewImages.right && { url: item.previewImages.right, view: 'Right' },
+                    ].filter(Boolean);
+                    setPreviewImage(previews.length > 0 ? previews : null);
+                  } else if (Array.isArray(item.design)) {
+                    // Array format
+                    setPreviewImage(item.design);
+                  } else if (item.design && typeof item.design === 'object') {
+                    // Object format - convert to array
+                    const previews = [];
+                    if (item.design.front?.uploadedImage || item.design.front?.customText) {
+                      previews.push({ url: item.design.frontImage || item.design.front.uploadedImage, view: 'Front' });
+                    }
+                    if (item.design.back?.uploadedImage || item.design.back?.customText) {
+                      previews.push({ url: item.design.backImage || item.design.back.uploadedImage, view: 'Back' });
+                    }
+                    if (item.design.left?.uploadedImage || item.design.left?.customText) {
+                      previews.push({ url: item.design.leftImage || item.design.left.uploadedImage, view: 'Left' });
+                    }
+                    if (item.design.right?.uploadedImage || item.design.right?.customText) {
+                      previews.push({ url: item.design.rightImage || item.design.right.uploadedImage, view: 'Right' });
+                    }
+                    setPreviewImage(previews.length > 0 ? previews : null);
+                  } else {
+                    setPreviewImage(null);
+                  }
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#E5C870] text-black text-sm rounded-md hover:bg-gray-800 hover:text-white transition"
+              >
+                <RiEyeFill size={18} />
+                Preview
+              </button>
+            )}
 
             {/* Remove Button */}
             <button
@@ -126,34 +161,52 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
       </div>
 
       {previewImage !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl max-w-3xl w-full relative overflow-y-auto max-h-[90vh]">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="bg-white p-6 rounded-xl shadow-xl max-w-4xl w-full relative overflow-y-auto max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold text-black mb-4">Design Preview</h2>
+            
             {Array.isArray(previewImage) && previewImage.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {previewImage.map((img, index) => (
-                  <div key={index} className="flex flex-col justify-center">
-                    <img
-                      src={img.url}
-                      alt={`Design Preview ${index + 1}`}
-                      className="w-full h-auto object-contain rounded border"
-                    />
-                    <span className="text-black font-bold text-center">
-                      {img.view}
+                  <div key={index} className="flex flex-col items-center gap-2">
+                    <div className="w-full aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-300">
+                      <img
+                        src={img.url}
+                        alt={`${img.view} View`}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          e.target.src = '/fallback.png';
+                          e.target.alt = 'Preview not available';
+                        }}
+                      />
+                    </div>
+                    <span className="text-black font-semibold text-sm uppercase tracking-wide">
+                      {img.view} View
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-center text-gray-600 font-medium">
-                No preview is there
-              </p>
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p className="text-gray-600 font-medium text-lg">No design preview available</p>
+                <p className="text-gray-500 text-sm mt-2">This is a regular t-shirt without custom design</p>
+              </div>
             )}
 
             <button
               onClick={() => setPreviewImage(null)}
-              className="absolute top-2 right-2 bg-black text-white px-2 py-1 text-xs rounded hover:bg-red-600"
+              className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-red-700 transition-colors font-medium shadow-lg"
             >
-              Close
+              ✕ Close
             </button>
           </div>
         </div>

@@ -96,7 +96,7 @@ const OrderCart = ({ order }) => {
       {/* Content */}
       <div className="flex flex-col justify-between flex-grow w-full">
         
-        {/* Top Row: Status + Cancel Button */}
+        {/* Top Row: Status */}
         <div className="flex w-full items-center justify-between">
           <span
             className={`text-xs sm:text-sm font-medium tracking-wide uppercase px-3 py-1 rounded-full shadow-sm
@@ -117,12 +117,6 @@ const OrderCart = ({ order }) => {
           >
             {order.status}
           </span>
-
-          {order.status !== "Delivered" && order.status !== "Cancelled" && (
-            <button className="text-xs sm:text-sm font-semibold text-rose-600 hover:text-rose-700 px-3 py-1 rounded-md bg-rose-50 hover:bg-rose-100 transition-colors shadow-sm ml-3 shrink-0">
-              Cancel
-            </button>
-          )}
         </div>
 
         {/* Product Name & Delivery Date */}

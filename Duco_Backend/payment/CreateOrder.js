@@ -53,12 +53,26 @@ const createRazorpayOrder = async (req, res) => {
     console.log('🔀 Half payment:', half);
 
     console.log('🔍 STEP 3: Creating Razorpay order...');
+    
+    // ✅ Support international payments
+    const { currency = 'INR', customerCountry } = req.body;
+    const isInternational = customerCountry && !['India', 'IN', 'IND'].includes(customerCountry);
+    
     const orderData = {
       amount: amountInPaise,
-      currency: 'INR',
+      currency: currency || 'INR', // Support multiple currencies
       receipt: `receipt_${Date.now()}`,
       payment_capture: 1,
     };
+    
+    // ✅ Enable international payments if needed
+    if (isInternational) {
+      orderData.notes = {
+        international_payment: true,
+        customer_country: customerCountry
+      };
+      console.log('🌍 International payment detected for:', customerCountry);
+    }
 
     console.log('📤 Razorpay order data:', orderData);
 

@@ -24,6 +24,15 @@ const toKey = (s) => (s ?? "").toLowerCase();
 const [isclick, setIsClick] = useState("home");
 const [islineclick, setIslineClick] = useState("home");
 
+// ✅ Display name mapping for categories
+const getDisplayName = (categoryName) => {
+  const normalized = categoryName.toLowerCase().trim();
+  if (normalized.includes('corporate') || normalized.includes('bulk')) {
+    return 'BULK ORDER';
+  }
+  return categoryName;
+};
+
 // Fetch categories dynamically from API and build menu
 useEffect(() => {
   const fetchCategories = async () => {
@@ -36,15 +45,16 @@ useEffect(() => {
         
         // Build dynamic menu items from categories
         const homeItem = { name: "Home", link: "/" ,isbold:false};
+        
         const dynamicDesktopItems = cats
           .filter(cat => cat.category && cat.category.trim() !== '') // Filter out empty categories
           .map(cat => {
             const routeName = cat.category.toLowerCase().replace(/[^a-z0-9]/g, '');
             return {
-              name: cat.category,
+              name: getDisplayName(cat.category), // ✅ Use display name
               link: `/${routeName}`,
               hasMegaMenu: true,
-              megaCategory: cat.category,
+              megaCategory: cat.category, // Keep original for API calls
               isbold: true
             };
           });
@@ -52,8 +62,8 @@ useEffect(() => {
         const dynamicMobileItems = cats
           .filter(cat => cat.category && cat.category.trim() !== '')
           .map(cat => ({
-            name: cat.category,
-            megaCategory: cat.category
+            name: getDisplayName(cat.category), // ✅ Use display name
+            megaCategory: cat.category // Keep original for API calls
           }));
         
         setMenuItems([homeItem, ...dynamicDesktopItems]);
@@ -86,101 +96,104 @@ const handleSearchKeyPress = (e) => {
 
   return (
    <>
-      <nav className="w-full flex items-center justify-center px-6 py-4 bg-[#0A0A0A] text-white font-semibold">
-        
-        {/* Left Nav */}
-        <div className="hidden md:flex items-center gap-6 text-sm">
-      {menuItems.map((item) => {
-  const key = toKey(item.name);
+      <nav className="w-full bg-[#0A0A0A] text-white font-semibold">
+        <div className="max-w-[1920px] mx-auto px-6 py-4 grid grid-cols-3 items-center gap-4">
+          
+          {/* Left Nav - Takes up left third */}
+          <div className="hidden md:flex items-center gap-6 text-sm justify-start">
+            {menuItems.map((item) => {
+              const key = toKey(item.name);
 
-  return (
-    <div
-      key={item.link}
-      className="relative group cursor-pointer"
-      onMouseEnter={() => {
-           setIsClick(key)
-        setIslineClick(key)
-      }
-      }     // <-- store lowercase
-      onMouseLeave={() => setIsClick("home")}  // <-- keep lowercase default
-    >
-      <Link to={item.link}>
-      <span
-  className={`font-['Poppins',ui-sans-serif,system-ui,sans-serif] font-semibold text-[13px] leading-[1.1] uppercase whitespace-nowrap tracking-wide`}
->
-  {item.name}
-</span>
-      </Link>
+              return (
+                <div
+                  key={item.link}
+                  className="relative group cursor-pointer"
+                  onMouseEnter={() => {
+                    setIsClick(key)
+                    setIslineClick(key)
+                  }}
+                  onMouseLeave={() => setIsClick("home")}
+                >
+                  <Link to={item.link}>
+                    <span
+                      className={`font-['Poppins',ui-sans-serif,system-ui,sans-serif] font-semibold text-[13px] leading-[1.1] uppercase whitespace-nowrap tracking-wide`}
+                    >
+                      {item.name}
+                    </span>
+                  </Link>
 
-      {key === islineclick && (                         // <-- compare lowercase
-        <div className="absolute left-0 -bottom-1 w-full h-[2px] bg-[#E5C870]" />
-      )}
+                  {key === islineclick && (
+                    <div className="absolute left-0 -bottom-1 w-full h-[2px] bg-[#E5C870]" />
+                  )}
 
-      {item.hasMegaMenu && isclick === key && (     // <-- compare lowercase
-        <div className="absolute top-full left-[-20px] mt-1 z-50">
-          <ProductMegaMenu category={item.megaCategory || item.name} />
-        </div>
-      )}
-    </div>
-  );
-})}
-        </div>
-
-        {/* Center Logo */}
-        <div className="flex-shrink-0 mx-8">
-         <Link to={'/'}> <img src={logo} alt="DUCO ART Logo" className="h-6 object-contain" /></Link>
-        </div>
-
-        {/* Right Section */}
-        <div className="flex items-center gap-4">
-          {/* Search */}
-          <div className="hidden md:flex items-center border-b border-white gap-2 px-2 py-1">
-            <FaSearch 
-              className="text-white cursor-pointer" 
-              onClick={handleSearch}
-            />
-            <input
-              type="text"
-              placeholder="Search For Products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={handleSearchKeyPress}
-              className="bg-transparent placeholder-white text-white outline-none"
-            />
+                  {item.hasMegaMenu && isclick === key && (
+                    <div className="absolute top-full left-[-20px] mt-1 z-50">
+                      <ProductMegaMenu category={item.megaCategory || item.name} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Cart & Login/Profile */}
-          <div className="flex items-center justify-center gap-4">
-            <FaShoppingBag
-              onClick={() => navigate("/cart")}
-              className="text-white text-xl cursor-pointer"
-            />
-            {!user ? (
-              <div
-                onClick={() => setIsOpenLog(true)}
-                className="text-white text-sm cursor-pointer border hidden md:flex border-white px-3 py-1 rounded-full hover:bg-white hover:text-black transition-all duration-300 shadow-sm"
-              >
-                Login
-              </div>
-            ) : (
-              <RiAccountCircle2Fill
-                onClick={() => navigate("/profile")}
-                className="text-white text-3xl hidden md:flex cursor-pointer"
-              />
-            )}
+          {/* Center Logo - Takes up center third */}
+          <div className="flex items-center justify-center">
+            <Link to={'/'}>
+              <img src={logo} alt="DUCO ART Logo" className="h-6 object-contain" />
+            </Link>
+          </div>
 
-            {/* Mobile Toggle */}
-            <div className="md:hidden flex items-center justify-center">
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="flex items-center justify-center"
-              >
-                {mobileMenuOpen ? (
-                  <FaTimes className="text-white text-xl" />
-                ) : (
-                  <FaBars className="text-white text-xl" />
-                )}
-              </button>
+          {/* Right Section - Takes up right third */}
+          <div className="flex items-center gap-4 justify-end">
+            {/* Search */}
+            <div className="hidden md:flex items-center border-b border-white gap-2 px-2 py-1">
+              <FaSearch 
+                className="text-white cursor-pointer" 
+                onClick={handleSearch}
+              />
+              <input
+                type="text"
+                placeholder="Search For Products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
+                className="bg-transparent placeholder-white text-white outline-none w-full"
+              />
+            </div>
+
+            {/* Cart & Login/Profile */}
+            <div className="flex items-center gap-4">
+              <FaShoppingBag
+                onClick={() => navigate("/cart")}
+                className="text-white text-xl cursor-pointer"
+              />
+              {!user ? (
+                <div
+                  onClick={() => setIsOpenLog(true)}
+                  className="text-white text-sm cursor-pointer border hidden md:flex border-white px-3 py-1 rounded-full hover:bg-white hover:text-black transition-all duration-300 shadow-sm whitespace-nowrap"
+                >
+                  Login
+                </div>
+              ) : (
+                <RiAccountCircle2Fill
+                  onClick={() => navigate("/profile")}
+                  className="text-white text-3xl hidden md:flex cursor-pointer"
+                />
+              )}
+
+              {/* Mobile Toggle */}
+              <div className="md:hidden flex items-center justify-center">
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="flex items-center justify-center"
+                >
+                  {mobileMenuOpen ? (
+                    <FaTimes className="text-white text-xl" />
+                  ) : (
+                    <FaBars className="text-white text-xl" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

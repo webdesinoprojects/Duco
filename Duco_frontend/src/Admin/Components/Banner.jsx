@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { listBanners, createBanner, updateBanner } from "../../Service/APIservice";
 import { useLocation } from "react-router-dom";
+import ImageKitUpload from "../../Components/ImageKitUpload";
 
 export default function Banner() {
   const [items, setItems] = useState([]);       // [{_id, link}]
@@ -66,19 +67,34 @@ export default function Banner() {
 
         {/* Input row (Create) */}
         <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Paste image URL (https://...)"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
-            />
-            <button
-              onClick={handleAdd}
-              className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 active:scale-[.98]"
-            >
-              Add
-            </button>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Paste image URL (https://...)"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
+              />
+              <button
+                onClick={handleAdd}
+                className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 active:scale-[.98]"
+              >
+                Add URL
+              </button>
+            </div>
+            <div className="border-t pt-3">
+              <p className="text-sm text-slate-600 mb-2">Or upload image directly:</p>
+              <ImageKitUpload
+                onUploadSuccess={(uploadedUrl) => {
+                  setText(uploadedUrl);
+                  handleAdd();
+                }}
+                folder="banners"
+                buttonText="📤 Upload Banner Image"
+                buttonClassName="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 active:scale-[.98]"
+                showPreview={true}
+              />
+            </div>
           </div>
           {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
         </div>

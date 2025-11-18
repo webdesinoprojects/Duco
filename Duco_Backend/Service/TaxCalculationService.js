@@ -74,17 +74,18 @@ function isInIndia(location) {
 /**
  * Calculate tax based on location
  * 
- * Rules:
+ * Rules (Updated for B2B and B2C):
  * 1. Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% + IGST 0% = 5% total
- * 2. Different state in India: CGST 2.5% + SGST 2.5% + IGST 1% = 6% total
+ * 2. Different state in India: CGST 0% + SGST 0% + IGST 5% = 5% total
  * 3. Outside India: TAX 1% (no GST)
  * 
  * @param {number} amount - Taxable amount
  * @param {string} customerState - Customer's state
  * @param {string} customerCountry - Customer's country
+ * @param {boolean} isB2B - Whether this is a B2B order (optional)
  * @returns {object} Tax breakdown
  */
-function calculateTax(amount, customerState = '', customerCountry = '') {
+function calculateTax(amount, customerState = '', customerCountry = '', isB2B = false) {
   const taxableAmount = Number(amount) || 0;
   
   // Check if customer is in India
@@ -106,7 +107,8 @@ function calculateTax(amount, customerState = '', customerCountry = '') {
       totalTax: taxAmount,
       label: 'TAX (1%)',
       isSameState: false,
-      isIndia: false
+      isIndia: false,
+      isB2B: isB2B
     };
   }
   
@@ -134,29 +136,31 @@ function calculateTax(amount, customerState = '', customerCountry = '') {
       totalTax: totalTax,
       label: 'GST (5%)',
       isSameState: true,
-      isIndia: true
+      isIndia: true,
+      isB2B: isB2B
     };
   } else {
-    // Different state in India: CGST 2.5% + SGST 2.5% + IGST 1% = 6%
-    const cgstAmount = (taxableAmount * 2.5) / 100;
-    const sgstAmount = (taxableAmount * 2.5) / 100;
-    const igstAmount = (taxableAmount * 1) / 100;
+    // Different state in India: CGST 0% + SGST 0% + IGST 5% = 5%
+    const cgstAmount = 0;
+    const sgstAmount = 0;
+    const igstAmount = (taxableAmount * 5) / 100;
     const totalTax = cgstAmount + sgstAmount + igstAmount;
     
     return {
       type: 'INTERSTATE',
-      taxRate: 6,
-      cgstRate: 2.5,
-      sgstRate: 2.5,
-      igstRate: 1,
+      taxRate: 5,
+      cgstRate: 0,
+      sgstRate: 0,
+      igstRate: 5,
       taxAmount: 0,
       cgstAmount: cgstAmount,
       sgstAmount: sgstAmount,
       igstAmount: igstAmount,
       totalTax: totalTax,
-      label: 'GST (6%)',
+      label: 'GST (5%)',
       isSameState: false,
-      isIndia: true
+      isIndia: true,
+      isB2B: isB2B
     };
   }
 }
@@ -164,14 +168,21 @@ function calculateTax(amount, customerState = '', customerCountry = '') {
 /**
  * Calculate order total with tax
  * Round off is always added (positive) to reach the next whole number
+ * 
+ * @param {number} subtotal - Items subtotal
+ * @param {object} charges - P&F and printing charges
+ * @param {string} customerState - Customer's state
+ * @param {string} customerCountry - Customer's country
+ * @param {boolean} isB2B - Whether this is a B2B order
+ * @returns {object} Complete order breakdown with taxes
  */
-function calculateOrderTotal(subtotal, charges = {}, customerState = '', customerCountry = '') {
+function calculateOrderTotal(subtotal, charges = {}, customerState = '', customerCountry = '', isB2B = false) {
   const sub = Number(subtotal) || 0;
   const pf = Number(charges.pf || charges.pfCharges || 0);
   const printing = Number(charges.printing || charges.printingCharges || 0);
   
   const taxableAmount = sub + pf + printing;
-  const taxInfo = calculateTax(taxableAmount, customerState, customerCountry);
+  const taxInfo = calculateTax(taxableAmount, customerState, customerCountry, isB2B);
   
   const grandTotal = taxableAmount + taxInfo.totalTax;
   const roundedTotal = Math.ceil(grandTotal); // Always round up
@@ -185,7 +196,8 @@ function calculateOrderTotal(subtotal, charges = {}, customerState = '', custome
     ...taxInfo,
     grandTotal: grandTotal,
     roundOff: roundOff,
-    finalTotal: roundedTotal
+    finalTotal: roundedTotal,
+    isB2B: isB2B
   };
 }
 

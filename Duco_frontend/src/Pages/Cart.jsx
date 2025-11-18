@@ -515,7 +515,7 @@ const Cart = () => {
     } else if (isChhattisgarh) {
       gstRate = 5; // CGST 2.5% + SGST 2.5% + IGST 0% = 5%
     } else {
-      gstRate = 6; // CGST 2.5% + SGST 2.5% + IGST 1% = 6%
+      gstRate = 5; // CGST 0% + SGST 0% + IGST 5% = 5%
     }
     
     // GST on adjusted taxable amount
@@ -650,27 +650,27 @@ const Cart = () => {
                     </>
                   );
                 } else {
-                  // Different state in India: CGST 2.5% + SGST 2.5% + IGST 1% = 6%
-                  const cgstAmount = (taxableAmount * 2.5) / 100;
-                  const sgstAmount = (taxableAmount * 2.5) / 100;
-                  const igstAmount = (taxableAmount * 1) / 100;
+                  // Different state in India: CGST 0% + SGST 0% + IGST 5% = 5%
+                  const cgstAmount = 0;
+                  const sgstAmount = 0;
+                  const igstAmount = (taxableAmount * 5) / 100;
                   const totalGst = cgstAmount + sgstAmount + igstAmount;
                   return (
                     <>
                       <div className="flex justify-between">
-                        <span>CGST (2.5%)</span>
+                        <span>CGST (0%)</span>
                         <span>{formatCurrency(cgstAmount)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>SGST (2.5%)</span>
+                        <span>SGST (0%)</span>
                         <span>{formatCurrency(sgstAmount)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>IGST (1%)</span>
+                        <span>IGST (5%)</span>
                         <span>{formatCurrency(igstAmount)}</span>
                       </div>
                       <div className="flex justify-between border-t pt-2 mt-2 font-medium">
-                        <span>Total GST (6%)</span>
+                        <span>Total GST (5%)</span>
                         <span>{formatCurrency(totalGst)}</span>
                       </div>
                     </>
