@@ -28,6 +28,7 @@ const BannerRoutes = require('./Router/BannerRoutes.js');
 const walletRoutes = require('./Router/walletRoutes.js');
 const printroveRoutes = require('./Router/printroveRoutes.js');
 const printroveMappingRoutes = require('./Router/printroveMappingRoutes.js');
+const adminForgotPasswordRoutes = require('./Router/adminForgotPasswordRoutes.js');
 
 // App + config
 const app = express();
@@ -44,7 +45,7 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:5174',
-      'http://localhost:3000', 
+      'https://duco-67o5.onrender.com', 
       'https://duco-frontend.vercel.app',
       'https://ducoart.com',
       'https://www.ducoart.com'

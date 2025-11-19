@@ -50,9 +50,16 @@ const OrderProcessing = () => {
             throw new Error('Order created but no ID returned');
           }
           
+          // Check if this is a duplicate request (order already processed)
+          if (response.data.duplicate) {
+            console.log('ℹ️ Duplicate request detected - order already exists');
+            setMessage('Order already processed, redirecting...');
+          } else {
+            setMessage('Order placed successfully!');
+          }
+          
           setOrderId(orderId);
           setStatus('success');
-          setMessage('Order placed successfully!');
 
           // Store order ID for success page
           localStorage.setItem('lastOrderId', orderId);
@@ -61,18 +68,42 @@ const OrderProcessing = () => {
             isCorporate: order.orderType === 'B2B'
           }));
 
-          // Redirect to success page after 2 seconds
+          // Redirect to success page after 1 second (faster for duplicates)
           setTimeout(() => {
             navigate(`/order-success/${orderId}`);
-          }, 2000);
+          }, response.data.duplicate ? 500 : 2000);
         } else {
           console.error('❌ Invalid response structure:', response.data);
           throw new Error(response.data?.message || 'Order creation failed - invalid response');
         }
       } catch (error) {
         console.error('❌ Order processing error:', error);
+        
+        // Check if this is a duplicate request error (should be handled as success)
+        if (error.response?.data?.duplicate || error.response?.data?.order) {
+          console.log('ℹ️ Handling duplicate as success');
+          const order = error.response.data.order;
+          if (order && (order._id || order.id)) {
+            const orderId = order._id || order.id;
+            setOrderId(orderId);
+            setStatus('success');
+            setMessage('Order already processed, redirecting...');
+            
+            localStorage.setItem('lastOrderId', orderId);
+            localStorage.setItem('lastOrderMeta', JSON.stringify({
+              mode: paymentmode || 'online',
+              isCorporate: order.orderType === 'B2B'
+            }));
+            
+            setTimeout(() => {
+              navigate(`/order-success/${orderId}`);
+            }, 500);
+            return;
+          }
+        }
+        
         setStatus('error');
-        setMessage(error.message || 'Failed to process order. Please contact support.');
+        setMessage(error.response?.data?.message || error.message || 'Failed to process order. Please contact support.');
       }
     };
 

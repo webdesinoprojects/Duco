@@ -41,6 +41,7 @@ import EmployeeUrlAuth from "./Admin/Components/EmployeeUrlAuth.jsx";
 import OrderBulk from "./Admin/OrderBulk.jsx";
 import AdminGuard from "./Admin/auth/AdminGuard.jsx";
 import AdminLogin from "./Admin/AdminLogin.jsx";
+import ForgotPassword from "./Admin/ForgotPassword.jsx";
 import LogisticsManager from "./Admin/LogisticsManager.jsx";
 import TrackOrder from "./Pages/TrackOrder.jsx";
 import ChargePlanManager from "./Admin/ChargePlanManager.jsx";
@@ -159,6 +160,7 @@ const App = () => {
         <Route path="/invoice/:id" element={<InvoiceSet />} />
 
         <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
         <Route element={<AdminGuard />}>
           <Route path="/admin" element={<AdminLayout />}>
