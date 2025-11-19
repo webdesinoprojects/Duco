@@ -22,7 +22,7 @@ const SearchResults = () => {
 
       try {
         setLoading(true);
-        const res = await axios.get('http://localhost:3000/products/get');
+        const res = await axios.get('https://duco-67o5.onrender.com/products/get');
         const allProducts = res.data || [];
         
         // Filter products by search query
