@@ -15,7 +15,7 @@ const UserInfo = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get("https://duco-67o5.onrender.com/user/get?limit=100"); // Get more users for admin view
+        const res = await axios.get("http://localhost:3000/user/get?limit=100"); // Get more users for admin view
         
         // Handle both old format (array) and new paginated format (object with users array)
         if (Array.isArray(res.data)) {

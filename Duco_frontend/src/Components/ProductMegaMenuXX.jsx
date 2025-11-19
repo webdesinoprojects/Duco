@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getCategories, getSubcategoriesByCategoryId } from "../Service/APIservice";
 import * as FaIcons from "react-icons/fa";
-import Loading from "./Loading";
 
 /**
  * ProductMegaMenuXX
@@ -161,10 +160,8 @@ const ProductMegaMenuXX = ({ category }) => {
       </div>
 
       {/* Body: Only this category's subcategories */}
-      {loading ? (
-        <Loading />
-      ) : subcats.length ? (
-        <div className="grid grid-cols-3 gap-4  overflow-y-auto">
+      {subcats.length ? (
+        <div className="grid grid-cols-3 gap-4 overflow-y-auto">
           {subcats.map((item) => (
             <Link
               key={item._id}
@@ -175,6 +172,13 @@ const ProductMegaMenuXX = ({ category }) => {
                 {item.subcatogry}
               </p>
             </Link>
+          ))}
+        </div>
+      ) : loading ? (
+        <div className="grid grid-cols-3 gap-4">
+          {/* Skeleton placeholders while loading */}
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-gray-200 animate-pulse rounded-lg h-12"></div>
           ))}
         </div>
       ) : (

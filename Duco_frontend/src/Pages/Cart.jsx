@@ -753,7 +753,7 @@ const Cart = () => {
 
                 // ✅ Check minimum quantity for bulk orders
                 try {
-                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
                   const response = await fetch(`${API_BASE}/api/corporate-settings`);
                   let minOrderQty = 100; // default
                   
