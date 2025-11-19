@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
    Keep endpoints centralized & typed here
    =========================================== */
 
-const API_BASE = "http://localhost:3000/";
+const API_BASE = "https://duco-67o5.onrender.com/";
 
 /** Build querystring for GET /employeesacc?url=&employeeid= */
 const getEmployeesAcc = async (params = {}) => {

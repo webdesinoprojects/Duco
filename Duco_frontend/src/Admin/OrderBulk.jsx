@@ -21,7 +21,7 @@ const OrderBulk = () => {
 
   const fetchOrders = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
       const res = await fetch(`${API_BASE}/api/order?page=1&limit=100`);
       
       if (!res.ok) {
@@ -48,7 +48,7 @@ const OrderBulk = () => {
 
   const loadSettings = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
       const response = await fetch(`${API_BASE}/api/corporate-settings`);
       if (response.ok) {
         const result = await response.json();
@@ -94,7 +94,7 @@ const OrderBulk = () => {
 
   const saveSettings = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
       const response = await fetch(`${API_BASE}/api/corporate-settings`, {
         method: 'POST',
         headers: {
