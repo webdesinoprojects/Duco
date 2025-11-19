@@ -61,7 +61,7 @@ const Home = () => {
 
     const fetchBanner = async () => {
       try {
-        const res = await axios.get("https://duco-67o5.onrender.com/api/banners");
+        const res = await axios.get("http://localhost:3000/api/banners");
         setBanner(res.data.banners?.[0]?.link || "");
       } catch (err) {
         console.error("Failed to fetch banner data:", err);
@@ -75,7 +75,7 @@ const Home = () => {
 
   return (
     <div className='h-full bg-[#0A0A0A] w-full text-white'>
-      <SectionHome1 imglink={banner} loading={loading} />
+      <SectionHome1 imglink={banner} />
       <SectionHome2 />
       <BannerHome link={"https://ik.imagekit.io/vuavxn05l/5213288.jpg?updatedAt=1757162698605"} />
       <TrendingHome />

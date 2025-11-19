@@ -11,6 +11,7 @@ const Products = ({ gender }) => {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [sortOption, setSortOption] = useState("");
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const location = useLocation();
 
@@ -31,7 +32,7 @@ const Products = ({ gender }) => {
     const fetchProducts = async () => {
       try {
         const res = await axios.get(
-          "https://duco-67o5.onrender.com/products/get"
+          "http://localhost:3000/products/get"
         );
         let allProducts = res.data || [];
 
@@ -122,7 +123,7 @@ const Products = ({ gender }) => {
       </div>
 
       <div className="flex gap-6">
-        {/* Filters Sidebar */}
+        {/* Filters Sidebar - Desktop */}
         <aside className="md:block hidden w-1/5 space-y-6">
           {/* Gender */}
           <div>
@@ -216,12 +217,23 @@ const Products = ({ gender }) => {
           </div>
 
           {/* Sort bar */}
-          <div className="flex justify-between mb-4">
-            <FaFilter />
-            <div>
-              <label className="text-sm mr-2">Sort by:</label>
+          <div className="flex justify-between items-center mb-4">
+            {/* Mobile Filter Button */}
+            <button
+              onClick={() => setShowMobileFilters(true)}
+              className="md:hidden flex items-center gap-2 px-4 py-2 bg-[#E5C870] text-black rounded-lg font-medium"
+            >
+              <FaFilter />
+              Filters
+            </button>
+            <div className="hidden md:block">
+              <FaFilter className="text-gray-400" />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <label className="text-sm">Sort:</label>
               <select
-                className="border border-gray-300 rounded px-2 py-1 bg-black text-sm"
+                className="border border-gray-300 rounded px-3 py-1.5 bg-black text-sm"
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}
               >
@@ -268,6 +280,121 @@ const Products = ({ gender }) => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Filter Modal */}
+      {showMobileFilters && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 md:hidden">
+          <div className="fixed right-0 top-0 h-full w-80 bg-[#0A0A0A] shadow-xl overflow-y-auto">
+            <div className="p-6 space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-center border-b border-gray-700 pb-4">
+                <h2 className="text-xl font-bold">Filters</h2>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className="text-2xl text-gray-400 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Gender */}
+              <div>
+                <h3 className="font-semibold mb-3">Gender</h3>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="mr-2"
+                      checked={gender?.toLowerCase() === "male"}
+                      readOnly
+                    />
+                    Men
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="mr-2"
+                      checked={gender?.toLowerCase() === "female"}
+                      readOnly
+                    />
+                    Women
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="mr-2"
+                      checked={gender?.toLowerCase() === "kids"}
+                      readOnly
+                    />
+                    Kids
+                  </label>
+                </div>
+              </div>
+
+              <hr className="border-gray-700" />
+
+              {/* Category */}
+              <div>
+                <h3 className="font-semibold mb-3">Category</h3>
+                <div className="space-y-2">
+                  {["T-Shirt", "Vest", "Hoodies"].map((cat) => (
+                    <label key={cat} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        className="mr-2"
+                        checked={selectedCategories.includes(cat)}
+                        onChange={() => handleCategoryChange(cat)}
+                      />
+                      {cat}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <hr className="border-gray-700" />
+
+              {/* Sizes */}
+              <div>
+                <h3 className="font-semibold mb-3">Sizes</h3>
+                <div className="space-y-2">
+                  {["XS", "S", "M", "L", "XL"].map((size) => (
+                    <label key={size} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        className="mr-2"
+                        checked={selectedSizes.includes(size)}
+                        onChange={() => handleSizeChange(size)}
+                      />
+                      {size}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Apply Button */}
+              <button
+                onClick={() => setShowMobileFilters(false)}
+                className="w-full bg-[#E5C870] text-black py-3 rounded-lg font-semibold mt-6"
+              >
+                Apply Filters
+              </button>
+
+              {/* Clear Filters */}
+              {(selectedCategories.length > 0 || selectedSizes.length > 0) && (
+                <button
+                  onClick={() => {
+                    setSelectedCategories([]);
+                    setSelectedSizes([]);
+                  }}
+                  className="w-full border border-gray-600 text-white py-2 rounded-lg font-medium"
+                >
+                  Clear All Filters
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

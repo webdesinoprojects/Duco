@@ -13,7 +13,7 @@ export default function ForgotPassword() {
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
   const handleSendOTP = async (e) => {
     e.preventDefault();

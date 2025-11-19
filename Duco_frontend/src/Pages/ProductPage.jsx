@@ -159,6 +159,48 @@ const ProductPage = () => {
     setQty((p) => ({ ...p, [k]: n }));
   };
 
+  // Show skeleton loading while product is loading
+  if (!product) {
+    return (
+      <section className="p-6 text-white">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+          {/* Left - Image Skeleton */}
+          <div className="animate-pulse">
+            <div className="bg-gray-800 w-full h-[600px] rounded-2xl mb-4"></div>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-gray-800 w-16 h-16 rounded-md"></div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right - Details Skeleton */}
+          <div className="space-y-6 animate-pulse">
+            <div className="h-10 bg-gray-800 rounded w-3/4"></div>
+            <div className="h-8 bg-gray-800 rounded w-1/4"></div>
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-4 bg-gray-800 rounded"></div>
+              ))}
+            </div>
+            <div className="h-12 bg-gray-800 rounded"></div>
+            <div className="grid grid-cols-2 gap-2">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-6 bg-gray-800 rounded"></div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="w-8 h-8 bg-gray-800 rounded-full"></div>
+              ))}
+            </div>
+            <div className="h-14 bg-gray-800 rounded"></div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="p-6 text-white">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">

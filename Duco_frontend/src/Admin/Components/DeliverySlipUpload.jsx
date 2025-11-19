@@ -7,7 +7,7 @@ const DeliverySlipUpload = ({ logisticId, orderId, existingSlips = [], onUploadC
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
   useEffect(() => {
     setSlips(existingSlips);

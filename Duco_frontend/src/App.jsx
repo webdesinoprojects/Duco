@@ -60,6 +60,7 @@ import WalletPage from "./Pages/WalletPage.jsx";
 import OrderSuccess from "./Pages/OrderSuccess.jsx";
 import ScrollToTop from "./Components/ScrollToTop.jsx";
 import SearchResults from "./Pages/SearchResults.jsx";
+import CategoryPage from "./Pages/CategoryPage.jsx";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -128,8 +129,23 @@ const App = () => {
           <Route path="/men" element={<Prodcuts gender="Male" />} />
           <Route path="/women" element={<Prodcuts gender="Female" />} />
           <Route path="/kid" element={<Prodcuts gender="Kids" />} />
+          <Route path="/kids" element={<Prodcuts gender="Kids" />} />
           <Route path="/corporate" element={<Prodcuts />} />
-          <Route path="/corporate" element={<Prodcuts />} />
+          
+          {/* Category slug routes - specific mappings */}
+          <Route path="/mensclothing" element={<Prodcuts gender="Male" />} />
+          <Route path="/mensapparel" element={<Prodcuts gender="Male" />} />
+          <Route path="/menswear" element={<Prodcuts gender="Male" />} />
+          <Route path="/womensclothing" element={<Prodcuts gender="Female" />} />
+          <Route path="/womensapparel" element={<Prodcuts gender="Female" />} />
+          <Route path="/womenswear" element={<Prodcuts gender="Female" />} />
+          <Route path="/kidsclothing" element={<Prodcuts gender="Kids" />} />
+          <Route path="/kidsapparel" element={<Prodcuts gender="Kids" />} />
+          <Route path="/kidswear" element={<Prodcuts gender="Kids" />} />
+          <Route path="/corporatetshirt" element={<Prodcuts />} />
+          <Route path="/corporatewear" element={<Prodcuts />} />
+          <Route path="/bulkorder" element={<Prodcuts />} />
+          
           <Route path="/contact" element={<Contact />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/products/:id" element={<ProductRouter />} />
@@ -156,6 +172,9 @@ const App = () => {
           <Route path="/terms-and-conditions" element={<TermsConditions />} />
           <Route path="/get_size/:id" element={<SizeChange />} />
           <Route path="/wallet/:userId" element={<WalletPage />} />
+          
+          {/* Dynamic category route - catches any category slug */}
+          <Route path="/:slug" element={<CategoryPage />} />
         </Route>
         <Route path="/invoice/:id" element={<InvoiceSet />} />
 

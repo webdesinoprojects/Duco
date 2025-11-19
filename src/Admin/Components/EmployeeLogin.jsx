@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = "https://duco-67o5.onrender.com/api/";
+const API_BASE = "http://localhost:3000/api/";
 
 const EmployeeLogin = () => {
   const [form, setForm] = useState({ employeeid: "", password: "" });

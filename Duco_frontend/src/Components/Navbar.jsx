@@ -97,10 +97,10 @@ const handleSearchKeyPress = (e) => {
   return (
    <>
       <nav className="w-full bg-[#0A0A0A] text-white font-semibold">
-        <div className="max-w-[1920px] mx-auto px-6 py-4 grid grid-cols-3 items-center gap-4">
-          
-          {/* Left Nav - Takes up left third */}
-          <div className="hidden md:flex items-center gap-6 text-sm justify-start">
+        {/* Desktop Navigation */}
+        <div className="hidden md:grid max-w-[1920px] mx-auto px-6 py-4 grid-cols-3 items-center gap-4">
+          {/* Left Nav - Desktop Menu */}
+          <div className="flex items-center gap-6 text-sm justify-start">
             {menuItems.map((item) => {
               const key = toKey(item.name);
 
@@ -136,17 +136,17 @@ const handleSearchKeyPress = (e) => {
             })}
           </div>
 
-          {/* Center Logo - Takes up center third */}
+          {/* Center Logo */}
           <div className="flex items-center justify-center">
             <Link to={'/'}>
               <img src={logo} alt="DUCO ART Logo" className="h-6 object-contain" />
             </Link>
           </div>
 
-          {/* Right Section - Takes up right third */}
+          {/* Right Section - Desktop */}
           <div className="flex items-center gap-4 justify-end">
-            {/* Search */}
-            <div className="hidden md:flex items-center border-b border-white gap-2 px-2 py-1">
+            {/* Search - Desktop */}
+            <div className="flex items-center border-b border-white gap-2 px-2 py-1">
               <FaSearch 
                 className="text-white cursor-pointer" 
                 onClick={handleSearch}
@@ -161,7 +161,7 @@ const handleSearchKeyPress = (e) => {
               />
             </div>
 
-            {/* Cart & Login/Profile */}
+            {/* Cart & Login/Profile - Desktop */}
             <div className="flex items-center gap-4">
               <FaShoppingBag
                 onClick={() => navigate("/cart")}
@@ -170,63 +170,80 @@ const handleSearchKeyPress = (e) => {
               {!user ? (
                 <div
                   onClick={() => setIsOpenLog(true)}
-                  className="text-white text-sm cursor-pointer border hidden md:flex border-white px-3 py-1 rounded-full hover:bg-white hover:text-black transition-all duration-300 shadow-sm whitespace-nowrap"
+                  className="text-white text-sm cursor-pointer border border-white px-3 py-1 rounded-full hover:bg-white hover:text-black transition-all duration-300 shadow-sm whitespace-nowrap"
                 >
                   Login
                 </div>
               ) : (
                 <RiAccountCircle2Fill
                   onClick={() => navigate("/profile")}
-                  className="text-white text-3xl hidden md:flex cursor-pointer"
+                  className="text-white text-3xl cursor-pointer"
                 />
               )}
+            </div>
+          </div>
+        </div>
 
-              {/* Mobile Toggle */}
-              <div className="md:hidden flex items-center justify-center">
+        {/* Mobile Navigation */}
+        <div className="md:hidden">
+          {/* Top Row - Hamburger, Logo, Cart */}
+          <div className="flex items-center justify-between px-4 py-3">
+            {/* Left - Hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex items-center justify-center p-1"
+            >
+              {mobileMenuOpen ? (
+                <FaTimes className="text-white text-xl" />
+              ) : (
+                <FaBars className="text-white text-xl" />
+              )}
+            </button>
+
+            {/* Center - Logo */}
+            <Link to={'/'}>
+              <img src={logo} alt="DUCO ART Logo" className="h-5 object-contain" />
+            </Link>
+
+            {/* Right - Cart */}
+            <FaShoppingBag
+              onClick={() => navigate("/cart")}
+              className="text-white text-lg cursor-pointer"
+            />
+          </div>
+
+          {/* Bottom Row - Search Bar */}
+          <div className="px-4 pb-3">
+            <div className="flex items-center gap-2 border-b border-gray-600 pb-2">
+              <FaSearch 
+                className="text-white cursor-pointer flex-shrink-0 text-sm" 
+                onClick={handleSearch}
+              />
+              <input
+                type="text"
+                placeholder="Search For Products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
+                className="bg-transparent placeholder-gray-400 text-white outline-none w-full text-sm"
+              />
+              {!user ? (
                 <button
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="flex items-center justify-center"
+                  onClick={() => setIsOpenLog(true)}
+                  className="text-white text-xs cursor-pointer border border-white px-2 py-1 rounded-full hover:bg-white hover:text-black transition-all duration-300 whitespace-nowrap flex-shrink-0"
                 >
-                  {mobileMenuOpen ? (
-                    <FaTimes className="text-white text-xl" />
-                  ) : (
-                    <FaBars className="text-white text-xl" />
-                  )}
+                  Login
                 </button>
-              </div>
+              ) : (
+                <RiAccountCircle2Fill
+                  onClick={() => navigate("/profile")}
+                  className="text-white text-xl cursor-pointer flex-shrink-0"
+                />
+              )}
             </div>
           </div>
         </div>
       </nav>
-
-      {/* Mobile Search */}
-      <div className="md:hidden mt-2 relative flex items-center gap-2 px-2 py-1">
-        <FaSearch 
-          className="text-white cursor-pointer" 
-          onClick={handleSearch}
-        />
-        <input
-          type="text"
-          placeholder="Search For Products..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyPress={handleSearchKeyPress}
-          className="bg-transparent placeholder-white text-white outline-none w-full"
-        />
-        {!user ? (
-          <div
-            onClick={() => setIsOpenLog(true)}
-            className="text-white text-sm cursor-pointer border border-white px-2 py-1 rounded-full hover:bg-white hover:text-black transition-all duration-300 shadow-sm"
-          >
-            Login
-          </div>
-        ) : (
-          <RiAccountCircle2Fill
-            onClick={() => navigate("/profile")}
-            className="text-white text-3xl cursor-pointer"
-          />
-        )}
-      </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
