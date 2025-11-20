@@ -62,7 +62,8 @@ const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
     price *= conversionRate;
   }
   
-  return Math.round(price);
+  // ✅ Don't round here - keep precision for calculations
+  return price;
 };
 
 // ✅ Count printed sides
@@ -380,11 +381,28 @@ const Cart = () => {
   };
 
   const itemsSubtotal = useMemo(() => {
+    console.log('💰 Calculating itemsSubtotal with:', {
+      actualDataLength: actualData.length,
+      priceIncrease,
+      conversionRate,
+      currencySymbol
+    });
+    
     return actualData.reduce((sum, item) => {
+      console.log('🔍 Processing item:', {
+        id: item.id,
+        name: item.name || item.products_name,
+        price: item.price,
+        quantity: item.quantity,
+        isCustomItem: item.id && item.id.startsWith('custom-tshirt-')
+      });
+      
       const qty = Object.values(item.quantity || {}).reduce(
         (a, q) => a + safeNum(q),
         0
       );
+      
+      console.log('🔍 Calculated quantity:', qty);
       
       // ✅ Check if item is from TShirtDesigner (custom item with already applied pricing)
       const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
@@ -394,9 +412,9 @@ const Cart = () => {
       if (isCustomItem) {
         // ✅ Custom items already have location pricing applied in TShirtDesigner
         itemTotal = safeNum(item.price);
-        console.log(`💰 Custom item ${item.name}: Using pre-converted price ${itemTotal}`);
+        console.log(`💰 Custom item ${item.name}: Using pre-converted price ${itemTotal} (qty: ${qty})`);
       } else {
-        // ✅ Regular products - just use base price (printing is calculated separately)
+        // ✅ Regular products - apply location pricing
         const basePrice = safeNum(item.price);
         
         itemTotal = applyLocationPricing(
@@ -404,12 +422,14 @@ const Cart = () => {
           priceIncrease,
           conversionRate
         );
-        console.log(`💰 Regular item ${item.name}: Base price ${basePrice} → ${itemTotal} (after location pricing)`);
+        console.log(`💰 Regular item ${item.name || item.products_name}: Base price ${basePrice} → ${itemTotal} (after location pricing, qty: ${qty})`);
       }
 
-      return sum + itemTotal * qty;
+      const lineTotal = itemTotal * qty;
+      console.log(`💰 Line total for ${item.name || item.products_name}: ${itemTotal} × ${qty} = ${lineTotal}`);
+      return sum + lineTotal;
     }, 0);
-  }, [actualData, priceIncrease, conversionRate]);
+  }, [actualData, priceIncrease, conversionRate, currencySymbol]);
 
   const [pfPerUnit, setPfPerUnit] = useState(0);
   const [pfFlat, setPfFlat] = useState(0);
@@ -505,9 +525,24 @@ const Cart = () => {
     
     // Determine GST rate based on location
     const customerState = address?.state || '';
-    const customerCountry = address?.country || 'India';
+    const customerCountry = address?.country || '';
     const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
-    const isIndia = customerCountry.toLowerCase().includes('india') || customerCountry.toLowerCase().includes('bharat');
+    const countryLower = customerCountry.toLowerCase().trim();
+    
+    // Determine if India based on address country field
+    let isIndia = false;
+    if (customerCountry) {
+      // If country is explicitly set, use it
+      isIndia = countryLower === 'india' || 
+               countryLower === 'bharat' || 
+               countryLower === 'in' ||
+               countryLower.includes('india') || 
+               countryLower.includes('bharat');
+    } else {
+      // If no country set, check resolvedLocation
+      // Asia = India (default), anything else = International
+      isIndia = !resolvedLocation || resolvedLocation === 'Asia';
+    }
     
     let gstRate = 0;
     if (!isIndia) {
@@ -612,8 +647,33 @@ const Cart = () => {
                 const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
                 
                 // Check if in India
-                const customerCountry = address?.country || 'India';
-                const isIndia = customerCountry.toLowerCase().includes('india') || customerCountry.toLowerCase().includes('bharat');
+                const customerCountry = address?.country || '';
+                const countryLower = customerCountry.toLowerCase().trim();
+                
+                // Determine if India based on address country field
+                let isIndia = false;
+                if (customerCountry) {
+                  // If country is explicitly set, use it
+                  isIndia = countryLower === 'india' || 
+                           countryLower === 'bharat' || 
+                           countryLower === 'in' ||
+                           countryLower.includes('india') || 
+                           countryLower.includes('bharat');
+                } else {
+                  // If no country set, check resolvedLocation
+                  // Asia = India (default), anything else = International
+                  isIndia = !resolvedLocation || resolvedLocation === 'Asia';
+                }
+                
+                console.log('🌍 Tax Calculation Debug:', {
+                  address,
+                  customerCountry,
+                  countryLower,
+                  resolvedLocation,
+                  isIndia,
+                  currency,
+                  currencySymbol
+                });
                 
                 if (!isIndia) {
                   // Outside India: TAX 1% (no GST)
@@ -746,8 +806,39 @@ const Cart = () => {
             <button
               className="w-full py-4 font-bold bg-yellow-400 text-black hover:bg-yellow-300 cursor-pointer"
               onClick={async () => {
+                // ✅ Check if cart is empty
+                if (!actualData || actualData.length === 0) {
+                  toast.error("⚠ Your cart is empty");
+                  return;
+                }
+
                 if (!address) {
                   toast.error("⚠ Please select a delivery address");
+                  return;
+                }
+
+                // ✅ Validate totalPay before proceeding
+                const finalTotal = Math.ceil(grandTotal);
+                if (!finalTotal || finalTotal <= 0 || isNaN(finalTotal)) {
+                  toast.error("⚠ Invalid order total. Please refresh the page and try again.");
+                  console.error("❌ Invalid grandTotal:", {
+                    grandTotal,
+                    finalTotal,
+                    itemsSubtotal,
+                    printingCost,
+                    pfCost,
+                    gstTotal,
+                    taxableAmount,
+                    address,
+                    resolvedLocation,
+                    cartLength: cart?.length || 0,
+                    actualDataLength: actualData?.length || 0,
+                    actualData: actualData?.map(item => ({
+                      name: item.products_name || item.name,
+                      price: item.price,
+                      quantity: item.quantity
+                    }))
+                  });
                   return;
                 }
 
@@ -811,13 +902,19 @@ const Cart = () => {
                   printingUnits,
                   gstTotal,
                   grandTotal,
-                  totalPay: grandTotal
+                  totalPay: Math.ceil(grandTotal),
+                  address,
+                  resolvedLocation,
+                  currency,
+                  conversionRate,
+                  priceIncrease
                 });
                 console.log("🛍️ Individual items:", actualData.map(item => ({
                   name: item.products_name || item.name,
                   price: item.price,
                   quantity: item.quantity,
                   id: item.id,
+                  hasDesign: !!item.design,
                   timestamp: new Date().toISOString()
                 })));
                 console.groupEnd();
@@ -836,7 +933,7 @@ const Cart = () => {
                       locationIncreasePercent: priceIncrease || 0,
                       grandTotal,
                     },
-                    totalPay: grandTotal, // ✅ Add totalPay for PaymentButton
+                    totalPay: Math.ceil(grandTotal), // ✅ Use rounded total for payment
                     address,
                     user,
                   },

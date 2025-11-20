@@ -8,15 +8,43 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const { toConvert, priceIncrease } = usePriceContext();
 
-  function calculatePrice(currency, ac, high) {
-    const actualPrice = currency * ac;
-    const finalPrice = actualPrice + actualPrice * (high / 100);
-    return Math.ceil(finalPrice); // ✅ round up to integer
-  }
+  // ✅ Apply location pricing to a base price
+  const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
+    let price = Number(basePrice) || 0;
+    
+    // Step 1: Apply percentage increase (location markup)
+    if (priceIncrease) {
+      price += (price * Number(priceIncrease)) / 100;
+    }
+    
+    // Step 2: Apply currency conversion
+    if (conversionRate && conversionRate !== 1) {
+      price *= conversionRate;
+    }
+    
+    // ✅ Don't round here - keep precision for calculations
+    return price;
+  };
 
-  // Sum price for all sizes
+  // ✅ Calculate total price with location pricing applied
   const totalPrice = Object.entries(item.quantity || {}).reduce(
-    (acc, [size, qty]) => acc + qty * item.price,
+    (acc, [size, qty]) => {
+      // Check if item is from TShirtDesigner (custom item with already applied pricing)
+      const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
+      
+      let itemPrice;
+      if (isCustomItem) {
+        // Custom items already have location pricing applied
+        itemPrice = Number(item.price) || 0;
+        console.log(`💰 CartItem (Custom): ${item.products_name || item.name} - Base: ${item.price}, Final: ${itemPrice}, Qty: ${qty}`);
+      } else {
+        // Regular products - apply location pricing
+        itemPrice = applyLocationPricing(item.price, priceIncrease, toConvert);
+        console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Base: ${item.price}, Final: ${itemPrice}, Qty: ${qty}, Increase: ${priceIncrease}%, Rate: ${toConvert}`);
+      }
+      
+      return acc + qty * itemPrice;
+    },
     0
   );
 
