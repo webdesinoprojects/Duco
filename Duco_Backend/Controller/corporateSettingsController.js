@@ -20,6 +20,8 @@ exports.getCorporateSettings = async (req, res) => {
 // Update corporate settings
 exports.updateCorporateSettings = async (req, res) => {
   try {
+    console.log('📝 Received corporate settings update request:', req.body);
+    
     const {
       minOrderQuantity,
       bulkDiscountTiers,
@@ -27,6 +29,14 @@ exports.updateCorporateSettings = async (req, res) => {
       enablePrintroveIntegration,
       corporatePaymentMethods
     } = req.body;
+
+    // Validate minimum order quantity
+    if (minOrderQuantity !== undefined && (minOrderQuantity < 1 || !Number.isInteger(minOrderQuantity))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Minimum order quantity must be a positive integer'
+      });
+    }
 
     // Validate discount tiers
     if (bulkDiscountTiers && Array.isArray(bulkDiscountTiers)) {
@@ -64,6 +74,11 @@ exports.updateCorporateSettings = async (req, res) => {
 
     const settings = await CorporateSettings.getSingletonSettings();
     
+    console.log('📦 Current settings before update:', {
+      minOrderQuantity: settings.minOrderQuantity,
+      corporateGstRate: settings.corporateGstRate
+    });
+    
     // Update fields if provided
     if (minOrderQuantity !== undefined) settings.minOrderQuantity = minOrderQuantity;
     if (bulkDiscountTiers !== undefined) settings.bulkDiscountTiers = bulkDiscountTiers;
@@ -72,6 +87,11 @@ exports.updateCorporateSettings = async (req, res) => {
     if (corporatePaymentMethods !== undefined) settings.corporatePaymentMethods = corporatePaymentMethods;
 
     await settings.save();
+    
+    console.log('✅ Settings saved successfully:', {
+      minOrderQuantity: settings.minOrderQuantity,
+      corporateGstRate: settings.corporateGstRate
+    });
 
     res.json({
       success: true,
@@ -79,7 +99,7 @@ exports.updateCorporateSettings = async (req, res) => {
       message: 'Corporate settings updated successfully'
     });
   } catch (error) {
-    console.error('Error updating corporate settings:', error);
+    console.error('❌ Error updating corporate settings:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to update corporate settings'

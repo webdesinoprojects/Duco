@@ -150,6 +150,9 @@ const InvoiceDucoTailwind = ({ data }) => {
         <p>{data.billTo.name}</p>
         <p>{data.billTo.address}</p>
         <p>{data.billTo.phone}</p>
+        {data.billTo.gstNumber && (
+          <p><strong>GST/Tax Number:</strong> {data.billTo.gstNumber}</p>
+        )}
       </div>
 
       <hr style={{ margin: "15px 0" }} />
@@ -248,6 +251,8 @@ const Cart = () => {
 
   const [currencySymbol, setCurrencySymbol] = useState("₹");
   const [conversionRate, setConversionRate] = useState(1);
+  const [minOrderQty, setMinOrderQty] = useState(100); // Default minimum order quantity
+  const [gstNumber, setGstNumber] = useState(""); // Optional GST/Tax code
 
   // ✅ Dynamic Currency Formatter (prices are already location-adjusted at item level)
   const formatCurrency = (num) => {
@@ -303,6 +308,28 @@ const Cart = () => {
       }
     }
   }, [currency, toConvert]);
+
+  /* ---------- Fetch Minimum Order Quantity ---------- */
+  useEffect(() => {
+    const fetchMinOrderQty = async () => {
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const response = await fetch(`${API_BASE}/api/corporate-settings`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          const settings = result.data || result;
+          const minQty = settings.minOrderQuantity || 100;
+          setMinOrderQty(minQty);
+          console.log('✅ Loaded minimum order quantity:', minQty);
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not fetch minimum order quantity, using default (100)');
+      }
+    };
+    
+    fetchMinOrderQty();
+  }, []);
 
   /* ---------- Products ---------- */
   useEffect(() => {
@@ -767,16 +794,30 @@ const Cart = () => {
               <span className="font-bold">{formatCurrency(Math.ceil(grandTotal))}</span>
             </div>
 
+            {/* GST/Tax Code Input (Optional) */}
+            <div className="mb-6">
+              <label htmlFor="gstNumber" className="block text-sm font-medium text-white mb-2">
+                GST/Tax Number (Optional)
+              </label>
+              <input
+                type="text"
+                id="gstNumber"
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                placeholder="Enter GST/Tax Number (e.g., 22AAAAA0000A1Z5)"
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                maxLength={15}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                💡 Add your GST/Tax number to include it on your invoice
+              </p>
+            </div>
+
             {/* Bulk Order Minimum Quantity Warning */}
             {(() => {
-              const minOrderQty = 100; // This will be fetched dynamically during checkout
-              
-              // Identify bulk items by multiple criteria
+              // ✅ Identify B2B/Corporate products only (bulk orders)
               const bulkItems = actualData.filter(item => {
-                return item.isBulkProduct === true || 
-                       item.isCorporate === true ||
-                       (item.category && item.category.toLowerCase().includes('corporate')) ||
-                       (item.category && item.category.toLowerCase().includes('bulk'));
+                return item.isCorporate === true;
               });
               
               const itemsBelowMinimum = bulkItems.filter(item => {
@@ -844,41 +885,25 @@ const Cart = () => {
 
                 // ✅ Check minimum quantity for bulk orders
                 try {
-                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
-                  const response = await fetch(`${API_BASE}/api/corporate-settings`);
-                  let minOrderQty = 100; // default
-                  
-                  if (response.ok) {
-                    const result = await response.json();
-                    const settings = result.data || result;
-                    minOrderQty = settings.minOrderQuantity || 100;
-                  }
-
                   console.log('🔍 Minimum order quantity from settings:', minOrderQty);
 
                   // Check ALL items - identify bulk items by multiple criteria
                   for (const item of actualData) {
                     const itemQty = Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0);
                     
-                    // Identify if item is from bulk order category
-                    const isBulkItem = 
-                      item.isBulkProduct === true || 
-                      item.isCorporate === true ||
-                      (item.category && item.category.toLowerCase().includes('corporate')) ||
-                      (item.category && item.category.toLowerCase().includes('bulk'));
+                    // ✅ Check if item is B2B/Corporate product (bulk order)
+                    const isBulkItem = item.isCorporate === true;
                     
                     console.log(`📦 Checking item: ${item.products_name || item.name}`, {
                       quantity: itemQty,
-                      isBulkProduct: item.isBulkProduct,
                       isCorporate: item.isCorporate,
-                      category: item.category,
                       isBulkItem,
                       meetsMinimum: itemQty >= minOrderQty
                     });
                     
-                    // Block if bulk item doesn't meet minimum
+                    // ✅ Block ONLY if it's a B2B/Corporate product and doesn't meet minimum
                     if (isBulkItem && itemQty > 0 && itemQty < minOrderQty) {
-                      toast.error(`⚠️ Minimum order quantity for bulk items is ${minOrderQty} units. "${item.products_name || item.name}" has only ${itemQty} units. Please add ${minOrderQty - itemQty} more units or remove it from cart.`, {
+                      toast.error(`⚠️ Minimum order quantity for B2B products is ${minOrderQty} units. "${item.products_name || item.name}" has only ${itemQty} units. Please add ${minOrderQty - itemQty} more units or remove it from cart.`, {
                         autoClose: 6000,
                       });
                       return;
@@ -936,6 +961,7 @@ const Cart = () => {
                     totalPay: Math.ceil(grandTotal), // ✅ Use rounded total for payment
                     address,
                     user,
+                    gstNumber: gstNumber.trim() || null, // ✅ Include GST number if provided
                   },
                 });
               }}
@@ -1010,6 +1036,7 @@ const Cart = () => {
               name: user?.name || "Guest User",
               address: address?.full || "Not provided",
               phone: user?.phone || "N/A",
+              gstNumber: gstNumber.trim() || null, // ✅ Customer GST number
             },
             items: actualData.map((item, idx) => {
               const sizes = Object.entries(item.quantity || {})

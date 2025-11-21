@@ -31,7 +31,7 @@ const OrderProcessing = () => {
   // ✅ Normalize paymentmode (backend expects lowercase)
   paymentmode = paymentmode.toLowerCase();
 
-  const API_BASE = "https://duco-67o5.onrender.com/";
+  const API_BASE = "http://localhost:3000/";
 
   useEffect(() => {
     if (!paymentId || !orderData) {

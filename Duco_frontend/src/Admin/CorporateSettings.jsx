@@ -23,15 +23,33 @@ const CorporateSettings = () => {
 
   const loadSettings = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
       const response = await fetch(`${API_BASE}/api/corporate-settings`);
       if (response.ok) {
-        const data = await response.json();
-        setSettings(prev => ({ ...prev, ...data }));
+        const result = await response.json();
+        const data = result.data || result; // Handle both {data: ...} and direct response
+        console.log('✅ Loaded corporate settings:', data);
+        
+        // Only update if we have valid data
+        if (data && typeof data === 'object') {
+          setSettings({
+            minOrderQuantity: data.minOrderQuantity || 100,
+            bulkDiscountTiers: data.bulkDiscountTiers || [
+              { minQty: 100, maxQty: 499, discount: 5 },
+              { minQty: 500, maxQty: 999, discount: 10 },
+              { minQty: 1000, maxQty: 9999, discount: 15 },
+              { minQty: 10000, maxQty: 999999, discount: 20 }
+            ],
+            corporateGstRate: data.corporateGstRate || 18,
+            enablePrintroveIntegration: data.enablePrintroveIntegration || false,
+            corporatePaymentMethods: data.corporatePaymentMethods || ['online', 'netbanking', '50%', 'manual_payment']
+          });
+        }
       } else if (response.status === 404) {
         console.log('Corporate settings API not available, using defaults');
       }
     } catch (error) {
+      console.error('Error loading corporate settings:', error);
       console.log('Corporate settings API not available, using defaults');
     }
   };
@@ -41,7 +59,9 @@ const CorporateSettings = () => {
     setMessage('');
     
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      console.log('💾 Saving corporate settings:', settings);
+      
       const response = await fetch(`${API_BASE}/api/corporate-settings`, {
         method: 'POST',
         headers: {
@@ -51,14 +71,33 @@ const CorporateSettings = () => {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Settings saved successfully:', result);
+        
+        // Update local state with saved data to prevent reverting
+        if (result.data) {
+          setSettings({
+            minOrderQuantity: result.data.minOrderQuantity || settings.minOrderQuantity,
+            bulkDiscountTiers: result.data.bulkDiscountTiers || settings.bulkDiscountTiers,
+            corporateGstRate: result.data.corporateGstRate || settings.corporateGstRate,
+            enablePrintroveIntegration: result.data.enablePrintroveIntegration || settings.enablePrintroveIntegration,
+            corporatePaymentMethods: result.data.corporatePaymentMethods || settings.corporatePaymentMethods
+          });
+        }
+        
         setMessage('✅ Corporate settings saved successfully!');
+        
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => setMessage(''), 3000);
       } else if (response.status === 404) {
         setMessage('⚠️ Settings API not available. Settings will be used for this session only.');
       } else {
-        setMessage('❌ Failed to save settings');
+        const error = await response.json();
+        console.error('❌ Failed to save settings:', error);
+        setMessage(`❌ Failed to save settings: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.log('Corporate settings API not available');
+      console.error('Error saving corporate settings:', error);
       setMessage('⚠️ Settings API not available. Settings will be used for this session only.');
     } finally {
       setLoading(false);
@@ -118,10 +157,14 @@ const CorporateSettings = () => {
               <input
                 type="number"
                 value={settings.minOrderQuantity}
-                onChange={(e) => setSettings(prev => ({ 
-                  ...prev, 
-                  minOrderQuantity: Number(e.target.value) 
-                }))}
+                onChange={(e) => {
+                  const newValue = Number(e.target.value);
+                  console.log('📝 Minimum Order Quantity changed to:', newValue);
+                  setSettings(prev => ({ 
+                    ...prev, 
+                    minOrderQuantity: newValue
+                  }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 min="1"
               />
