@@ -11,10 +11,10 @@ const LZString = require('lz-string'); // ✅ added for decompression
 
 // ✅ Helper function to handle Printrove routing based on order type
 const handlePrintroveRouting = async (order, isCorporateOrder) => {
-  // B2B orders NEVER go to Printrove - managed internally
+  // B2B orders NEVER go to Printrove - managed internally by Duco
   if (isCorporateOrder) {
-    console.log('🏢 B2B Order - Skipping Printrove, managing internally');
-    order.printroveStatus = 'B2B Order - Internal Management';
+    console.log('🏢 B2B/Corporate Order - Managed by Duco, skipping Printrove');
+    order.printroveStatus = 'Corporate Order - No Printrove';
     await order.save();
     return;
   }

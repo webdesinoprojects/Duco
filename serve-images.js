@@ -14,9 +14,9 @@ app.use('/tshirt-images', express.static(path.join(__dirname, 'Duco_frontend/pub
 app.listen(PORT, () => {
   console.log(`🚀 Image server running on http://localhost:${PORT}`);
   console.log('\n🎯 T-shirt Image URLs:');
-  console.log('Front View: http://localhost:3001/tshirt-images/front.jpg');
-  console.log('Back View: http://localhost:3001/tshirt-images/back.jpg');
-  console.log('Left View: http://localhost:3001/tshirt-images/left.jpg');
-  console.log('Right View: http://localhost:3001/tshirt-images/right.jpg');
+  console.log('Front View: https://duco-67o5.onrender.com1/tshirt-images/front.jpg');
+  console.log('Back View: https://duco-67o5.onrender.com1/tshirt-images/back.jpg');
+  console.log('Left View: https://duco-67o5.onrender.com1/tshirt-images/left.jpg');
+  console.log('Right View: https://duco-67o5.onrender.com1/tshirt-images/right.jpg');
   console.log('\n📝 Copy these URLs and paste them in your admin panel!');
 });

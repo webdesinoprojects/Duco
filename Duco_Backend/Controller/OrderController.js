@@ -235,22 +235,16 @@ exports.getAllOrders = async (req, res) => {
       const totalOrders = await Order.countDocuments().maxTimeMS(5000);
       console.log(`📦 Total orders in DB: ${totalOrders}`);
 
-      // Fetch orders - ULTRA SIMPLE query (no sort to avoid index issues)
-      console.log(`📦 Executing find query...`);
+      // ✅ Fetch orders with proper sorting (newest first)
+      console.log(`📦 Executing find query with sort...`);
       const orders = await Order.find()
+        .sort({ createdAt: -1 }) // ✅ Sort by newest first BEFORE pagination
         .limit(limit)
         .skip(skip)
         .lean()
         .maxTimeMS(10000); // 10 second timeout
 
-      console.log(`✅ Found ${orders.length} orders`);
-
-      // Sort in memory (faster than database sort without index)
-      orders.sort((a, b) => {
-        const dateA = new Date(a.createdAt || 0);
-        const dateB = new Date(b.createdAt || 0);
-        return dateB - dateA; // Newest first
-      });
+      console.log(`✅ Found ${orders.length} orders (sorted by newest first)`);
 
       // Return raw orders without enrichment for speed
       res.json({

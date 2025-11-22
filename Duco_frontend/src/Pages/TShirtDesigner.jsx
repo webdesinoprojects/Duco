@@ -787,7 +787,7 @@ const TshirtDesigner = () => {
       // ✅ Try to get Printrove mappings from API first
       let variantMap = {};
       try {
-        const response = await axios.get(`http://localhost:3000/api/printrove/mappings/${productDetails._id}`);
+        const response = await axios.get(`https://duco-67o5.onrender.com/api/printrove/mappings/${productDetails._id}`);
         if (response.data.success && response.data.mapping) {
           const mapping = response.data.mapping;
           console.log("🎯 Found Printrove mapping:", mapping);

@@ -1,7 +1,7 @@
 // src/Service/authService.js
 import axios from "axios";
 
-const BASE_URL = "http://localhost:3000/user"; // update with your actual backend base URL
+const BASE_URL = "https://duco-67o5.onrender.com/user"; // update with your actual backend base URL
 
 // 1. Send OTP to Gmail
 export const sendOtpToEmail = async ({ email }) => {

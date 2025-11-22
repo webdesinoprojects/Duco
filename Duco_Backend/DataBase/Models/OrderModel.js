@@ -108,7 +108,7 @@ const OrderSchema = new Schema(
         'Cancelled',
         'Error',
         'success', // added lowercase success (API response)
-        'Corporate Order - No Printrove', // for corporate orders that skip Printrove
+        'Corporate Order - No Printrove', // ✅ B2B/Corporate orders managed by Duco internally
         'N/A', // for orders that don't use Printrove
       ],
       default: 'Pending',

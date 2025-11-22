@@ -21,7 +21,7 @@ const OrderBulk = () => {
 
   const fetchOrders = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
       const res = await fetch(`${API_BASE}/api/order?page=1&limit=100`);
       
       if (!res.ok) {
@@ -48,7 +48,7 @@ const OrderBulk = () => {
 
   const loadSettings = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
       const response = await fetch(`${API_BASE}/api/corporate-settings`);
       if (response.ok) {
         const result = await response.json();
@@ -73,20 +73,28 @@ const OrderBulk = () => {
     console.log('📊 Minimum order quantity threshold:', minOrderQty);
     
     const filtered = (orders ?? []).filter(order => {
-      // Check if any product has quantity >= threshold
-      const hasBulkQuantity = (order.products ?? []).some(prod => {
+      // ✅ Check if order contains B2B/Corporate products with quantity >= threshold
+      const hasBulkCorporateProduct = (order.products ?? []).some(prod => {
+        // Check if product is corporate/B2B
+        const isCorporateProduct = prod?.isCorporate === true;
+        
+        if (!isCorporateProduct) {
+          return false; // Skip non-corporate products
+        }
+        
+        // Calculate total quantity for this corporate product
         const quantities = Object.values(prod?.quantity ?? {});
         const totalQty = quantities.reduce((sum, qty) => sum + Number(qty || 0), 0);
         
-        console.log(`  Order ${order.orderId || order._id}: Type=${order.orderType || 'B2C'}, Total Qty=${totalQty}, Threshold=${minOrderQty}`);
+        console.log(`  Order ${order.orderId || order._id}: Product=${prod.products_name}, isCorporate=${isCorporateProduct}, Qty=${totalQty}, Threshold=${minOrderQty}`);
         
         return totalQty >= minOrderQty;
       });
       
-      return hasBulkQuantity;
+      return hasBulkCorporateProduct;
     });
     
-    console.log('✅ Found', filtered.length, 'bulk orders');
+    console.log('✅ Found', filtered.length, 'bulk/corporate orders');
     return filtered;
   }, [orders, minOrderQty]);
   
@@ -94,7 +102,7 @@ const OrderBulk = () => {
 
   const saveSettings = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
       const response = await fetch(`${API_BASE}/api/corporate-settings`, {
         method: 'POST',
         headers: {
@@ -198,15 +206,15 @@ const OrderBulk = () => {
 
                   {/* Order Type and Quantity Info */}
                   <div className="flex items-center gap-2 mt-1">
-                    {order.orderType === 'B2B' && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        🏢 Corporate
-                      </span>
-                    )}
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      🏢 B2B Order
+                    </span>
                     <span className="text-xs text-gray-600">
-                      Total Qty: {(order.products ?? []).reduce((total, prod) => 
-                        total + Object.values(prod?.quantity ?? {}).reduce((sum, qty) => sum + Number(qty), 0), 0
-                      )}
+                      Corporate Products Qty: {(order.products ?? [])
+                        .filter(prod => prod?.isCorporate === true)
+                        .reduce((total, prod) => 
+                          total + Object.values(prod?.quantity ?? {}).reduce((sum, qty) => sum + Number(qty), 0), 0
+                        )}
                     </span>
                   </div>
                 </div>
