@@ -712,10 +712,9 @@ const Cart = () => {
                     </div>
                   );
                 } else if (isChhattisgarh) {
-                  // Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% + IGST 0% = 5%
+                  // ✅ Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% (Intra-state)
                   const cgstAmount = (taxableAmount * 2.5) / 100;
                   const sgstAmount = (taxableAmount * 2.5) / 100;
-                  const totalGst = cgstAmount + sgstAmount;
                   return (
                     <>
                       <div className="flex justify-between">
@@ -726,41 +725,16 @@ const Cart = () => {
                         <span>SGST (2.5%)</span>
                         <span>{formatCurrency(sgstAmount)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>IGST (0%)</span>
-                        <span>{formatCurrency(0)}</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-2 mt-2 font-medium">
-                        <span>Total GST (5%)</span>
-                        <span>{formatCurrency(totalGst)}</span>
-                      </div>
                     </>
                   );
                 } else {
-                  // Different state in India: CGST 0% + SGST 0% + IGST 5% = 5%
-                  const cgstAmount = 0;
-                  const sgstAmount = 0;
+                  // ✅ Different state in India: IGST 5% only (Inter-state)
                   const igstAmount = (taxableAmount * 5) / 100;
-                  const totalGst = cgstAmount + sgstAmount + igstAmount;
                   return (
-                    <>
-                      <div className="flex justify-between">
-                        <span>CGST (0%)</span>
-                        <span>{formatCurrency(cgstAmount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>SGST (0%)</span>
-                        <span>{formatCurrency(sgstAmount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>IGST (5%)</span>
-                        <span>{formatCurrency(igstAmount)}</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-2 mt-2 font-medium">
-                        <span>Total GST (5%)</span>
-                        <span>{formatCurrency(totalGst)}</span>
-                      </div>
-                    </>
+                    <div className="flex justify-between">
+                      <span>IGST (5%)</span>
+                      <span>{formatCurrency(igstAmount)}</span>
+                    </div>
                   );
                 }
               })()}
@@ -772,21 +746,6 @@ const Cart = () => {
                   <span>+{safeNum(priceIncrease)}%</span>
                 </div>
               )}
-              
-              {/* Round Off - always added */}
-              {(() => {
-                const beforeRoundOff = grandTotal;
-                const roundOff = Math.ceil(beforeRoundOff) - beforeRoundOff;
-                if (roundOff > 0.01) {
-                  return (
-                    <div className="flex justify-between text-sm">
-                      <span>Round Off</span>
-                      <span>+{formatCurrency(roundOff)}</span>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
             </div>
 
             <div className="flex justify-between border-t pt-4 mb-6">

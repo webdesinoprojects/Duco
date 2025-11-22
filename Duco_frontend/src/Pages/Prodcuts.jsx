@@ -202,20 +202,6 @@ const Products = ({ gender }) => {
 
         {/* Products Section */}
         <div className="flex-1">
-          {/* Bulk order banner */}
-          <div className="bg-black text-white p-6 rounded-xl mb-6 relative">
-            <h2 className="text-xl font-bold mb-2">
-              Enquire about <span className="text-yellow-400">Bulk Orders</span>{" "}
-              at
-            </h2>
-            <div className="bg-white text-black inline-block px-4 py-2 rounded text-sm font-mono">
-              business@duco.com
-            </div>
-            <p className="text-sm mt-2">
-              *Min. 30 units order | Grab exciting deals & offers
-            </p>
-          </div>
-
           {/* Sort bar */}
           <div className="flex justify-between items-center mb-4">
             {/* Mobile Filter Button */}
