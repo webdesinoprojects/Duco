@@ -16,16 +16,20 @@ const computeTotals = (doc = {}) => {
   const chargesTotal = ["pf", "printing"].reduce((s, k) => s + safeNum(charges[k]), 0);
   const taxableValue = subtotal + chargesTotal;
 
-  // Use dynamic tax rates
+  // Use dynamic tax rates - handle both GST and international TAX
   const cgstRate = safeNum(tax.cgstRate);
   const sgstRate = safeNum(tax.sgstRate);
   const igstRate = safeNum(tax.igstRate);
+  const taxRate = safeNum(tax.taxRate); // For international orders
 
   const cgstAmt = (taxableValue * cgstRate) / 100;
   const sgstAmt = (taxableValue * sgstRate) / 100;
   const igstAmt = (taxableValue * igstRate) / 100;
+  const taxAmt = (taxableValue * taxRate) / 100; // International tax
 
-  const grandTotal = taxableValue + cgstAmt + sgstAmt + igstAmt;
+  // Total tax is either GST (cgst+sgst+igst) or international TAX
+  const totalTaxAmt = tax.type === 'INTERNATIONAL' ? taxAmt : (cgstAmt + sgstAmt + igstAmt);
+  const grandTotal = taxableValue + totalTaxAmt;
 
   return {
     subtotal: +subtotal.toFixed(2),
@@ -34,6 +38,8 @@ const computeTotals = (doc = {}) => {
     cgstAmt: +cgstAmt.toFixed(2),
     sgstAmt: +sgstAmt.toFixed(2),
     igstAmt: +igstAmt.toFixed(2),
+    taxAmt: +taxAmt.toFixed(2),
+    totalTaxAmt: +totalTaxAmt.toFixed(2),
     grandTotal: +grandTotal.toFixed(2),
     totalQty: items.reduce((q, i) => q + safeNum(i.qty), 0),
   };
@@ -84,6 +90,27 @@ async function createInvoice(data) {
     type: taxInfo.type,
     label: taxInfo.label
   };
+  
+  // ✅ Add currency information based on customer country
+  const country = (customerCountry || '').toLowerCase();
+  const countryCurrencyMap = {
+    'india': 'INR',
+    'united states': 'USD',
+    'usa': 'USD',
+    'united kingdom': 'GBP',
+    'uk': 'GBP',
+    'europe': 'EUR',
+    'germany': 'EUR',
+    'france': 'EUR',
+    'spain': 'EUR',
+    'italy': 'EUR',
+    'uae': 'AED',
+    'dubai': 'AED',
+    'australia': 'AUD',
+    'canada': 'CAD',
+    'singapore': 'SGD',
+  };
+  data.currency = countryCurrencyMap[country] || 'INR';
   // --------------------------------------
 
   const invoice = await Invoice.create(data);
@@ -104,13 +131,41 @@ async function getInvoiceByOrderId(orderId) {
     ],
   };
 
-  const invoiceDoc = await Invoice.findOne(query).sort({ createdAt: -1 });
+  const invoiceDoc = await Invoice.findOne(query).sort({ createdAt: -1 }).populate('order');
 
   if (!invoiceDoc) {
     throw new Error("Invoice not found for this order");
   }
 
   const invoiceObj = invoiceDoc.toObject ? invoiceDoc.toObject() : invoiceDoc;
+  
+  // ✅ Add currency information from order's address
+  if (invoiceObj.order?.address?.country) {
+    const country = invoiceObj.order.address.country.toLowerCase();
+    // Map countries to currencies
+    const countryCurrencyMap = {
+      'india': 'INR',
+      'united states': 'USD',
+      'usa': 'USD',
+      'united kingdom': 'GBP',
+      'uk': 'GBP',
+      'europe': 'EUR',
+      'germany': 'EUR',
+      'france': 'EUR',
+      'spain': 'EUR',
+      'italy': 'EUR',
+      'uae': 'AED',
+      'dubai': 'AED',
+      'australia': 'AUD',
+      'canada': 'CAD',
+      'singapore': 'SGD',
+    };
+    
+    invoiceObj.currency = countryCurrencyMap[country] || 'INR';
+  } else {
+    invoiceObj.currency = 'INR';
+  }
+  
   return { invoice: invoiceObj };
 }
 

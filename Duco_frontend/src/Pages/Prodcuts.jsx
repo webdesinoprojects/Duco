@@ -2,6 +2,16 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useLocation } from "react-router-dom";
 import { FaFilter } from "react-icons/fa";
+import { usePriceContext } from '../ContextAPI/PriceContext';
+
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+};
 
 const Products = ({ gender }) => {
   const [products, setProducts] = useState([]);
@@ -14,6 +24,8 @@ const Products = ({ gender }) => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const location = useLocation();
+  const { currency, toConvert, priceIncrease } = usePriceContext();
+  const currencySymbol = currencySymbols[currency] || "₹";
 
   // Normalize gender value
   const normalizeGender = (g) => g?.toLowerCase().trim();
@@ -256,11 +268,10 @@ const Products = ({ gender }) => {
                     </h3>
                     <p className="text-sm font-bold mt-2">
                       {product.pricing?.[0]?.price_per
-                        ? `₹${product.pricing[0].price_per}`
-                        : "₹N/A"}
+                        ? `${currencySymbol}${Math.round(Number(product.pricing[0].price_per) * toConvert * (1 + priceIncrease / 100)).toLocaleString('en-IN')}`
+                        : `${currencySymbol}N/A`}
                     </p>
-                  </div>
-                </Link>
+                  </div>                </Link>
               );
             })}
           </div>

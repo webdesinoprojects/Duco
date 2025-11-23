@@ -48,10 +48,21 @@ const PaymentButton = ({ orderData }) => {
     console.group("💳 FRONTEND: Payment Button Debug");
     console.log("📦 OrderData received:", {
       totalPay: orderData.totalPay,
+      totalPayDisplay: orderData.totalPayDisplay,
+      displayCurrency: orderData.displayCurrency,
       totals: orderData.totals,
       hasItems: !!orderData.items,
       itemCount: orderData.items?.length || 0
     });
+    
+    // ✅ Show user what they're paying in INR
+    if (orderData.displayCurrency && orderData.displayCurrency !== 'INR') {
+      console.log('💱 International payment conversion:', {
+        displayAmount: `${orderData.displayCurrency} ${orderData.totalPayDisplay}`,
+        razorpayAmount: `INR ₹${orderData.totalPay}`,
+        note: 'Razorpay only accepts INR, amount has been converted'
+      });
+    }
 
     // ✅ Debug: Check individual items and their prices
     console.log("🛍️ Individual items breakdown:");
@@ -121,9 +132,21 @@ const PaymentButton = ({ orderData }) => {
       console.log("📤 Sending payment request with amount:", orderData.totalPay);
       console.log("🌐 Making request to:", `${API_BASE}api/payment/create-order`);
       
+      // ✅ Detect if international order
+      const customerCountry = orderData?.address?.country || 'India';
+      const isInternational = !['India', 'india', 'IN', 'IND', 'Bharat', 'bharat'].includes(customerCountry);
+      
+      console.log('🌍 Payment request:', {
+        country: customerCountry,
+        isInternational,
+        amount: orderData.totalPay
+      });
+      
       const { data } = await axios.post(`${API_BASE}api/payment/create-order`, {
         amount: orderData.totalPay, // totalPay in INR (backend will convert to paise)
         half: false, // only full payment here
+        currency: 'INR', // ✅ Support for international payments (can be extended to other currencies)
+        customerCountry: customerCountry, // ✅ Pass country for international payment handling
       });
 
       console.log("✅ Payment order created successfully:", data);

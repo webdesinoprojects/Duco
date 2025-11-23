@@ -344,6 +344,38 @@ async function createPrintroveOrderLegacy(order) {
     console.warn('⚠️ Could not calculate Printrove cost:', error.message);
   }
 
+  // ✅ Determine if international order
+  const customerCountry = o.address?.country || 'India';
+  const isInternational = !['India', 'india', 'IN', 'IND', 'Bharat', 'bharat'].includes(customerCountry);
+  
+  // ✅ For international orders, pincode should be string; for India, it should be integer
+  let pincodeValue;
+  if (isInternational) {
+    // International: Keep as string
+    pincodeValue = String(o.address?.pincode || o.address?.postalCode || '00000');
+  } else {
+    // India: Convert to integer (6 digits)
+    pincodeValue = parseInt(o.address?.pincode || o.address?.postalCode || '110019');
+  }
+  
+  // ✅ Validate required fields for international orders
+  if (isInternational) {
+    if (!o.address?.state) {
+      console.warn('⚠️ State is missing for international order, using default');
+    }
+    if (!o.address?.city) {
+      console.warn('⚠️ City is missing for international order, using default');
+    }
+  }
+  
+  console.log(`🌍 Order type: ${isInternational ? 'INTERNATIONAL' : 'DOMESTIC'}`, {
+    country: customerCountry,
+    pincode: pincodeValue,
+    pincodeType: typeof pincodeValue,
+    state: o.address?.state,
+    city: o.address?.city
+  });
+
   // ✅ Build Printrove-compliant payload according to API docs
   const payload = {
     reference_number: o.razorpayPaymentId || o._id || `ORD-${Date.now()}`,
@@ -378,12 +410,10 @@ async function createPrintroveOrderLegacy(order) {
         return 'Near City Center';
       })(),
       address3: '',
-      pincode: parseInt(
-        o.address?.pincode || o.address?.postalCode || '110019'
-      ),
-      state: o.address?.state || 'Delhi',
-      city: o.address?.city || 'New Delhi',
-      country: o.address?.country || 'India',
+      pincode: pincodeValue,
+      state: o.address?.state || (isInternational ? 'State' : 'Delhi'),
+      city: o.address?.city || (isInternational ? 'City' : 'New Delhi'),
+      country: customerCountry,
     },
     cod: false, // Required field - set to false for online payments
     order_products: await Promise.all(

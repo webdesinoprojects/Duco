@@ -49,6 +49,14 @@ const TaxSchema = new Schema({
   cgstRate: { type: Number, default: 0 },
   sgstRate: { type: Number, default: 0 },
   igstRate: { type: Number, default: 0 },
+  taxRate: { type: Number, default: 0 },
+  cgstAmount: { type: Number, default: 0 },
+  sgstAmount: { type: Number, default: 0 },
+  igstAmount: { type: Number, default: 0 },
+  taxAmount: { type: Number, default: 0 },
+  totalTax: { type: Number, default: 0 },
+  type: { type: String, enum: ['INTRASTATE', 'INTERSTATE', 'INTERNATIONAL', ''], default: '' },
+  label: { type: String, default: '' },
 }, { _id: false });
 
 // Main Invoice Schema
@@ -61,7 +69,9 @@ const InvoiceSchema = new Schema({
   tax: { type: TaxSchema, default: {} },
   terms: [{ type: String }],
   forCompany: { type: String, required: true },
-  order: { type: mongoose.Schema.Types.ObjectId, ref: "Order" }
+  order: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
+  currency: { type: String, default: 'INR' }, // ✅ Add currency field
+  total: { type: Number, default: 0 }, // ✅ Add total field
 }, { timestamps: true });
 
 InvoiceSchema.index({ order: 1 }, { unique: true, sparse: true });

@@ -5,10 +5,20 @@ import { FaFilter } from "react-icons/fa";
 import { getproductcategory } from "../Service/APIservice"
 import { usePriceContext } from '../ContextAPI/PriceContext';
 
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+};
+
 const SaerchingPage = () => {
   const [prodcuts, setProdcuts] = useState([])
   const { id, catogory_name } = useParams()
-  const { toConvert, priceIncrease } = usePriceContext();
+  const { toConvert, priceIncrease, currency } = usePriceContext();
+  const currencySymbol = currencySymbols[currency] || "₹";
   
   // Filter states
   const [selectedSizes, setSelectedSizes] = useState([]);
@@ -22,8 +32,8 @@ const SaerchingPage = () => {
 
   function calculatePrice(currency, ac, high) {
     const actualPrice = currency * ac
-    return actualPrice + (actualPrice * (high / 100));
-
+    const finalPrice = actualPrice + (actualPrice * (high / 100));
+    return Math.round(finalPrice);
   }
 
   useEffect(() => {
@@ -147,7 +157,7 @@ const SaerchingPage = () => {
                 <div className="p-4">
                   <h3 className="text-sm font-semibold">{item.products_name}</h3>
 
-                  <p className=" text-sm font-bold mt-2">₹{calculatePrice(toConvert, item.pricing[0]?.price_per, priceIncrease)}</p>
+                  <p className=" text-sm font-bold mt-2">{currencySymbol}{calculatePrice(toConvert, item.pricing[0]?.price_per, priceIncrease).toLocaleString('en-IN')}</p>
                 </div>
               </Link>
             ))}

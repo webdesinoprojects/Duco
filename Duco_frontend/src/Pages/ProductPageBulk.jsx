@@ -14,6 +14,14 @@ import PriceTiers from '../Components/PriceTiers';
 import CropTanksTabs from '../Components/CropTanksTabs';
 import CropTankSizeChart from '../Components/CropTankSizeChart';
 
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+};
 
 function useLayoutCtx() {
   return useOutletContext(); // { setIsOpenLog, isLogin, setIsLogin, login, user }
@@ -35,7 +43,8 @@ const ProductPageBulk = () => {
 
    const stored = localStorage.getItem('user');
     const user = JSON.parse(stored);
- const { toConvert, priceIncrease ,setLocation } = usePriceContext();
+ const { toConvert, priceIncrease, setLocation, currency } = usePriceContext();
+ const currencySymbol = currencySymbols[currency] || "₹";
   const [showModal, setShowModal] = useState(false);
   const [colortext,setColortext] = useState(null)
   const [selectedDesign, setSelectedDesign] = useState(null);
@@ -135,8 +144,8 @@ const ProductPageBulk = () => {
 
   function calculatePrice(currency, ac, high) {
     const actualPrice = currency*ac
-    return  actualPrice + (actualPrice * (high / 100));
-
+    const finalPrice = actualPrice + (actualPrice * (high / 100));
+    return Math.round(finalPrice);
 }
 
 const handleQty = (k, v) => {
@@ -194,7 +203,7 @@ const validateMinimumQuantity = () => {
         {/* Right - Details */}
         <div className="space-y-6">
           <h1 className="text-3xl font-bold text-[#E5C870]">{product?.products_name}</h1>
-          <p className="text-2xl font-semibold">₹{price}</p>
+          <p className="text-2xl font-semibold">{currencySymbol}{price.toLocaleString('en-IN')}</p>
 
           <button
             onClick={() => navigate("/getbulk")}
@@ -366,7 +375,7 @@ const validateMinimumQuantity = () => {
        
 
       </div>
-       <PriceTiers tiers={PRICE_TIERS} currencySymbol="₹" />
+       <PriceTiers tiers={PRICE_TIERS} currencySymbol={currencySymbol} />
         <CropTankSizeChart/>
        <CropTanksTabs/>
       

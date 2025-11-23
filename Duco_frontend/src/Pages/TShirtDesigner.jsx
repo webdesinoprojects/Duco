@@ -1271,7 +1271,7 @@ const TshirtDesigner = () => {
                   productDetails?.pricing?.[0]?.price_per || 499,
                   priceIncrease,
                   conversionRate
-                )}
+                ).toLocaleString('en-IN')}
               </p>
               {resolvedLocation && resolvedLocation !== 'Asia' && (
                 <p className="text-xs text-gray-500 mt-1">
@@ -1476,7 +1476,7 @@ const TshirtDesigner = () => {
                   productDetails?.pricing?.[0]?.price_per || 499,
                   priceIncrease,
                   conversionRate
-                )}
+                ).toLocaleString('en-IN')}
               </span>
               {resolvedLocation && resolvedLocation !== 'Asia' && (
                 <span className="text-xs text-gray-500 ml-2">

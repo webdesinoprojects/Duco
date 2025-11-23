@@ -350,9 +350,24 @@ const Cart = () => {
   /* ---------- Merge cart ---------- */
   useEffect(() => {
     if (products.length && cart.length) {
+      console.log('🔄 Merging cart with products:', {
+        cartLength: cart.length,
+        productsLength: products.length
+      });
+      
       const merged = cart.map((ci) => {
         const p = products.find((x) => x._id === ci.id);
-        return p ? { ...p, ...ci } : ci;
+        const result = p ? { ...p, ...ci } : ci;
+        
+        console.log('🔍 Merged item:', {
+          id: ci.id,
+          name: result.products_name || result.name,
+          price: result.price,
+          pricing: result.pricing,
+          foundProduct: !!p
+        });
+        
+        return result;
       });
       setCart(merged);
     }
@@ -362,7 +377,19 @@ const Cart = () => {
     if (!cart.length) return [];
     return cart.map((ci) => {
       const p = products.find((x) => x._id === ci.id);
-      return p ? { ...p, ...ci } : ci;
+      const merged = p ? { ...p, ...ci } : ci;
+      
+      // ✅ Ensure price is set - try multiple sources
+      if (!merged.price || merged.price === 0) {
+        if (p?.pricing && Array.isArray(p.pricing) && p.pricing.length > 0) {
+          merged.price = p.pricing[0]?.price_per || 0;
+          console.log(`🔧 Fixed price for ${merged.products_name || merged.name}: ${merged.price}`);
+        } else if (ci.price) {
+          merged.price = ci.price;
+        }
+      }
+      
+      return merged;
     });
   }, [cart, products]);
 
@@ -420,6 +447,7 @@ const Cart = () => {
         id: item.id,
         name: item.name || item.products_name,
         price: item.price,
+        pricingArray: item.pricing,
         quantity: item.quantity,
         isCustomItem: item.id && item.id.startsWith('custom-tshirt-')
       });
@@ -431,25 +459,56 @@ const Cart = () => {
       
       console.log('🔍 Calculated quantity:', qty);
       
-      // ✅ Check if item is from TShirtDesigner (custom item with already applied pricing)
+      // ✅ ALWAYS use pricing array from database for base INR price (not item.price which might be converted)
+      let basePrice = 0;
+      
+      // Check if item is from TShirtDesigner (custom item with already applied pricing)
       const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
+      
+      if (isCustomItem) {
+        // Custom items: use item.price as it's already converted
+        basePrice = safeNum(item.price);
+        console.log(`🔍 Custom item - using pre-converted price: ${basePrice}`);
+      } else {
+        // Regular products: ALWAYS use pricing array for base INR price
+        if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
+          basePrice = safeNum(item.pricing[0]?.price_per, 0);
+          console.log(`🔍 Regular item - using base INR price from pricing array: ${basePrice}`);
+        } else if (item.price) {
+          // Fallback to item.price only if pricing array not available
+          // But check if it's suspiciously low (might be already converted)
+          const priceValue = safeNum(item.price);
+          if (priceValue > 100 || currency === 'INR') {
+            // Likely in INR (t-shirts are usually > ₹100)
+            basePrice = priceValue;
+            console.log(`🔍 Using item.price as base (likely INR): ${basePrice}`);
+          } else {
+            // Suspiciously low - might be already converted, use a default
+            console.warn(`⚠️ Item ${item.name || item.products_name} has suspicious price ${priceValue}, might be already converted`);
+            basePrice = 499; // Default t-shirt price in INR
+          }
+        }
+      }
+      
+      // If still 0, log warning
+      if (basePrice === 0) {
+        console.warn(`⚠️ Item ${item.name || item.products_name} has price 0!`);
+      }
       
       let itemTotal;
       
       if (isCustomItem) {
         // ✅ Custom items already have location pricing applied in TShirtDesigner
-        itemTotal = safeNum(item.price);
+        itemTotal = basePrice;
         console.log(`💰 Custom item ${item.name}: Using pre-converted price ${itemTotal} (qty: ${qty})`);
       } else {
-        // ✅ Regular products - apply location pricing
-        const basePrice = safeNum(item.price);
-        
+        // ✅ Regular products - apply location pricing to base INR price
         itemTotal = applyLocationPricing(
           basePrice,
           priceIncrease,
           conversionRate
         );
-        console.log(`💰 Regular item ${item.name || item.products_name}: Base price ${basePrice} → ${itemTotal} (after location pricing, qty: ${qty})`);
+        console.log(`💰 Regular item ${item.name || item.products_name}: Base INR ${basePrice} → ${itemTotal} ${currencySymbol} (after location pricing, qty: ${qty})`);
       }
 
       const lineTotal = itemTotal * qty;
@@ -903,6 +962,20 @@ const Cart = () => {
                 })));
                 console.groupEnd();
 
+                // ✅ Convert display amount back to INR for Razorpay (Razorpay only accepts INR)
+                const displayTotal = Math.ceil(grandTotal);
+                const totalPayINR = conversionRate && conversionRate !== 1 
+                  ? Math.ceil(displayTotal / conversionRate) // Convert back to INR
+                  : displayTotal; // Already in INR
+                
+                console.log('💳 Payment amount conversion:', {
+                  displayCurrency: currency,
+                  displayTotal: `${currencySymbol}${displayTotal}`,
+                  conversionRate,
+                  totalPayINR: `₹${totalPayINR}`,
+                  calculation: conversionRate !== 1 ? `${displayTotal} / ${conversionRate} = ${totalPayINR}` : 'No conversion needed'
+                });
+
                 navigate("/payment", {
                   state: {
                     items: actualData,
@@ -917,7 +990,9 @@ const Cart = () => {
                       locationIncreasePercent: priceIncrease || 0,
                       grandTotal,
                     },
-                    totalPay: Math.ceil(grandTotal), // ✅ Use rounded total for payment
+                    totalPay: totalPayINR, // ✅ Send INR amount to Razorpay
+                    totalPayDisplay: displayTotal, // ✅ Keep display amount for reference
+                    displayCurrency: currency, // ✅ Keep currency for reference
                     address,
                     user,
                     gstNumber: gstNumber.trim() || null, // ✅ Include GST number if provided

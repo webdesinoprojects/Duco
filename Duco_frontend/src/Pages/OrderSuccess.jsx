@@ -2,9 +2,57 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getInvoiceByOrder } from "../Service/APIservice";
 import { useCart } from "../ContextAPI/CartContext";
+import { usePriceContext } from "../ContextAPI/PriceContext";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import JsBarcode from "jsbarcode";
+
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+};
+
+// Currency names map for invoice text
+const currencyNames = {
+  INR: "Rupees",
+  USD: "Dollars",
+  EUR: "Euros",
+  AED: "Dirhams",
+  GBP: "Pounds",
+  AUD: "Australian Dollars",
+  CAD: "Canadian Dollars",
+  SGD: "Singapore Dollars",
+};
+
+/* ----------------------------- BARCODE COMPONENT ----------------------------- */
+const BarcodeImage = ({ value }) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (canvasRef.current && value) {
+      try {
+        JsBarcode(canvasRef.current, value, {
+          format: "CODE128",
+          width: 1,
+          height: 30,
+          displayValue: false,
+          margin: 0,
+        });
+      } catch (err) {
+        console.error("Barcode generation error:", err);
+      }
+    }
+  }, [value]);
+
+  return <canvas ref={canvasRef} style={{ maxWidth: "100%", height: "30px" }} />;
+};
 
 /* ----------------------------- INVOICE TEMPLATE ----------------------------- */
 const InvoiceDucoTailwind = ({ data }) => {
@@ -20,7 +68,12 @@ const InvoiceDucoTailwind = ({ data }) => {
     terms,
     forCompany,
     locationTax,
+    currencySymbol = "₹", // ✅ Get currency symbol from data
+    currency = "INR",
   } = data;
+  
+  console.log("🧾 Invoice Template - Tax Info:", tax);
+  console.log("💱 Invoice Template - Currency:", currency, currencySymbol);
 
   // Compute actual numeric location adjustment
   const locationAdj =
@@ -32,6 +85,7 @@ const InvoiceDucoTailwind = ({ data }) => {
 
   const adjustedTotal = total + locationAdj;
   const totalInWords = numberToWords(Math.round(adjustedTotal));
+  const currencyName = currencyNames[currency] || "Rupees";
 
   return (
     <div
@@ -123,7 +177,7 @@ const InvoiceDucoTailwind = ({ data }) => {
           <tr style={{ borderBottom: "1px solid #000", backgroundColor: "#f5f5f5" }}>
             <th style={{ border: "1px solid #000", padding: "6px", textAlign: "left", width: "30px" }}>S.N.</th>
             <th style={{ border: "1px solid #000", padding: "6px", textAlign: "left" }}>Description of Goods</th>
-            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "center", width: "80px" }}>BARCODE NO.</th>
+            <th style={{ border: "1px solid #000", padding: "6px", textAlign: "center", width: "80px" }}>BARCODE</th>
             <th style={{ border: "1px solid #000", padding: "6px", textAlign: "center", width: "60px" }}>HSN</th>
             <th style={{ border: "1px solid #000", padding: "6px", textAlign: "center", width: "80px" }}>Qty. Unit</th>
             <th style={{ border: "1px solid #000", padding: "6px", textAlign: "right", width: "70px" }}>Price</th>
@@ -138,8 +192,8 @@ const InvoiceDucoTailwind = ({ data }) => {
                 {it.description}
                 {it.printSides && it.printSides > 0 ? ` (${it.printSides} sides printing)` : ""}
               </td>
-              <td style={{ border: "1px solid #000", padding: "6px", textAlign: "center" }}>
-                {it.barcode || "000002"}
+              <td style={{ border: "1px solid #000", padding: "2px", textAlign: "center" }}>
+                <BarcodeImage value={it.barcode || "000002"} />
               </td>
               <td style={{ border: "1px solid #000", padding: "6px", textAlign: "center" }}>
                 {it.hsn || "4901101"}
@@ -315,7 +369,7 @@ const InvoiceDucoTailwind = ({ data }) => {
             <td style={{ border: "1px solid #000", padding: "4px", textAlign: "center" }}>
               {tax.type === 'INTRASTATE' && `${tax.cgstRate + tax.sgstRate + tax.igstRate}%`}
               {tax.type === 'INTERSTATE' && `${tax.igstRate}%`}
-              {tax.type === 'INTERNATIONAL' && `${tax.taxRate}%`}
+              {tax.type === 'INTERNATIONAL' && `${tax.taxRate || 1}%`}
               {!tax.type && `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%`}
             </td>
             <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
@@ -352,7 +406,7 @@ const InvoiceDucoTailwind = ({ data }) => {
 
       {/* AMOUNT IN WORDS */}
       <div style={{ marginTop: "10px", fontSize: "11px", fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: "10px" }}>
-        Rupees {totalInWords} Only
+        {currencyName} {totalInWords} Only
       </div>
 
       {/* TERMS & SIGNATURE */}
@@ -398,6 +452,7 @@ export default function OrderSuccess() {
   const location = useLocation();
   const [invoiceData, setInvoiceData] = useState(null);
   const { clearCart } = useCart();
+  const { currency, toConvert, priceIncrease } = usePriceContext();
   const invoiceRef = useRef();
 
   const orderId = paramId || localStorage.getItem("lastOrderId");
@@ -415,8 +470,13 @@ export default function OrderSuccess() {
       : "Pay Online";
   const isB2B = paymentMeta?.isCorporate || false;
 
+  // ✅ Get currency symbol
+  const currencySymbol = currencySymbols[currency] || "₹";
+  const isInternational = currency && currency !== 'INR';
+
   console.log("💳 Payment Mode:", paymentMethod);
   console.log("🏢 Order Type:", isB2B ? "B2B" : "B2C");
+  console.log("💱 Currency:", currency, "Symbol:", currencySymbol, "International:", isInternational);
 
   /* ✅ FIXED INVOICE LOGIC: accurate charges + gst like cart + side printing info */
   useEffect(() => {
@@ -472,13 +532,17 @@ export default function OrderSuccess() {
           ...inv,
           items,
           charges: { pf, printing },
-          tax: { cgstRate, sgstRate, cgstAmount, sgstAmount },
+          tax: inv.tax || { cgstRate, sgstRate, cgstAmount, sgstAmount }, // ✅ Use tax from backend if available
           subtotal,
           total,
           locationTax,
+          currency: currency || 'INR', // ✅ Add currency
+          currencySymbol: currencySymbol, // ✅ Add currency symbol
+          conversionRate: toConvert || 1, // ✅ Add conversion rate
         };
 
         console.log("🧾 Normalized Invoice for Success Page:", formatted);
+        console.log("💱 Tax Info:", formatted.tax);
         
         if (isMounted) {
           setInvoiceData(formatted);
@@ -549,10 +613,12 @@ export default function OrderSuccess() {
             <b>Order Type:</b> {isB2B ? "Corporate (B2B)" : "Retail (B2C)"}
           </p>
           <p>
-            <b>P&F Charges:</b> ₹{invoiceData.charges.pf.toFixed(2)} |{" "}
-            <b>Printing:</b> ₹{invoiceData.charges.printing.toFixed(2)} |{" "}
-            <b>GST (5%):</b> ₹
-            {(invoiceData.tax.cgstAmount + invoiceData.tax.sgstAmount).toFixed(2)}
+            <b>P&F Charges:</b> {currencySymbol}{invoiceData.charges.pf.toFixed(2)} |{" "}
+            <b>Printing:</b> {currencySymbol}{invoiceData.charges.printing.toFixed(2)} |{" "}
+            <b>{invoiceData.tax?.type === 'INTERNATIONAL' ? 'TAX (1%)' : 'GST (5%)'}:</b> {currencySymbol}
+            {invoiceData.tax?.type === 'INTERNATIONAL' 
+              ? (invoiceData.tax.taxAmount || 0).toFixed(2)
+              : ((invoiceData.tax.cgstAmount || 0) + (invoiceData.tax.sgstAmount || 0) + (invoiceData.tax.igstAmount || 0)).toFixed(2)}
           </p>
           {invoiceData.locationTax?.percentage ? (
             <p>
@@ -562,7 +628,7 @@ export default function OrderSuccess() {
             </p>
           ) : null}
           <p>
-            <b>Grand Total:</b> ₹{invoiceData.total.toFixed(2)}
+            <b>Grand Total:</b> {currencySymbol}{invoiceData.total.toFixed(2)}
           </p>
         </div>
 

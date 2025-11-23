@@ -388,6 +388,30 @@ class PrintroveIntegrationService {
       // Calculate retail price
       const retailPrice = orderData.totalPay || orderData.price || 0;
 
+      // ✅ Determine if international order
+      const customerCountry = orderData.address?.country || 'India';
+      const isInternational = !['India', 'india', 'IN', 'IND', 'Bharat', 'bharat'].includes(customerCountry);
+      
+      // ✅ For international orders, pincode should be string; for India, it should be integer
+      let pincodeValue;
+      if (isInternational) {
+        // International: Keep as string
+        pincodeValue = String(orderData.address?.pincode || orderData.address?.postalCode || '00000');
+      } else {
+        // India: Convert to integer (6 digits)
+        pincodeValue = parseInt(orderData.address?.pincode || orderData.address?.postalCode || '110001');
+      }
+      
+      // ✅ Validate required fields for international orders
+      if (isInternational) {
+        if (!orderData.address?.state) {
+          throw new Error('State is required for international orders');
+        }
+        if (!orderData.address?.city) {
+          throw new Error('City is required for international orders');
+        }
+      }
+      
       // Create Printrove order payload
       const printroveOrder = {
         reference_number: orderData.razorpayPaymentId || orderData._id || `ORD-${Date.now()}`,
@@ -399,14 +423,29 @@ class PrintroveIntegrationService {
           address1: `${orderData.address?.houseNumber || ''} ${orderData.address?.street || ''}`.trim(),
           address2: orderData.address?.landmark || 'N/A',
           address3: '',
-          pincode: parseInt(orderData.address?.pincode || orderData.address?.postalCode || '110001'),
-          state: orderData.address?.state || 'Delhi',
-          city: orderData.address?.city || 'New Delhi',
-          country: orderData.address?.country || 'India',
+          pincode: pincodeValue,
+          state: orderData.address?.state || (isInternational ? '' : 'Delhi'),
+          city: orderData.address?.city || (isInternational ? '' : 'New Delhi'),
+          country: customerCountry,
         },
         cod: false,
         order_products: finalOrderProducts
       };
+      
+      console.log(`🌍 Order type: ${isInternational ? 'INTERNATIONAL' : 'DOMESTIC'}`, {
+        country: customerCountry,
+        pincode: pincodeValue,
+        pincodeType: typeof pincodeValue,
+        state: orderData.address?.state,
+        city: orderData.address?.city,
+        fullAddress: {
+          address1: `${orderData.address?.houseNumber || ''} ${orderData.address?.street || ''}`.trim(),
+          address2: orderData.address?.landmark || 'N/A',
+          city: orderData.address?.city,
+          state: orderData.address?.state,
+          country: customerCountry
+        }
+      });
 
       console.log('📦 Creating Printrove order:', JSON.stringify(printroveOrder, null, 2));
 

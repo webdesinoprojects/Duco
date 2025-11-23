@@ -1,6 +1,16 @@
 import React, { useMemo, useState , useContext ,useEffect } from "react";
 import { CartContext } from "../ContextAPI/CartContext";
 import { useParams, useNavigate } from "react-router-dom";
+import { usePriceContext } from '../ContextAPI/PriceContext';
+
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+};
 
 // Polo Product Configurator UI (Pure JS version)
 // Tech: React + TailwindCSS
@@ -31,6 +41,8 @@ const VIEWS = [
 export default function SizeChange() {
      const { cart, clear, removeFromCart, updateQuantity } = useContext(CartContext);
      const [getProducts,setGetproducts] = useState();
+     const { currency } = usePriceContext();
+     const currencySymbol = currencySymbols[currency] || "₹";
      const navigator = useNavigate()
      const {id} = useParams()
 
@@ -171,7 +183,7 @@ export default function SizeChange() {
                     <tr key={i} className="odd:bg-white even:bg-slate-50 text-black">
                       <td className="px-4 py-2">{t.range}</td>
                       <td className="px-4 py-2 flex items-center gap-2">
-                        ₹{t.price}
+                        {currencySymbol}{t.price.toLocaleString('en-IN')}
                         {t.recommended && (
                           <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">Recommended</span>
                         )}
@@ -216,7 +228,7 @@ export default function SizeChange() {
               <div className="text-sm text-slate-600">
                 {pricePerPiece ? (
                   <>
-                    Price/pc: <span className="font-semibold text-slate-900">₹{pricePerPiece}</span>
+                    Price/pc: <span className="font-semibold text-slate-900">{currencySymbol}{pricePerPiece.toLocaleString('en-IN')}</span>
                   </>
                 ) : (
                   "Set quantity to see price"
@@ -226,7 +238,7 @@ export default function SizeChange() {
 
             <div className="flex items-center justify-between">
               <div className="text-sm text-slate-600">
-                Subtotal: <span className="font-semibold text-slate-900">₹{subtotal.toLocaleString()}</span>
+                Subtotal: <span className="font-semibold text-slate-900">{currencySymbol}{subtotal.toLocaleString()}</span>
               </div>
               <button
                 disabled={totalQty < 1}

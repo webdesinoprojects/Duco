@@ -3,12 +3,22 @@ import { useSearchParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { usePriceContext } from '../ContextAPI/PriceContext';
 
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+};
+
 const SearchResults = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { toConvert, priceIncrease } = usePriceContext();
+  const { toConvert, priceIncrease, currency } = usePriceContext();
+  const currencySymbol = currencySymbols[currency] || "₹";
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
@@ -109,13 +119,13 @@ const SearchResults = () => {
                     {product.gender}
                   </p>
                   <p className="text-[#E5C870] font-bold">
-                    ₹{Math.round(
+                    {currencySymbol}{Math.round(
                       calculatePrice(
                         toConvert,
                         product.pricing?.[0]?.price_per || 0,
                         priceIncrease
                       )
-                    )}
+                    ).toLocaleString('en-IN')}
                   </p>
                 </div>
               </Link>

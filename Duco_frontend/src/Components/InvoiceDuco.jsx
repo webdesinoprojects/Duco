@@ -3,7 +3,32 @@
 //   import InvoiceDucoTailwind from "./InvoiceDucoTailwind";
 //   <InvoiceDucoTailwind data={invoiceData} editable />
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
+import JsBarcode from "jsbarcode";
+
+// Currency names map for invoice text
+const currencyNames = {
+  INR: "Rupees",
+  USD: "Dollars",
+  EUR: "Euros",
+  AED: "Dirhams",
+  GBP: "Pounds",
+  AUD: "Australian Dollars",
+  CAD: "Canadian Dollars",
+  SGD: "Singapore Dollars",
+};
+
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+};
 
 // ---------- helpers ----------
 const r2 = (n) => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
@@ -16,6 +41,29 @@ const fmtINR = (n) => {
     (other ? other.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," : "") + last3;
   return `${withCommas}.${parts[1]}`;
 };
+/* ----------------------------- BARCODE COMPONENT ----------------------------- */
+const BarcodeImage = ({ value }) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (canvasRef.current && value) {
+      try {
+        JsBarcode(canvasRef.current, value, {
+          format: "CODE128",
+          width: 1,
+          height: 30,
+          displayValue: false,
+          margin: 0,
+        });
+      } catch (err) {
+        console.error("Barcode generation error:", err);
+      }
+    }
+  }, [value]);
+
+  return <canvas ref={canvasRef} style={{ maxWidth: "100%", height: "30px" }} />;
+};
+
 const toWordsIndian = (amount) => {
   const a = [
     "",
@@ -81,6 +129,11 @@ const toWordsIndian = (amount) => {
 export default function InvoiceDucoTailwind({ data, editable = false }) {
   const base = typeof DEMO_INVOICE === "object" ? DEMO_INVOICE : {}; // eslint-disable-line no-undef
   const d = useMemo(() => ({ ...base, ...(data || {}) }), [base, data]);
+  
+  // Get currency info
+  const currency = d.currency || 'INR';
+  const currencySymbol = currencySymbols[currency] || "₹";
+  const currencyName = currencyNames[currency] || "Rupees";
 
   // local state for charges in edit mode
   const [pf, setPf] = useState(Number(d.charges?.pf || 0));
@@ -185,11 +238,12 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
             <tr>
               <th className="border p-1">S.N.</th>
               <th className="border p-1">Description</th>
+              <th className="border p-1">BARCODE</th>
               <th className="border p-1">HSN</th>
               <th className="border p-1">Qty</th>
               <th className="border p-1">Unit</th>
               <th className="border p-1">Price</th>
-              <th className="border p-1">Amount (₹)</th>
+              <th className="border p-1">Amount ({currencySymbol})</th>
             </tr>
           </thead>
           <tbody>
@@ -197,6 +251,9 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
               <tr key={it.sno}>
                 <td className="border p-1 text-center">{it.sno}</td>
                 <td className="border p-1">{it.description}</td>
+                <td className="border p-1 text-center">
+                  <BarcodeImage value={it.barcode || "000002"} />
+                </td>
                 <td className="border p-1 text-center">{it.hsn}</td>
                 <td className="border p-1 text-center">{it.qty}</td>
                 <td className="border p-1 text-center">{it.unit}</td>
@@ -270,7 +327,7 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
 
         {/* Amount in words */}
         <div className="mt-2 text-[12px] font-semibold">
-          Rupees {toWordsIndian(calc.grand)} Only
+          {currencyName} {toWordsIndian(calc.grand)} Only
         </div>
       </div>
     </div>

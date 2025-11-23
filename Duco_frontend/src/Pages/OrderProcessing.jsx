@@ -10,6 +10,8 @@ const OrderProcessing = () => {
   const [status, setStatus] = useState('processing'); // processing, success, error
   const [message, setMessage] = useState('Processing your order...');
   const [orderId, setOrderId] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 10; // Maximum 10 retries (20 seconds)
 
   useEffect(() => {
     const processOrder = async () => {
@@ -41,6 +43,23 @@ const OrderProcessing = () => {
         });
 
         console.log('📥 Backend response:', response.data);
+
+        // Handle case where order is still being processed (202 status)
+        if (response.status === 202 && response.data.processing) {
+          if (retryCount >= MAX_RETRIES) {
+            throw new Error('Order processing timeout. Please check your orders page or contact support.');
+          }
+          
+          console.log(`⏳ Order still being processed, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+          setMessage(`Order is being processed, please wait... (${retryCount + 1}/${MAX_RETRIES})`);
+          setRetryCount(prev => prev + 1);
+          
+          // Retry after 2 seconds
+          setTimeout(() => {
+            processOrder();
+          }, 2000);
+          return;
+        }
 
         if (response.data && response.data.success && response.data.order) {
           const order = response.data.order;
@@ -79,6 +98,24 @@ const OrderProcessing = () => {
       } catch (error) {
         console.error('❌ Order processing error:', error);
         
+        // Handle 202 status (still processing) - retry
+        if (error.response?.status === 202 && error.response?.data?.processing) {
+          if (retryCount >= MAX_RETRIES) {
+            setStatus('error');
+            setMessage('Order processing timeout. Please check your orders page or contact support.');
+            return;
+          }
+          
+          console.log(`⏳ Order still being processed (from error), retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+          setMessage(`Order is being processed, please wait... (${retryCount + 1}/${MAX_RETRIES})`);
+          setRetryCount(prev => prev + 1);
+          
+          setTimeout(() => {
+            processOrder();
+          }, 2000);
+          return;
+        }
+        
         // Check if this is a duplicate request error (should be handled as success)
         if (error.response?.data?.duplicate || error.response?.data?.order) {
           console.log('ℹ️ Handling duplicate as success');
@@ -98,6 +135,22 @@ const OrderProcessing = () => {
             setTimeout(() => {
               navigate(`/order-success/${orderId}`);
             }, 500);
+            return;
+          } else if (error.response?.data?.processing) {
+            // Still processing, retry
+            if (retryCount >= MAX_RETRIES) {
+              setStatus('error');
+              setMessage('Order processing timeout. Please check your orders page or contact support.');
+              return;
+            }
+            
+            console.log(`⏳ Order still being processed, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+            setMessage(`Order is being processed, please wait... (${retryCount + 1}/${MAX_RETRIES})`);
+            setRetryCount(prev => prev + 1);
+            
+            setTimeout(() => {
+              processOrder();
+            }, 2000);
             return;
           }
         }

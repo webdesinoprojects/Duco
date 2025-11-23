@@ -32,15 +32,29 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
       // Check if item is from TShirtDesigner (custom item with already applied pricing)
       const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
       
+      let basePrice = 0;
+      
+      if (isCustomItem) {
+        // Custom items: use item.price as it's already converted
+        basePrice = Number(item.price) || 0;
+      } else {
+        // Regular products: use pricing array for base INR price
+        if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
+          basePrice = Number(item.pricing[0]?.price_per) || 0;
+        } else if (item.price) {
+          basePrice = Number(item.price) || 0;
+        }
+      }
+      
       let itemPrice;
       if (isCustomItem) {
         // Custom items already have location pricing applied
-        itemPrice = Number(item.price) || 0;
-        console.log(`💰 CartItem (Custom): ${item.products_name || item.name} - Base: ${item.price}, Final: ${itemPrice}, Qty: ${qty}`);
+        itemPrice = basePrice;
+        console.log(`💰 CartItem (Custom): ${item.products_name || item.name} - Pre-converted: ${itemPrice}, Qty: ${qty}`);
       } else {
-        // Regular products - apply location pricing
-        itemPrice = applyLocationPricing(item.price, priceIncrease, toConvert);
-        console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Base: ${item.price}, Final: ${itemPrice}, Qty: ${qty}, Increase: ${priceIncrease}%, Rate: ${toConvert}`);
+        // Regular products - apply location pricing to base INR price
+        itemPrice = applyLocationPricing(basePrice, priceIncrease, toConvert);
+        console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Base INR: ${basePrice}, Final: ${itemPrice}, Qty: ${qty}`);
       }
       
       return acc + qty * itemPrice;

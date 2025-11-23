@@ -136,11 +136,31 @@ const completeOrder = async (req, res) => {
       const timeDiff = Date.now() - cachedTime;
 
       if (timeDiff < 30000) { // 30 seconds
-        console.log('⚠️ Duplicate request detected within 30 seconds, ignoring:', cacheKey);
-        return res.status(200).json({
-          success: true,
-          message: 'Request already being processed',
-          duplicate: true
+        console.log('⚠️ Duplicate request detected within 30 seconds, checking for existing order...');
+        
+        // Try to find existing order for this payment
+        try {
+          const existingOrder = await Order.findOne({ razorpayPaymentId: paymentId });
+          if (existingOrder) {
+            console.log('✅ Found existing order:', existingOrder._id);
+            return res.status(200).json({
+              success: true,
+              order: existingOrder,
+              message: 'Request already being processed',
+              duplicate: true
+            });
+          }
+        } catch (err) {
+          console.error('Error finding existing order:', err);
+        }
+        
+        // If no order found yet, return without order (still processing)
+        console.log('⚠️ Order still being processed, no order found yet');
+        return res.status(202).json({
+          success: false,
+          message: 'Request already being processed, please wait',
+          duplicate: true,
+          processing: true
         });
       }
     }

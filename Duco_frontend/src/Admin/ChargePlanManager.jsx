@@ -460,23 +460,7 @@ const simulate = async () => {
           />
         </div>
 
-        {/* GST */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <TierTable
-            label="GST (Draft)"
-            rowsFromParent={plan.gst}
-            onCommitRows={(numericRows) =>
-              setPlan((p) => ({ ...p, gst: numericRows }))
-            }
-            onReset={() =>
-              setPlan((p) => ({ ...p, gst: savedPlan.gst }))
-            }
-          />
-          <ReadOnlyTierList
-            title="GST — Saved on server"
-            rows={savedPlan.gst}
-          />
-        </div>
+        
         {/* Simulator */}
 <section className={classNames(card, "bg-black/20 border-gray-800 mt-6")}>
   <h3 className="text-lg font-semibold mb-3">Quick Simulator</h3>
