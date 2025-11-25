@@ -100,6 +100,71 @@ function addressToLine(a = {}) {
     .join(', ');
 }
 
+// ✅ Helper to build invoice payload with billing and shipping addresses
+function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings) {
+  const billingAddr = addresses?.billing || legacyAddress;
+  const shippingAddr = addresses?.shipping || legacyAddress;
+  
+  const payload = {
+    company: settings?.company,
+    invoice: {
+      number: String(order._id),
+      date: formatDateDDMMYYYY(),
+      placeOfSupply: billingAddr?.state || settings?.invoice?.placeOfSupply,
+      reverseCharge: !!settings?.invoice?.reverseCharge,
+      copyType: settings?.invoice?.copyType || 'Original Copy',
+    },
+    billTo: {
+      name: billingAddr?.fullName || orderData.user?.name || '',
+      address: addressToLine(billingAddr),
+      gstin: '',
+      state: billingAddr?.state || '',
+      country: billingAddr?.country || 'India',
+    },
+    items: buildInvoiceItems(items),
+    charges: {
+      pf: pfCharge,
+      printing: printingCharge,
+    },
+    terms: settings?.terms,
+    forCompany: settings?.forCompany,
+    order: order._id,
+  };
+  
+  // ✅ Add shipTo only if different from billing
+  // Compare by address content, not object reference
+  const isSameAddress = addresses?.sameAsBilling || 
+    (billingAddr && shippingAddr && 
+     billingAddr.fullName === shippingAddr.fullName &&
+     billingAddr.houseNumber === shippingAddr.houseNumber &&
+     billingAddr.street === shippingAddr.street &&
+     billingAddr.city === shippingAddr.city &&
+     billingAddr.state === shippingAddr.state &&
+     billingAddr.pincode === shippingAddr.pincode);
+  
+  console.log('🏠 Address Comparison:', {
+    sameAsBillingFlag: addresses?.sameAsBilling,
+    billingName: billingAddr?.fullName,
+    shippingName: shippingAddr?.fullName,
+    isSameAddress,
+    willAddShipTo: addresses?.shipping && !isSameAddress
+  });
+  
+  if (addresses?.shipping && !isSameAddress) {
+    payload.shipTo = {
+      name: orderData.user?.name || '',
+      address: addressToLine(shippingAddr),
+      state: shippingAddr?.state || '',
+      country: shippingAddr?.country || 'India',
+    };
+    console.log('✅ Added shipTo to invoice:', payload.shipTo);
+  } else {
+    console.log('⏭️ Skipping shipTo - addresses are the same');
+  }
+  
+  return payload;
+}
+
 async function verifyRazorpayPayment(paymentId, expectedAmountINR) {
   if (!paymentId) throw new Error('Missing paymentId');
   const payment = await razorpay.payments.fetch(paymentId);
@@ -238,7 +303,7 @@ const completeOrder = async (req, res) => {
       !orderData ||
       !orderData.items ||
       !orderData.user ||
-      !orderData.address
+      (!orderData.address && !orderData.addresses)
     ) {
       return res
         .status(400)
@@ -250,13 +315,31 @@ const completeOrder = async (req, res) => {
 
     const items = Array.isArray(orderData.items) ? orderData.items : [];
     const totalPay = safeNum(orderData.totalPay, 0);
-    const address = {
-      ...orderData.address,
-      email:
-        orderData.address?.email ||
-        orderData.user?.email ||
-        'not_provided@duco.com',
-    };
+    
+    // ✅ Handle both old single address and new billing/shipping addresses
+    let addresses = null;
+    let legacyAddress = null;
+    
+    if (orderData.addresses) {
+      // New format: separate billing and shipping
+      addresses = {
+        billing: {
+          ...orderData.addresses.billing,
+          email: orderData.addresses.billing?.email || orderData.user?.email || 'not_provided@duco.com'
+        },
+        shipping: {
+          ...orderData.addresses.shipping,
+          email: orderData.addresses.shipping?.email || orderData.user?.email || 'not_provided@duco.com'
+        },
+        sameAsBilling: orderData.addresses.sameAsBilling !== false
+      };
+    } else if (orderData.address) {
+      // Legacy format: single address (use for both billing and shipping)
+      legacyAddress = {
+        ...orderData.address,
+        email: orderData.address?.email || orderData.user?.email || 'not_provided@duco.com'
+      };
+    }
 
     const user =
       typeof orderData.user === 'object'
@@ -293,11 +376,10 @@ const completeOrder = async (req, res) => {
     // ================================================================
     if (paymentmode === 'store_pickup') {
       try {
-        order = await Order.create({
+        const orderPayload = {
           products: items,
           price: totalPay,
-          totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
-          address,
+          totalPay: totalPay,
           user,
           status: 'Pending',
           paymentmode: readableMode,
@@ -305,7 +387,16 @@ const completeOrder = async (req, res) => {
           gst: safeNum(orderData.gst, 0),
           printing: printingCharge,
           orderType,
-        });
+        };
+        
+        // ✅ Add addresses (new format) or address (legacy format)
+        if (addresses) {
+          orderPayload.addresses = addresses;
+        } else if (legacyAddress) {
+          orderPayload.address = legacyAddress;
+        }
+        
+        order = await Order.create(orderPayload);
       } catch (createError) {
         if (createError.code === 11000) {
           // Duplicate key error - retry with a new orderId
@@ -314,7 +405,7 @@ const completeOrder = async (req, res) => {
             products: items,
             price: totalPay,
             totalPay: totalPay,
-            address,
+            ...(addresses ? { addresses } : { address: legacyAddress }),
             user,
             status: 'Pending',
             paymentmode: readableMode,
@@ -335,32 +426,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = {
-        company: settings?.company,
-        invoice: {
-          number: String(order._id),
-          date: formatDateDDMMYYYY(),
-          placeOfSupply: address?.state || settings?.invoice?.placeOfSupply,
-          reverseCharge: !!settings?.invoice?.reverseCharge,
-          copyType: settings?.invoice?.copyType || 'Original Copy',
-        },
-        billTo: {
-          name: orderData.user?.name || '',
-          address: addressToLine(address),
-          gstin: '',
-          state: address?.state || '',
-          country: address?.country || 'India',
-        },
-        items: buildInvoiceItems(items),
-        charges: {
-          pf: pfCharge,
-          printing: printingCharge,
-        },
-        // Remove hardcoded tax - let invoiceService calculate dynamically
-        terms: settings?.terms,
-        forCompany: settings?.forCompany,
-        order: order._id,
-      };
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -384,7 +450,7 @@ const completeOrder = async (req, res) => {
         products: items,
         price: totalPay,
         totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
-        address,
+        ...(addresses ? { addresses } : { address: legacyAddress }),
         user,
         razorpayPaymentId: paymentId || null,
         status: 'Pending',
@@ -399,32 +465,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = {
-        company: settings?.company,
-        invoice: {
-          number: String(order._id),
-          date: formatDateDDMMYYYY(),
-          placeOfSupply: address?.state || settings?.invoice?.placeOfSupply,
-          reverseCharge: !!settings?.invoice?.reverseCharge,
-          copyType: settings?.invoice?.copyType || 'Original Copy',
-        },
-        billTo: {
-          name: orderData.user?.name || '',
-          address: addressToLine(address),
-          gstin: '',
-          state: address?.state || '',
-          country: address?.country || 'India',
-        },
-        items: buildInvoiceItems(items),
-        charges: {
-          pf: pfCharge,
-          printing: printingCharge,
-        },
-        // Remove hardcoded tax - let invoiceService calculate dynamically
-        terms: settings?.terms,
-        forCompany: settings?.forCompany,
-        order: order._id,
-      };
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -452,7 +493,7 @@ const completeOrder = async (req, res) => {
           products: items,
           price: totalPay,
           totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
-          address,
+          ...(addresses ? { addresses } : { address: legacyAddress }),
           user,
           razorpayPaymentId: payment.id,
           status: 'Pending',
@@ -470,7 +511,7 @@ const completeOrder = async (req, res) => {
             products: items,
             price: totalPay,
             totalPay: totalPay,
-            address,
+            ...(addresses ? { addresses } : { address: legacyAddress }),
             user,
             razorpayPaymentId: payment.id,
             status: 'Pending',
@@ -492,32 +533,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = {
-        company: settings?.company,
-        invoice: {
-          number: String(order._id),
-          date: formatDateDDMMYYYY(),
-          placeOfSupply: address?.state || settings?.invoice?.placeOfSupply,
-          reverseCharge: !!settings?.invoice?.reverseCharge,
-          copyType: settings?.invoice?.copyType || 'Original Copy',
-        },
-        billTo: {
-          name: orderData.user?.name || '',
-          address: addressToLine(address),
-          gstin: '',
-          state: address?.state || '',
-          country: address?.country || 'India',
-        },
-        items: buildInvoiceItems(items),
-        charges: {
-          pf: pfCharge,
-          printing: printingCharge,
-        },
-        // Remove hardcoded tax - let invoiceService calculate dynamically
-        terms: settings?.terms,
-        forCompany: settings?.forCompany,
-        order: order._id,
-      };
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -545,7 +561,7 @@ const completeOrder = async (req, res) => {
           products: items,
           price: totalPay,
           totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
-          address,
+          ...(addresses ? { addresses } : { address: legacyAddress }),
           user,
           razorpayPaymentId: payment.id,
           status: 'Pending',
@@ -563,7 +579,7 @@ const completeOrder = async (req, res) => {
             products: items,
             price: totalPay,
             totalPay: totalPay,
-            address,
+            ...(addresses ? { addresses } : { address: legacyAddress }),
             user,
             razorpayPaymentId: payment.id,
             status: 'Pending',
@@ -591,32 +607,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = {
-        company: settings?.company,
-        invoice: {
-          number: String(order._id),
-          date: formatDateDDMMYYYY(),
-          placeOfSupply: address?.state || settings?.invoice?.placeOfSupply,
-          reverseCharge: !!settings?.invoice?.reverseCharge,
-          copyType: settings?.invoice?.copyType || 'Original Copy',
-        },
-        billTo: {
-          name: orderData.user?.name || '',
-          address: addressToLine(address),
-          gstin: '',
-          state: address?.state || '',
-          country: address?.country || 'India',
-        },
-        items: buildInvoiceItems(items),
-        charges: {
-          pf: pfCharge,
-          printing: printingCharge,
-        },
-        // Remove hardcoded tax - let invoiceService calculate dynamically
-        terms: settings?.terms,
-        forCompany: settings?.forCompany,
-        order: order._id,
-      };
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -725,4 +716,6 @@ const getAllOrders = async (req, res) => {
 };
 
 module.exports = { completeOrder, getOrderById, getAllOrders };
+
+
 

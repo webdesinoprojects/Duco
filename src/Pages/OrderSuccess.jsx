@@ -25,6 +25,7 @@ const InvoiceDucoTailwind = ({ data }) => {
     company,
     invoice,
     billTo,
+    shipTo,
     items,
     charges,
     tax,
@@ -79,12 +80,21 @@ const InvoiceDucoTailwind = ({ data }) => {
 
       <hr style={{ margin: "15px 0" }} />
 
-      {/* BILL TO */}
-      <div>
-        <h3>Bill To:</h3>
-        <p>{billTo.name}</p>
-        <p>{billTo.address}</p>
-        {billTo.gstin && <p>GSTIN: {billTo.gstin}</p>}
+      {/* BILL TO & SHIP TO */}
+      {console.log('🚚 Invoice Template - billTo:', billTo)}
+      {console.log('📦 Invoice Template - shipTo:', shipTo)}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}>
+        <div style={{ flex: 1 }}>
+          <h3>Billed to :</h3>
+          <p>{billTo?.name}</p>
+          <p>{billTo?.address}</p>
+          {billTo?.gstin && <p>GSTIN: {billTo.gstin}</p>}
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3>Shipped to :</h3>
+          <p>{shipTo?.name || billTo?.name}</p>
+          <p>{shipTo?.address || billTo?.address}</p>
+        </div>
       </div>
 
       <hr style={{ margin: "15px 0" }} />

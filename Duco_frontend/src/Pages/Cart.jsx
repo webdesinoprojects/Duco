@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo, useRef } from "react";
 import CartItem from "../Components/CartItem.jsx";
-import AddressManager from "../Components/AddressManager";
+import AddressManagerEnhanced from "../Components/AddressManagerEnhanced";
 import Loading from "../Components/Loading";
 import { CartContext } from "../ContextAPI/CartContext";
 import { getproducts, getChargePlanRates } from "../Service/APIservice";
@@ -145,14 +145,22 @@ const InvoiceDucoTailwind = ({ data }) => {
       </div>
 
       <hr style={{ margin: "15px 0" }} />
-      <div>
-        <h3>Bill To:</h3>
-        <p>{data.billTo.name}</p>
-        <p>{data.billTo.address}</p>
-        <p>{data.billTo.phone}</p>
-        {data.billTo.gstNumber && (
-          <p><strong>GST/Tax Number:</strong> {data.billTo.gstNumber}</p>
-        )}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "20px" }}>
+        <div style={{ flex: 1 }}>
+          <h3>Billed to :</h3>
+          <p>{data.billTo.name}</p>
+          <p>{data.billTo.address}</p>
+          <p>{data.billTo.phone}</p>
+          {data.billTo.gstNumber && (
+            <p><strong>GST/Tax Number:</strong> {data.billTo.gstNumber}</p>
+          )}
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3>Shipped to :</h3>
+          <p>{data.shipTo?.name || data.billTo.name}</p>
+          <p>{data.shipTo?.address || data.billTo.address}</p>
+          <p>{data.shipTo?.phone || data.billTo.phone}</p>
+        </div>
       </div>
 
       <hr style={{ margin: "15px 0" }} />
@@ -244,7 +252,8 @@ const Cart = () => {
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingRates, setLoadingRates] = useState(false);
-  const [address, setAddress] = useState(null);
+  const [billingAddress, setBillingAddress] = useState(null);
+  const [shippingAddress, setShippingAddress] = useState(null);
 
   const navigate = useNavigate();
   const invoiceRef = useRef();
@@ -609,9 +618,9 @@ const Cart = () => {
     // Taxable amount = items (with location pricing) + printing (fixed) + P&F (with location pricing)
     const adjustedTaxable = safeNum(itemsSubtotal) + safeNum(printingCost) + pfWithLocation;
     
-    // Determine GST rate based on location
-    const customerState = address?.state || '';
-    const customerCountry = address?.country || '';
+    // Determine GST rate based on location (use billing address)
+    const customerState = billingAddress?.state || '';
+    const customerCountry = billingAddress?.country || '';
     const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
     const countryLower = customerCountry.toLowerCase().trim();
     
@@ -660,7 +669,7 @@ const Cart = () => {
     });
     
     return total; // Return before round off, we'll round in display
-  }, [itemsSubtotal, printingCost, pfCost, priceIncrease, conversionRate, currencySymbol, address]);
+  }, [itemsSubtotal, printingCost, pfCost, priceIncrease, conversionRate, currencySymbol, billingAddress]);
 
   if (loadingProducts) return <Loading />;
   if (!cart.length)
@@ -729,11 +738,11 @@ const Cart = () => {
               {(() => {
                 const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
                 const taxableAmount = itemsSubtotal + printingCost + pfWithLocation;
-                const customerState = address?.state || '';
+                const customerState = billingAddress?.state || '';
                 const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
                 
                 // Check if in India
-                const customerCountry = address?.country || '';
+                const customerCountry = billingAddress?.country || '';
                 const countryLower = customerCountry.toLowerCase().trim();
                 
                 // Determine if India based on address country field
@@ -752,7 +761,8 @@ const Cart = () => {
                 }
                 
                 console.log('🌍 Tax Calculation Debug:', {
-                  address,
+                  billingAddress,
+                  shippingAddress,
                   customerCountry,
                   countryLower,
                   resolvedLocation,
@@ -871,8 +881,12 @@ const Cart = () => {
                   return;
                 }
 
-                if (!address) {
-                  toast.error("⚠ Please select a delivery address");
+                if (!billingAddress || !shippingAddress) {
+                  if (!billingAddress) {
+                    toast.error("⚠ Please select a billing address");
+                  } else if (!shippingAddress) {
+                    toast.error("⚠ Please select a shipping address");
+                  }
                   return;
                 }
 
@@ -888,7 +902,8 @@ const Cart = () => {
                     pfCost,
                     gstTotal,
                     taxableAmount,
-                    address,
+                    billingAddress,
+                    shippingAddress,
                     resolvedLocation,
                     cartLength: cart?.length || 0,
                     actualDataLength: actualData?.length || 0,
@@ -946,7 +961,8 @@ const Cart = () => {
                   gstTotal,
                   grandTotal,
                   totalPay: Math.ceil(grandTotal),
-                  address,
+                  billingAddress,
+                  shippingAddress,
                   resolvedLocation,
                   currency,
                   conversionRate,
@@ -993,7 +1009,11 @@ const Cart = () => {
                     totalPay: totalPayINR, // ✅ Send INR amount to Razorpay
                     totalPayDisplay: displayTotal, // ✅ Keep display amount for reference
                     displayCurrency: currency, // ✅ Keep currency for reference
-                    address,
+                    addresses: {
+                      billing: billingAddress,
+                      shipping: shippingAddress,
+                      sameAsBilling: billingAddress === shippingAddress
+                    },
                     user,
                     gstNumber: gstNumber.trim() || null, // ✅ Include GST number if provided
                   },
@@ -1032,9 +1052,11 @@ const Cart = () => {
             </button>
           </div>
 
-          <AddressManager
-            addresss={address}
-            setAddresss={setAddress}
+          <AddressManagerEnhanced
+            billingAddress={billingAddress}
+            setBillingAddress={setBillingAddress}
+            shippingAddress={shippingAddress}
+            setShippingAddress={setShippingAddress}
             user={user}
             setUser={setUser}
           />
@@ -1063,14 +1085,23 @@ const Cart = () => {
             invoice: {
               number: "TEST-" + Math.floor(Math.random() * 10000),
               date: new Date().toLocaleDateString(),
-              placeOfSupply: address?.state || "Delhi",
+              placeOfSupply: billingAddress?.state || "Delhi",
               copyType: "Original Copy",
             },
             billTo: {
-              name: user?.name || "Guest User",
-              address: address?.full || "Not provided",
-              phone: user?.phone || "N/A",
+              name: billingAddress?.fullName || user?.name || "Guest User",
+              address: billingAddress 
+                ? `${billingAddress.houseNumber}, ${billingAddress.street}, ${billingAddress.city}, ${billingAddress.state} - ${billingAddress.pincode}, ${billingAddress.country}`
+                : "Not provided",
+              phone: billingAddress?.mobileNumber || user?.phone || "N/A",
               gstNumber: gstNumber.trim() || null, // ✅ Customer GST number
+            },
+            shipTo: {
+              name: shippingAddress?.fullName || user?.name || "Guest User",
+              address: shippingAddress 
+                ? `${shippingAddress.houseNumber}, ${shippingAddress.street}, ${shippingAddress.city}, ${shippingAddress.state} - ${shippingAddress.pincode}, ${shippingAddress.country}`
+                : "Not provided",
+              phone: shippingAddress?.mobileNumber || user?.phone || "N/A",
             },
             items: actualData.map((item, idx) => {
               const sizes = Object.entries(item.quantity || {})
@@ -1109,3 +1140,4 @@ const Cart = () => {
 };
 
 export default Cart;
+

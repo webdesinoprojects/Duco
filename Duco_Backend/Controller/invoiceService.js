@@ -139,9 +139,10 @@ async function getInvoiceByOrderId(orderId) {
 
   const invoiceObj = invoiceDoc.toObject ? invoiceDoc.toObject() : invoiceDoc;
   
-  // ✅ Add currency information from order's address
-  if (invoiceObj.order?.address?.country) {
-    const country = invoiceObj.order.address.country.toLowerCase();
+  // ✅ Add currency information from order's address (support both formats)
+  const billingCountry = invoiceObj.order?.addresses?.billing?.country || invoiceObj.order?.address?.country;
+  if (billingCountry) {
+    const country = billingCountry.toLowerCase();
     // Map countries to currencies
     const countryCurrencyMap = {
       'india': 'INR',

@@ -23,6 +23,16 @@ const AddressSchema = new Schema(
   { _id: false }
 );
 
+// ------------------ Billing/Shipping Address Schema ------------------
+const BillingShippingSchema = new Schema(
+  {
+    billing: { type: AddressSchema, required: true },
+    shipping: { type: AddressSchema, required: true },
+    sameAsBilling: { type: Boolean, default: true }
+  },
+  { _id: false }
+);
+
 // ------------------ Order Schema ------------------
 const OrderSchema = new Schema(
   {
@@ -43,7 +53,10 @@ const OrderSchema = new Schema(
     totalPay: { type: Number, required: true }, // ✅ Add totalPay field for Printrove compatibility
     currency: { type: String, default: 'INR' },
 
-    address: { type: AddressSchema, required: true },
+    // ✅ Support both old single address and new billing/shipping addresses
+    address: { type: AddressSchema }, // Legacy support
+    addresses: { type: BillingShippingSchema }, // New billing/shipping support
+    
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 
     // ✅ New: Distinguish Corporate vs Retail orders

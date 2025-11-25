@@ -214,6 +214,38 @@ export default function AnalyticsDashboard() {
     URL.revokeObjectURL(url);
   }
 
+  function handleEdit(orderId) {
+    // Navigate to order management page
+    window.location.href = `/admin/order`;
+  }
+
+  async function handleCancel(orderId) {
+    if (!confirm(`Are you sure you want to cancel order ${orderId}?\n\nThis will update the order status to "Cancelled".`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}api/order/update/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'Cancelled' }),
+      });
+
+      if (response.ok) {
+        alert('Order cancelled successfully');
+        // Refresh the data
+        fetchAnalytics(false);
+      } else {
+        const error = await response.json().catch(() => ({}));
+        alert(`Failed to cancel order: ${error.message || error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert(`Error cancelling order: ${error.message}`);
+    }
+  }
+
   // X-axis label formatter for dates like "2025-09-29" or ISO strings
   const xTickFormatter = (val) => {
     if (!val) return "";
@@ -431,6 +463,7 @@ export default function AnalyticsDashboard() {
                   <th className="px-4 py-3">Price</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Razorpay</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -476,12 +509,32 @@ export default function AnalyticsDashboard() {
                       >
                         {o?.razorpayPaymentId || ""}
                       </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEdit(o?._id)}
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition"
+                            title="View/Edit Order"
+                          >
+                            View
+                          </button>
+                          {o?.status !== 'Cancelled' && (
+                            <button
+                              onClick={() => handleCancel(o?._id)}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition"
+                              title="Cancel Order"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-4 py-6 text-center text-gray-400"
                     >
                       No orders for selected filters.

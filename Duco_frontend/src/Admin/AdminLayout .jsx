@@ -98,7 +98,7 @@ const AdminLayout = () => {
             Bulk Order
           </Link>
           <Link to="logistic" className="block hover:text-blue-300">
-            Logistic
+            B2B Logistics
           </Link>
           <Link to="charges" className="block hover:text-blue-300">
             Charges Plan

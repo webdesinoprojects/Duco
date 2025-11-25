@@ -60,6 +60,7 @@ const InvoiceDucoTailwind = ({ data }) => {
     company,
     invoice,
     billTo,
+    shipTo,
     items,
     charges,
     tax,
@@ -161,13 +162,8 @@ const InvoiceDucoTailwind = ({ data }) => {
         </div>
         <div style={{ flex: 1, padding: "8px", minHeight: "100px" }}>
           <p style={{ margin: "0 0 5px 0", fontSize: "11px", fontWeight: "bold" }}>Shipped to :</p>
-          <p style={{ margin: "2px 0", fontSize: "11px", fontWeight: "bold" }}>{billTo.name}</p>
-          <p style={{ margin: "2px 0", fontSize: "11px" }}>{billTo.address}</p>
-          {billTo.gstin && (
-            <p style={{ margin: "5px 0 0 0", fontSize: "11px" }}>
-              GSTIN / UIN : {billTo.gstin}
-            </p>
-          )}
+          <p style={{ margin: "2px 0", fontSize: "11px", fontWeight: "bold" }}>{shipTo?.name || billTo.name}</p>
+          <p style={{ margin: "2px 0", fontSize: "11px" }}>{shipTo?.address || billTo.address}</p>
         </div>
       </div>
 

@@ -149,50 +149,27 @@ const CorporateSettings = () => {
         <div className="bg-white p-6 rounded-lg shadow border">
           <h2 className="text-lg font-semibold mb-4">Minimum Order Requirements</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Minimum Order Quantity
-              </label>
-              <input
-                type="number"
-                value={settings.minOrderQuantity}
-                onChange={(e) => {
-                  const newValue = Number(e.target.value);
-                  console.log('📝 Minimum Order Quantity changed to:', newValue);
-                  setSettings(prev => ({ 
-                    ...prev, 
-                    minOrderQuantity: newValue
-                  }));
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="1"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Minimum quantity required for corporate orders
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Corporate GST Rate (%)
-              </label>
-              <input
-                type="number"
-                value={settings.corporateGstRate}
-                onChange={(e) => setSettings(prev => ({ 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Minimum Order Quantity
+            </label>
+            <input
+              type="number"
+              value={settings.minOrderQuantity}
+              onChange={(e) => {
+                const newValue = Number(e.target.value);
+                console.log('📝 Minimum Order Quantity changed to:', newValue);
+                setSettings(prev => ({ 
                   ...prev, 
-                  corporateGstRate: Number(e.target.value) 
-                }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="0"
-                max="100"
-                step="0.1"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                GST rate for corporate orders (default: 18%)
-              </p>
-            </div>
+                  minOrderQuantity: newValue
+                }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="1"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Minimum quantity required for corporate orders
+            </p>
           </div>
         </div>
 

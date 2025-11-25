@@ -254,6 +254,14 @@ class PrintroveIntegrationService {
   // Create order in Printrove
   async createOrder(orderData) {
     try {
+      // ✅ Get shipping address (use helper for compatibility)
+      const { getShippingAddress } = require('../utils/addressHelper');
+      const shippingAddress = getShippingAddress(orderData);
+      
+      if (!shippingAddress) {
+        throw new Error('Shipping address is required for Printrove order');
+      }
+      
       // Process each product to get correct variant IDs
       const orderProducts = [];
 
@@ -388,44 +396,44 @@ class PrintroveIntegrationService {
       // Calculate retail price
       const retailPrice = orderData.totalPay || orderData.price || 0;
 
-      // ✅ Determine if international order
-      const customerCountry = orderData.address?.country || 'India';
+      // ✅ Determine if international order (use shipping address)
+      const customerCountry = shippingAddress.country || 'India';
       const isInternational = !['India', 'india', 'IN', 'IND', 'Bharat', 'bharat'].includes(customerCountry);
       
       // ✅ For international orders, pincode should be string; for India, it should be integer
       let pincodeValue;
       if (isInternational) {
         // International: Keep as string
-        pincodeValue = String(orderData.address?.pincode || orderData.address?.postalCode || '00000');
+        pincodeValue = String(shippingAddress.pincode || shippingAddress.postalCode || '00000');
       } else {
         // India: Convert to integer (6 digits)
-        pincodeValue = parseInt(orderData.address?.pincode || orderData.address?.postalCode || '110001');
+        pincodeValue = parseInt(shippingAddress.pincode || shippingAddress.postalCode || '110001');
       }
       
       // ✅ Validate required fields for international orders
       if (isInternational) {
-        if (!orderData.address?.state) {
+        if (!shippingAddress.state) {
           throw new Error('State is required for international orders');
         }
-        if (!orderData.address?.city) {
+        if (!shippingAddress.city) {
           throw new Error('City is required for international orders');
         }
       }
       
-      // Create Printrove order payload
+      // Create Printrove order payload (use shipping address)
       const printroveOrder = {
         reference_number: orderData.razorpayPaymentId || orderData._id || `ORD-${Date.now()}`,
         retail_price: Math.max(retailPrice, 1),
         customer: {
-          name: orderData.address?.fullName || orderData.address?.name || 'Customer',
-          email: orderData.address?.email || 'customer@example.com',
-          number: parseInt(orderData.address?.phone || orderData.address?.mobileNumber || '9999999999'),
-          address1: `${orderData.address?.houseNumber || ''} ${orderData.address?.street || ''}`.trim(),
-          address2: orderData.address?.landmark || 'N/A',
+          name: shippingAddress.fullName || shippingAddress.name || 'Customer',
+          email: shippingAddress.email || 'customer@example.com',
+          number: parseInt(shippingAddress.phone || shippingAddress.mobileNumber || '9999999999'),
+          address1: `${shippingAddress.houseNumber || ''} ${shippingAddress.street || ''}`.trim(),
+          address2: shippingAddress.landmark || 'N/A',
           address3: '',
           pincode: pincodeValue,
-          state: orderData.address?.state || (isInternational ? '' : 'Delhi'),
-          city: orderData.address?.city || (isInternational ? '' : 'New Delhi'),
+          state: shippingAddress.state || (isInternational ? '' : 'Delhi'),
+          city: shippingAddress.city || (isInternational ? '' : 'New Delhi'),
           country: customerCountry,
         },
         cod: false,
