@@ -105,6 +105,9 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
   const billingAddr = addresses?.billing || legacyAddress;
   const shippingAddr = addresses?.shipping || legacyAddress;
   
+  // ✅ Extract GST/Tax number from orderData if provided
+  const gstNumber = orderData?.gstNumber?.trim() || billingAddr?.gstNumber?.trim() || '';
+  
   const payload = {
     company: settings?.company,
     invoice: {
@@ -117,7 +120,7 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
     billTo: {
       name: billingAddr?.fullName || orderData.user?.name || '',
       address: addressToLine(billingAddr),
-      gstin: '',
+      gstin: gstNumber, // ✅ Use customer's GST number if provided
       state: billingAddr?.state || '',
       country: billingAddr?.country || 'India',
     },

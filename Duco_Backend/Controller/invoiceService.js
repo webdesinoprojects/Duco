@@ -167,7 +167,10 @@ async function getInvoiceByOrderId(orderId) {
     invoiceObj.currency = 'INR';
   }
   
-  return { invoice: invoiceObj };
+  // ✅ Compute totals before returning
+  const totals = computeTotals(invoiceObj);
+  
+  return { invoice: invoiceObj, totals };
 }
 
 async function getInvoices(filters = {}) {

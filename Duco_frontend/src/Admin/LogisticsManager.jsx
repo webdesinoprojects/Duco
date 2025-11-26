@@ -457,6 +457,163 @@ export default function LogisticsManager() {
     }
   };
 
+  // ------- View Bill/Invoice -------
+  const viewBill = async (orderId) => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const response = await fetch(`${API_BASE}/api/invoice/${orderId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Invoice not found');
+      }
+
+      const { invoice, totals } = await response.json();
+      
+      // Open invoice in new window with formatted display
+      const invoiceWindow = window.open('', '_blank');
+      if (!invoiceWindow) {
+        setToast({ type: "error", msg: "Please allow popups to view invoice" });
+        return;
+      }
+
+      // Format invoice HTML
+      const invoiceHTML = generateInvoiceHTML(invoice, totals);
+      invoiceWindow.document.write(invoiceHTML);
+      invoiceWindow.document.close();
+
+      setToast({ type: "success", msg: "Invoice opened in new window" });
+    } catch (error) {
+      setToast({ type: "error", msg: `Failed to fetch invoice: ${error.message}` });
+    }
+  };
+
+  // Generate invoice HTML for display
+  const generateInvoiceHTML = (invoice, totals) => {
+    const currency = invoice.currency || 'INR';
+    const currencySymbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency;
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Invoice ${invoice.invoice?.number || ''}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .company-info { margin-bottom: 20px; }
+          .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
+          .bill-to, .ship-to { flex: 1; padding: 15px; background: #f5f5f5; margin: 0 10px; border-radius: 5px; }
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+          th { background: #333; color: white; }
+          .totals { text-align: right; margin-top: 20px; }
+          .totals div { padding: 5px 0; }
+          .grand-total { font-size: 1.2em; font-weight: bold; border-top: 2px solid #333; padding-top: 10px; margin-top: 10px; }
+          .print-btn { background: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer; margin: 20px 0; }
+          @media print { .print-btn { display: none; } }
+        </style>
+      </head>
+      <body>
+        <button class="print-btn" onclick="window.print()">🖨️ Print Invoice</button>
+        
+        <div class="header">
+          <h1>TAX INVOICE</h1>
+          <div class="company-info">
+            <h2>${invoice.company?.name || ''}</h2>
+            <p>${invoice.company?.address || ''}</p>
+            <p>GSTIN: ${invoice.company?.gstin || ''}</p>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+          <div>
+            <strong>Invoice Number:</strong> ${invoice.invoice?.number || ''}<br>
+            <strong>Date:</strong> ${invoice.invoice?.date || ''}<br>
+            <strong>Place of Supply:</strong> ${invoice.invoice?.placeOfSupply || ''}
+          </div>
+          <div>
+            <strong>Currency:</strong> ${currency}<br>
+            ${invoice.forCompany ? `<strong>Company:</strong> ${invoice.forCompany}` : ''}
+          </div>
+        </div>
+
+        <div class="invoice-details">
+          <div class="bill-to">
+            <h3>📋 Bill To</h3>
+            <strong>${invoice.billTo?.name || ''}</strong><br>
+            ${invoice.billTo?.address || ''}<br>
+            ${invoice.billTo?.city || ''}, ${invoice.billTo?.state || ''} ${invoice.billTo?.pincode || ''}<br>
+            ${invoice.billTo?.country || ''}<br>
+            ${invoice.billTo?.gstin ? `GSTIN: ${invoice.billTo.gstin}<br>` : ''}
+            ${invoice.billTo?.phone ? `Phone: ${invoice.billTo.phone}` : ''}
+          </div>
+          
+          ${invoice.shipTo ? `
+          <div class="ship-to">
+            <h3>📦 Ship To</h3>
+            <strong>${invoice.shipTo?.name || ''}</strong><br>
+            ${invoice.shipTo?.address || ''}<br>
+            ${invoice.shipTo?.city || ''}, ${invoice.shipTo?.state || ''} ${invoice.shipTo?.pincode || ''}<br>
+            ${invoice.shipTo?.country || ''}<br>
+            ${invoice.shipTo?.phone ? `Phone: ${invoice.shipTo.phone}` : ''}
+          </div>
+          ` : ''}
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>HSN</th>
+              <th>Qty</th>
+              <th>Rate</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(invoice.items || []).map(item => `
+              <tr>
+                <td>${item.description || ''}</td>
+                <td>${item.hsn || ''}</td>
+                <td>${item.qty || 0}</td>
+                <td>${currencySymbol}${(item.price || 0).toFixed(2)}</td>
+                <td>${currencySymbol}${((item.price || 0) * (item.qty || 0)).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div><strong>Subtotal:</strong> ${currencySymbol}${(totals?.subtotal || 0).toFixed(2)}</div>
+          ${invoice.charges?.pf ? `<div><strong>P&F Charges:</strong> ${currencySymbol}${(invoice.charges.pf || 0).toFixed(2)}</div>` : ''}
+          ${invoice.charges?.printing ? `<div><strong>Printing Charges:</strong> ${currencySymbol}${(invoice.charges.printing || 0).toFixed(2)}</div>` : ''}
+          <div><strong>Taxable Value:</strong> ${currencySymbol}${(totals?.taxableValue || 0).toFixed(2)}</div>
+          
+          ${invoice.tax?.type === 'INTERNATIONAL' ? `
+            <div><strong>${invoice.tax?.label || 'TAX'} (${invoice.tax?.taxRate || 0}%):</strong> ${currencySymbol}${(totals?.taxAmt || 0).toFixed(2)}</div>
+          ` : `
+            ${invoice.tax?.cgstRate ? `<div><strong>CGST (${invoice.tax.cgstRate}%):</strong> ${currencySymbol}${(totals?.cgstAmt || 0).toFixed(2)}</div>` : ''}
+            ${invoice.tax?.sgstRate ? `<div><strong>SGST (${invoice.tax.sgstRate}%):</strong> ${currencySymbol}${(totals?.sgstAmt || 0).toFixed(2)}</div>` : ''}
+            ${invoice.tax?.igstRate ? `<div><strong>IGST (${invoice.tax.igstRate}%):</strong> ${currencySymbol}${(totals?.igstAmt || 0).toFixed(2)}</div>` : ''}
+          `}
+          
+          <div class="grand-total">
+            <strong>Grand Total:</strong> ${currencySymbol}${(totals?.grandTotal || 0).toFixed(2)}
+          </div>
+        </div>
+
+        ${invoice.notes ? `<div style="margin-top: 30px;"><strong>Notes:</strong><br>${invoice.notes}</div>` : ''}
+      </body>
+      </html>
+    `;
+  };
+
   // ------- Speed Logistics Toggle -------
   const toggleSpeedLogistics = async (logisticId, currentStatus) => {
     try {
@@ -955,24 +1112,39 @@ export default function LogisticsManager() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
-                          <div className="flex gap-1">
+                          {l.labelGenerated && (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="secondary"
+                                className="text-xs px-2 py-1"
+                                onClick={() => generateLabel(l._id, 'pdf')}
+                                title="Generate PDF Label"
+                              >
+                                📄 PDF
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                className="text-xs px-2 py-1"
+                                onClick={() => generateLabel(l._id, 'jpg')}
+                                title="Generate JPG Label"
+                              >
+                                🖼️ JPG
+                              </Button>
+                            </div>
+                          )}
+                          {l.labelGenerated && (
                             <Button
-                              variant="secondary"
+                              variant="primary"
                               className="text-xs px-2 py-1"
-                              onClick={() => generateLabel(l._id, 'pdf')}
-                              title="Generate PDF Label"
+                              onClick={() => {
+                                const orderId = typeof l.orderId === "object" ? l.orderId._id : l.orderId;
+                                viewBill(orderId);
+                              }}
+                              title="View Invoice/Bill"
                             >
-                              📄 PDF
+                              🧾 View Bill
                             </Button>
-                            <Button
-                              variant="secondary"
-                              className="text-xs px-2 py-1"
-                              onClick={() => generateLabel(l._id, 'jpg')}
-                              title="Generate JPG Label"
-                            >
-                              🖼️ JPG
-                            </Button>
-                          </div>
+                          )}
                           <Button
                             variant={l.speedLogistics ? "warning" : "secondary"}
                             className="text-xs px-2 py-1"

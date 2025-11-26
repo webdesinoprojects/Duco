@@ -185,19 +185,55 @@ export default function AnalyticsDashboard() {
 
   function exportCSV() {
     const rows = [
-      ["OrderID", "Date(IST)", "UserId", "Price", "Status", "RazorpayPaymentId"],
-      ...data.orders.map((o) => [
-        o?._id || "",
-        o?.createdAt
-          ? new Date(o.createdAt).toLocaleString("en-IN", {
-            timeZone: "Asia/Kolkata",
-          })
-          : "",
-        typeof o?.user === "object" && o?.user?._id ? o.user._id : String(o?.user || ""),
-        Number(o?.price || 0),
-        o?.status || "",
-        o?.razorpayPaymentId || "",
-      ]),
+      [
+        "OrderID", 
+        "Date(IST)", 
+        "Customer Name", 
+        "Email", 
+        "UserId", 
+        "Address Name",
+        "Address Line",
+        "City",
+        "State",
+        "Pincode",
+        "Country",
+        "Phone",
+        "Price", 
+        "Status", 
+        "RazorpayPaymentId"
+      ],
+      ...data.orders.map((o) => {
+        const userObj = typeof o?.user === "object" ? o.user : null;
+        const userName = userObj?.name || userObj?.fullName || "";
+        const userEmail = userObj?.email || "";
+        const userId = userObj?._id || String(o?.user || "");
+        
+        const billingAddr = o?.addresses?.billing || o?.address;
+        const shippingAddr = o?.addresses?.shipping || o?.address;
+        const displayAddr = shippingAddr || billingAddr;
+        
+        return [
+          o?._id || "",
+          o?.createdAt
+            ? new Date(o.createdAt).toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+            })
+            : "",
+          userName,
+          userEmail,
+          userId,
+          displayAddr?.fullName || displayAddr?.name || "",
+          displayAddr?.address || "",
+          displayAddr?.city || "",
+          displayAddr?.state || "",
+          displayAddr?.pincode || "",
+          displayAddr?.country || "",
+          displayAddr?.phone || "",
+          Number(o?.price || 0),
+          o?.status || "",
+          o?.razorpayPaymentId || "",
+        ];
+      }),
     ];
 
     const csv =
@@ -459,7 +495,8 @@ export default function AnalyticsDashboard() {
                 <tr>
                   <th className="px-4 py-3">Date (IST)</th>
                   <th className="px-4 py-3">Order ID</th>
-                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Customer Info</th>
+                  <th className="px-4 py-3">Address</th>
                   <th className="px-4 py-3">Price</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Razorpay</th>
@@ -468,73 +505,117 @@ export default function AnalyticsDashboard() {
               </thead>
               <tbody>
                 {data.orders?.length ? (
-                  data.orders.map((o) => (
-                    <tr
-                      key={o?._id}
-                      className="border-t border-[#222] hover:bg-[#0B0B0B]"
-                    >
-                      <td className="px-4 py-3">
-                        {o?.createdAt
-                          ? new Date(o.createdAt).toLocaleString("en-IN", {
-                            timeZone: "Asia/Kolkata",
-                          })
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">{o?._id}</td>
-                      <td className="px-4 py-3 font-mono text-xs">
-                        {typeof o?.user === "object" && o?.user?._id
-                          ? o.user._id
-                          : String(o?.user || "-")}
-                      </td>
-                      <td className="px-4 py-3">{formatINR(o?.price)}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-1 rounded text-xs ${o?.status === "Delivered"
-                            ? "bg-emerald-500/20 text-emerald-300"
-                            : o?.status === "Shipped"
-                              ? "bg-sky-500/20 text-sky-300"
-                              : o?.status === "Processing"
-                                ? "bg-yellow-500/20 text-yellow-300"
-                                : o?.status === "Pending"
-                                  ? "bg-gray-500/20 text-gray-300"
-                                  : "bg-red-500/20 text-red-300"
-                            }`}
-                        >
-                          {o?.status || "-"}
-                        </span>
-                      </td>
-                      <td
-                        className="px-4 py-3 font-mono text-xs truncate max-w-[180px]"
-                        title={o?.razorpayPaymentId || ""}
+                  data.orders.map((o) => {
+                    // Extract user info (supports both populated and non-populated)
+                    const userObj = typeof o?.user === "object" ? o.user : null;
+                    const userName = userObj?.name || userObj?.fullName || "-";
+                    const userEmail = userObj?.email || "-";
+                    const userId = userObj?._id || String(o?.user || "-");
+                    
+                    // Extract address (supports both new addresses format and legacy address)
+                    const billingAddr = o?.addresses?.billing || o?.address;
+                    const shippingAddr = o?.addresses?.shipping || o?.address;
+                    const displayAddr = shippingAddr || billingAddr; // Prefer shipping for display
+                    
+                    const addrName = displayAddr?.fullName || displayAddr?.name || "-";
+                    const addrLine = displayAddr?.address || "-";
+                    const addrCity = displayAddr?.city || "";
+                    const addrState = displayAddr?.state || "";
+                    const addrPincode = displayAddr?.pincode || "";
+                    const addrCountry = displayAddr?.country || "";
+                    const addrPhone = displayAddr?.phone || "";
+                    
+                    return (
+                      <tr
+                        key={o?._id}
+                        className="border-t border-[#222] hover:bg-[#0B0B0B]"
                       >
-                        {o?.razorpayPaymentId || ""}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEdit(o?._id)}
-                            className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition"
-                            title="View/Edit Order"
+                        <td className="px-4 py-3">
+                          {o?.createdAt
+                            ? new Date(o.createdAt).toLocaleString("en-IN", {
+                              timeZone: "Asia/Kolkata",
+                            })
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs">{o?._id}</td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1 max-w-[200px]">
+                            <div className="font-semibold text-white">{userName}</div>
+                            <div className="text-xs text-gray-400 truncate" title={userEmail}>
+                              {userEmail}
+                            </div>
+                            <div className="text-xs text-gray-500 font-mono truncate" title={userId}>
+                              ID: {userId}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1 max-w-[250px]">
+                            <div className="font-medium text-sm text-white">{addrName}</div>
+                            <div className="text-xs text-gray-400 line-clamp-2" title={addrLine}>
+                              {addrLine}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {[addrCity, addrState, addrPincode].filter(Boolean).join(", ")}
+                            </div>
+                            {addrCountry && addrCountry !== "India" && (
+                              <div className="text-xs text-blue-400">{addrCountry}</div>
+                            )}
+                            {addrPhone && (
+                              <div className="text-xs text-gray-500">📞 {addrPhone}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">{formatINR(o?.price)}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-2 py-1 rounded text-xs ${o?.status === "Delivered"
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : o?.status === "Shipped"
+                                ? "bg-sky-500/20 text-sky-300"
+                                : o?.status === "Processing"
+                                  ? "bg-yellow-500/20 text-yellow-300"
+                                  : o?.status === "Pending"
+                                    ? "bg-gray-500/20 text-gray-300"
+                                    : "bg-red-500/20 text-red-300"
+                              }`}
                           >
-                            View
-                          </button>
-                          {o?.status !== 'Cancelled' && (
+                            {o?.status || "-"}
+                          </span>
+                        </td>
+                        <td
+                          className="px-4 py-3 font-mono text-xs truncate max-w-[180px]"
+                          title={o?.razorpayPaymentId || ""}
+                        >
+                          {o?.razorpayPaymentId || ""}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handleCancel(o?._id)}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition"
-                              title="Cancel Order"
+                              onClick={() => handleEdit(o?._id)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition"
+                              title="View/Edit Order"
                             >
-                              Cancel
+                              View
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            {o?.status !== 'Cancelled' && (
+                              <button
+                                onClick={() => handleCancel(o?._id)}
+                                className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition"
+                                title="Cancel Order"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-6 text-center text-gray-400"
                     >
                       No orders for selected filters.
