@@ -52,6 +52,61 @@ function sumQuantity(obj) {
   return Object.values(obj || {}).reduce((acc, q) => acc + safeNum(q, 0), 0);
 }
 
+// ✅ Helper to detect currency from country
+function getCurrencyFromCountry(country) {
+  if (!country) return 'INR';
+  
+  const countryLower = country.toLowerCase().trim();
+  
+  const countryCurrencyMap = {
+    'india': 'INR',
+    'united states': 'USD',
+    'usa': 'USD',
+    'united kingdom': 'GBP',
+    'uk': 'GBP',
+    'europe': 'EUR',
+    'germany': 'EUR',
+    'france': 'EUR',
+    'spain': 'EUR',
+    'italy': 'EUR',
+    'netherlands': 'EUR',
+    'belgium': 'EUR',
+    'austria': 'EUR',
+    'portugal': 'EUR',
+    'greece': 'EUR',
+    'ireland': 'EUR',
+    'uae': 'AED',
+    'dubai': 'AED',
+    'united arab emirates': 'AED',
+    'australia': 'AUD',
+    'canada': 'CAD',
+    'singapore': 'SGD',
+    'new zealand': 'NZD',
+    'switzerland': 'CHF',
+    'japan': 'JPY',
+    'china': 'CNY',
+    'hong kong': 'HKD',
+    'malaysia': 'MYR',
+    'thailand': 'THB',
+    'saudi arabia': 'SAR',
+    'qatar': 'QAR',
+    'kuwait': 'KWD',
+    'bahrain': 'BHD',
+    'oman': 'OMR',
+    'south africa': 'ZAR',
+    'pakistan': 'PKR',
+    'sri lanka': 'LKR',
+    'bangladesh': 'BDT',
+    'nepal': 'NPR',
+    'philippines': 'PHP',
+    'indonesia': 'IDR',
+    'south korea': 'KRW',
+    'korea': 'KRW',
+  };
+  
+  return countryCurrencyMap[countryLower] || 'INR';
+}
+
 function buildInvoiceItems(products, { hsn = '7307', unit = 'Pcs.' } = {}) {
   const items = [];
   (products || []).forEach((p) => {
@@ -349,6 +404,35 @@ const completeOrder = async (req, res) => {
         ? orderData.user._id
         : orderData.user?.toString?.() || orderData.user;
 
+    // ✅ Detect currency from billing address country
+    const billingCountry = addresses?.billing?.country || legacyAddress?.country || 'India';
+    const currency = getCurrencyFromCountry(billingCountry);
+    
+    // ✅ Get conversion rate and display price from orderData (try multiple locations)
+    const conversionRate = safeNum(
+      orderData.conversionRate || 
+      orderData.totals?.conversionRate || 
+      1
+    );
+    
+    const displayPrice = safeNum(
+      orderData.totalPayDisplay || 
+      orderData.totals?.grandTotal || 
+      totalPay
+    );
+    
+    console.log('💱 Currency Detection:', {
+      billingCountry,
+      detectedCurrency: currency,
+      priceInINR: totalPay,
+      displayPrice: displayPrice,
+      conversionRate: conversionRate,
+      source: {
+        conversionRate: orderData.conversionRate ? 'root' : orderData.totals?.conversionRate ? 'totals' : 'default',
+        displayPrice: orderData.totalPayDisplay ? 'root' : orderData.totals?.grandTotal ? 'totals' : 'default'
+      }
+    });
+
     // ✅ Detect if order is Corporate (B2B) or Retail (B2C)
     const isCorporateOrder = (orderData?.items || []).some(
       (item) => item?.isCorporate === true
@@ -381,7 +465,7 @@ const completeOrder = async (req, res) => {
       try {
         const orderPayload = {
           products: items,
-          price: totalPay,
+          price: totalPay, // INR price (for Razorpay)
           totalPay: totalPay,
           user,
           status: 'Pending',
@@ -390,6 +474,9 @@ const completeOrder = async (req, res) => {
           gst: safeNum(orderData.gst, 0),
           printing: printingCharge,
           orderType,
+          currency, // ✅ Customer's currency
+          displayPrice, // ✅ Price in customer's currency
+          conversionRate, // ✅ Conversion rate used
         };
         
         // ✅ Add addresses (new format) or address (legacy format)
@@ -416,6 +503,9 @@ const completeOrder = async (req, res) => {
             gst: safeNum(orderData.gst, 0),
             printing: printingCharge,
             orderType,
+            currency, // ✅ Customer's currency
+            displayPrice, // ✅ Price in customer's currency
+            conversionRate, // ✅ Conversion rate used
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -462,6 +552,9 @@ const completeOrder = async (req, res) => {
         printing: printingCharge,
         gst: safeNum(orderData.gst, 0),
         orderType,
+        currency, // ✅ Customer's currency
+        displayPrice, // ✅ Price in customer's currency
+        conversionRate, // ✅ Conversion rate used
       });
 
       // ✅ Handle Printrove routing based on order type
@@ -505,6 +598,9 @@ const completeOrder = async (req, res) => {
           printing: printingCharge,
           gst: safeNum(orderData.gst, 0),
           orderType,
+          currency, // ✅ Customer's currency
+          displayPrice, // ✅ Price in customer's currency
+          conversionRate, // ✅ Conversion rate used
         });
       } catch (createError) {
         if (createError.code === 11000) {
@@ -523,6 +619,9 @@ const completeOrder = async (req, res) => {
             printing: printingCharge,
             gst: safeNum(orderData.gst, 0),
             orderType,
+            currency, // ✅ Customer's currency
+            displayPrice, // ✅ Price in customer's currency
+            conversionRate, // ✅ Conversion rate used
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -573,6 +672,9 @@ const completeOrder = async (req, res) => {
           printing: printingCharge,
           gst: safeNum(orderData.gst, 0),
           orderType,
+          currency, // ✅ Customer's currency
+          displayPrice, // ✅ Price in customer's currency
+          conversionRate, // ✅ Conversion rate used
         });
       } catch (createError) {
         if (createError.code === 11000) {
@@ -591,6 +693,9 @@ const completeOrder = async (req, res) => {
             printing: printingCharge,
             gst: safeNum(orderData.gst, 0),
             orderType,
+            currency, // ✅ Customer's currency
+            displayPrice, // ✅ Price in customer's currency
+            conversionRate, // ✅ Conversion rate used
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId

@@ -61,6 +61,9 @@ import OrderSuccess from "./Pages/OrderSuccess.jsx";
 import ScrollToTop from "./Components/ScrollToTop.jsx";
 import SearchResults from "./Pages/SearchResults.jsx";
 import CategoryPage from "./Pages/CategoryPage.jsx";
+import Blog from "./Pages/Blog.jsx";
+import BlogPost from "./Pages/BlogPost.jsx";
+import BlogManager from "./Admin/BlogManager.jsx";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -172,6 +175,8 @@ const App = () => {
           <Route path="/terms-and-conditions" element={<TermsConditions />} />
           <Route path="/get_size/:id" element={<SizeChange />} />
           <Route path="/wallet/:userId" element={<WalletPage />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
           
           {/* Dynamic category route - catches any category slug */}
           <Route path="/:slug" element={<CategoryPage />} />
@@ -200,6 +205,7 @@ const App = () => {
             <Route path="corporate-settings" element={<CorporateSettings />} />
             <Route path="tracking" element={<TrackingManager />} />
             <Route path="invoice" element={<Invoice />} />
+            <Route path="blog" element={<BlogManager />} />
           </Route>
         </Route>
 

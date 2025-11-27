@@ -49,9 +49,11 @@ const OrderSchema = new Schema(
       },
     ],
 
-    price: { type: Number, required: true },
+    price: { type: Number, required: true }, // Price in INR (for Razorpay)
     totalPay: { type: Number, required: true }, // ✅ Add totalPay field for Printrove compatibility
     currency: { type: String, default: 'INR' },
+    displayPrice: { type: Number }, // Price in customer's currency (for display)
+    conversionRate: { type: Number, default: 1 }, // Conversion rate used
 
     // ✅ Support both old single address and new billing/shipping addresses
     address: { type: AddressSchema }, // Legacy support

@@ -1005,10 +1005,12 @@ const Cart = () => {
                       gstTotal,
                       locationIncreasePercent: priceIncrease || 0,
                       grandTotal,
+                      conversionRate: conversionRate, // ✅ ADD: Include conversion rate
                     },
                     totalPay: totalPayINR, // ✅ Send INR amount to Razorpay
                     totalPayDisplay: displayTotal, // ✅ Keep display amount for reference
                     displayCurrency: currency, // ✅ Keep currency for reference
+                    conversionRate: conversionRate, // ✅ ADD: Include at root level for easy access
                     addresses: {
                       billing: billingAddress,
                       shipping: shippingAddress,

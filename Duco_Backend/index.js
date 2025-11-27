@@ -29,6 +29,7 @@ const walletRoutes = require('./Router/walletRoutes.js');
 const printroveRoutes = require('./Router/printroveRoutes.js');
 const printroveMappingRoutes = require('./Router/printroveMappingRoutes.js');
 const adminForgotPasswordRoutes = require('./Router/adminForgotPasswordRoutes.js');
+const blogRoutes = require('./Router/blogRoutes.js');
 
 // App + config
 const app = express();
@@ -176,6 +177,7 @@ app.use('/data', dataRouter);
 app.use('/api', InvoiceRoutes);
 app.use('/api', walletRoutes);
 app.use('/api', require('./Router/adminForgotPasswordRoutes'));
+app.use('/api/blogs', blogRoutes);
 
 // ======= Admin login (bcrypt + DB) =======
 app.post('/api/admin/check', async (req, res) => {

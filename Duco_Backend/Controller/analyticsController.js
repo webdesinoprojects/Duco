@@ -115,10 +115,11 @@ async function getSalesAnalytics(req, res) {
     }
 
     // ===== ORDERS (no pagination) =====
-    // Select only fields your UI needs; add/remove as needed.
+    // ✅ Include user, address, addresses, currency, and display price information
     const orders = await Order.find(match)
       .sort({ createdAt: -1 })
-      .select("_id createdAt user price status razorpayPaymentId")
+      .select("_id createdAt user price status razorpayPaymentId address addresses currency displayPrice conversionRate")
+      .populate('user', 'name email phone') // ✅ Populate user details
       .lean();
 
     return res.json({

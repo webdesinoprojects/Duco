@@ -22,6 +22,22 @@ const API_BASE = `${API_BASE_URL}/`; // Backend API URL
 
 const STATUSES = ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"];
 
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+  NZD: "NZ$",
+  CHF: "CHF",
+  JPY: "¥",
+  CNY: "¥",
+};
+
 function formatINR(num) {
   try {
     return new Intl.NumberFormat("en-IN", {
@@ -32,6 +48,13 @@ function formatINR(num) {
   } catch {
     return `₹${Number(num || 0).toFixed(0)}`;
   }
+}
+
+// ✅ Format price with currency symbol
+function formatPrice(amount, currency = 'INR') {
+  const symbol = currencySymbols[currency] || currency;
+  const num = Number(amount || 0);
+  return `${symbol}${num.toFixed(2)}`;
 }
 
 function toInputDate(d) {
@@ -566,7 +589,21 @@ export default function AnalyticsDashboard() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3">{formatINR(o?.price)}</td>
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <div className="font-semibold">
+                              {formatPrice(o?.displayPrice || o?.price, o?.currency)}
+                            </div>
+                            {o?.currency && o?.currency !== 'INR' && (
+                              <div className="text-xs text-blue-400">
+                                ({o?.currency})
+                                {o?.conversionRate && o?.conversionRate !== 1 && (
+                                  <span className="ml-1">• ₹{o?.price?.toFixed(2)} INR</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           <span
                             className={`px-2 py-1 rounded text-xs ${o?.status === "Delivered"
