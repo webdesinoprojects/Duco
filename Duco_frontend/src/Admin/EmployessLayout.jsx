@@ -16,31 +16,41 @@ const EmployessLayout = () => {
   // Get employee info from localStorage
   const employeeAuth = JSON.parse(localStorage.getItem("employeeAuth") || "{}");
   const employeeName = employeeAuth.employee?.name || employeeAuth.email || "Employee";
+  const employeeRole = employeeAuth.employee?.role || "Employee";
+  const permissions = employeeAuth.employee?.permissions || {};
 
-  // Create navigation items based on available sections
-  const baseNavItems = [
-    { path: "/employees/banners", label: "Banners", icon: "🎨" },
-    { path: "/employees/products", label: "Products", icon: "📦" },
-    { path: "/employees/category", label: "Categories", icon: "📂" },
+  // Define all possible navigation items with their permission keys
+  const allNavItems = [
+    // Graphic Designer sections
+    { path: "/employees/inventory", label: "Inventory", icon: "📦", permission: "inventory" },
+    { path: "/employees/categories", label: "Categories", icon: "📂", permission: "categories" },
+    { path: "/employees/products", label: "Products", icon: "🛍️", permission: "products" },
+    { path: "/employees/banner", label: "Banner", icon: "🎨", permission: "banner" },
+    { path: "/employees/blog", label: "Blog", icon: "📝", permission: "blog" },
+    
+    // Order Manager sections
+    { path: "/employees/bulkorder", label: "Bulk Orders", icon: "📦", permission: "manageBulkOrder" },
+    { path: "/employees/order", label: "Manage Orders", icon: "📋", permission: "manageOrder" },
+    { path: "/employees/logistics", label: "Logistics", icon: "🚚", permission: "logistics" },
+    { path: "/employees/moneyset", label: "Set Money", icon: "💰", permission: "setMoney" },
+    { path: "/employees/charges", label: "Charges Plan", icon: "💳", permission: "chargesPlan" },
+    { path: "/employees/corporate-settings", label: "Corporate Settings", icon: "⚙️", permission: "corporateSettings" },
+    
+    // Accounting and Management sections
+    { path: "/employees/bankdetails", label: "Bank Details", icon: "🏦", permission: "bankDetails" },
+    { path: "/employees/employees", label: "Employee Management", icon: "👥", permission: "employeeManagement" },
+    { path: "/employees/users", label: "User Analysis", icon: "📊", permission: "userAnalysis" },
+    { path: "/employees/invoice", label: "Invoice", icon: "🧾", permission: "invoice" },
+    { path: "/employees/sales", label: "Sales Analysis", icon: "📈", permission: "sales" },
   ];
 
-  // Add employee's specific section if it's not one of the base sections
-  let navItems = [...baseNavItems];
-  if (employeeAuth.url) {
-    const urlParts = employeeAuth.url.split('/');
-    const section = urlParts[urlParts.length - 1];
-    const sectionLower = section.toLowerCase();
-    
-    // Check if this section is not already in the base nav items
-    const existingSections = ['banners', 'products', 'category'];
-    if (!existingSections.includes(sectionLower) && section) {
-      navItems.push({
-        path: `/employees/${sectionLower}`,
-        label: section.charAt(0).toUpperCase() + section.slice(1),
-        icon: "🎯"
-      });
-    }
-  }
+  // Filter navigation items based on permissions
+  const navItems = allNavItems.filter(item => {
+    // If no permission key specified, show to everyone
+    if (!item.permission) return true;
+    // Check if employee has this permission
+    return permissions[item.permission] === true;
+  });
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: BG, color: "white" }}>
@@ -55,6 +65,7 @@ const EmployessLayout = () => {
             Employee Dashboard
           </h1>
           <p className="text-sm text-gray-400">Welcome, {employeeName}</p>
+          <p className="text-xs" style={{ color: ACCENT }}>Role: {employeeRole}</p>
         </div>
 
         {/* Logout button */}

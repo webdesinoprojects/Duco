@@ -77,7 +77,12 @@ exports.checkEmployeeLogin = async (req, res) => {
     const ok = await bcrypt.compare(password, user.password);
     console.log('🔑 Password check:', ok);
     if (ok) {
-      res.json({ 
+      console.log('✅ Login successful for:', user.employeesdetails?.email);
+      console.log('👤 Employee role:', user.employeesdetails?.role);
+      console.log('🔐 Employee permissions:', user.permissions);
+      console.log('🔐 Has permissions?', !!user.permissions && Object.keys(user.permissions || {}).length > 0);
+      
+      const responseData = { 
         ok: true, 
         url: user.url,
         employee: {
@@ -85,15 +90,29 @@ exports.checkEmployeeLogin = async (req, res) => {
           employeeid: user.employeeid,
           name: user.employeesdetails?.name,
           email: user.employeesdetails?.email,
-          role: user.employeesdetails?.role
+          role: user.employeesdetails?.role,
+          permissions: user.permissions || {} // ✅ Include permissions
         }
-      });
+      };
+      
+      console.log('📤 Sending response:', JSON.stringify(responseData, null, 2));
+      res.json(responseData);
     } else {
       console.log('❌ Password incorrect');
       res.json({ ok: false, error: "Invalid password" });
     }
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
+  }
+};
+
+exports.deleteEmployeeAcc = async (req, res) => {
+  try {
+    const doc = await EmployeesAcc.findByIdAndDelete(req.params.id);
+    if (!doc) return res.status(404).json({ error: "Employee not found" });
+    res.json({ success: true, message: "Employee deleted successfully" });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 };
 

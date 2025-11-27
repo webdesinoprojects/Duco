@@ -26,7 +26,8 @@ const BlogSchema = new Schema(
     },
     featuredImage: {
       type: String,
-      required: true,
+      required: false,
+      default: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=800', // Default placeholder image
     },
     author: {
       name: {

@@ -37,7 +37,8 @@ import ProductRouter from "./Pages/ProductRouter.jsx";
 import UserInfo from "./Admin/UserInfo.jsx";
 import Banner from "./Admin/Components/Banner.jsx";
 import EmployeeSection from "./Admin/Components/EmployeeSection.jsx";
-import EmployeeUrlAuth from "./Admin/Components/EmployeeUrlAuth.jsx";
+import EmployeeAuthRequired from "./Admin/Components/EmployeeAuthRequired.jsx";
+import EmployeeDebug from "./Admin/Components/EmployeeDebug.jsx";
 import OrderBulk from "./Admin/OrderBulk.jsx";
 import AdminGuard from "./Admin/auth/AdminGuard.jsx";
 import AdminLogin from "./Admin/AdminLogin.jsx";
@@ -210,18 +211,43 @@ const App = () => {
         </Route>
 
         <Route path="/employee-login" element={<EmployeeLogin />} />
+        <Route path="/employee-debug" element={<EmployeeDebug />} />
         
         {/* URL-based employee authentication */}
-        <Route path="/auth/:section" element={<EmployeeUrlAuth />} />
+        <Route path="/auth/:section" element={<EmployeeAuthRequired />} />
 
         {/* Protected group - main employee dashboard */}
         <Route path="/employees" element={<EmployeePrivateRoute />}>
           <Route element={<EmployessLayout />}>
-            <Route index element={<Navigate to="/employees/banners" replace />} />
-            <Route path="banners" element={<Banner />} />
+            <Route index element={<Navigate to="/employees/inventory" replace />} />
+            
+            {/* Graphic Designer Routes */}
+            <Route path="inventory" element={<Adminhome />} />
+            <Route path="categories" element={<Category />} />
             <Route path="products" element={<ProdcutsCreated />} />
+            <Route path="banner" element={<Banner />} />
+            <Route path="blog" element={<BlogManager />} />
+            
+            {/* Order Manager Routes */}
+            <Route path="bulkorder" element={<OrderBulk />} />
+            <Route path="order" element={<OrderSection />} />
+            <Route path="logistics" element={<LogisticsManager />} />
+            <Route path="moneyset" element={<MoneySet />} />
+            <Route path="charges" element={<ChargePlanManager />} />
+            <Route path="corporate-settings" element={<CorporateSettings />} />
+            
+            {/* Accounting and Management Routes */}
+            <Route path="bankdetails" element={<BankDetailsManager />} />
+            <Route path="employees" element={<EmployeesAccManager />} />
+            <Route path="users" element={<UserInfo />} />
+            <Route path="invoice" element={<Invoice />} />
+            <Route path="sales" element={<AnalyticsDashboard />} />
+            
+            {/* Legacy routes for backward compatibility */}
+            <Route path="banners" element={<Banner />} />
             <Route path="category" element={<Category />} />
-            {/* Dynamic section route - this should catch adminjatin */}
+            
+            {/* Dynamic section route - catches any other sections */}
             <Route path=":section" element={<EmployeeSection />} />
           </Route>
         </Route>

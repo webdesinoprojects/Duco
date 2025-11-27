@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_BASE_URL } from '../config/api';
+import ImageKitUpload from '../Components/ImageKitUpload';
 
 const BlogManager = () => {
   const [blogs, setBlogs] = useState([]);
@@ -270,13 +271,13 @@ const BlogManager = () => {
 
         {/* Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-[#111] rounded-lg p-8 max-w-4xl w-full my-8">
-              <h2 className="text-2xl font-bold mb-6">
+          <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-[#111] rounded-lg p-6 max-w-3xl w-full my-8 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-bold mb-4 sticky top-0 bg-[#111] py-2 z-10">
                 {editingBlog ? 'Edit Blog Post' : 'Create New Blog Post'}
               </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Title */}
                 <div>
                   <label className="block text-sm font-semibold mb-2">Title *</label>
@@ -327,28 +328,55 @@ const BlogManager = () => {
                     value={formData.content}
                     onChange={handleInputChange}
                     required
-                    rows={10}
-                    className="w-full px-4 py-3 bg-[#0A0A0A] border border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E5C870] font-mono text-sm"
+                    rows={8}
+                    className="w-full px-4 py-2 bg-[#0A0A0A] border border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E5C870] font-mono text-sm"
                   />
                 </div>
 
                 {/* Featured Image */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Featured Image URL *</label>
+                  <label className="block text-sm font-semibold mb-2">Featured Image URL (Optional)</label>
                   <input
                     type="url"
                     name="featuredImage"
                     value={formData.featuredImage}
                     onChange={handleInputChange}
-                    required
+                    placeholder="https://example.com/image.jpg"
                     className="w-full px-4 py-3 bg-[#0A0A0A] border border-[#333] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E5C870]"
                   />
-                  {formData.featuredImage && (
-                    <img
-                      src={formData.featuredImage}
-                      alt="Preview"
-                      className="mt-2 w-full h-48 object-cover rounded-lg"
+                  
+                  {/* Upload Button */}
+                  <div className="mt-3">
+                    <ImageKitUpload
+                      onUploadSuccess={(uploadedUrl) => {
+                        setFormData({ ...formData, featuredImage: uploadedUrl });
+                        toast.success('Image uploaded successfully!');
+                      }}
+                      folder="blog-images"
+                      buttonText="📤 Upload Featured Image"
+                      buttonClassName="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
+                      showPreview={false}
                     />
+                  </div>
+                  
+                  {formData.featuredImage && (
+                    <div className="mt-3">
+                      <img
+                        src={formData.featuredImage}
+                        alt="Preview"
+                        className="w-full h-32 object-cover rounded-lg"
+                        onError={(e) => {
+                          e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><rect width="400" height="200" fill="%23333"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-size="16">Image preview failed</text></svg>';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, featuredImage: '' })}
+                        className="mt-2 text-sm text-red-400 hover:text-red-300"
+                      >
+                        ✕ Remove Image
+                      </button>
+                    </div>
                   )}
                 </div>
 

@@ -206,53 +206,99 @@ const EmployeesAccManager = () => {
   const closeEdit = () => setEditId(null);
 
   /* -----------------------------
-     URL GENERATION
+     DELETE HANDLER
+  ------------------------------*/
+  const handleDelete = async (employee) => {
+    const confirmMsg = `Are you sure you want to delete this employee?\n\nEmployee ID: ${employee.employeeid}\nName: ${employee.employeesdetails?.name || 'N/A'}\nEmail: ${employee.employeesdetails?.email || 'N/A'}\n\nThis action cannot be undone!`;
+    
+    if (!window.confirm(confirmMsg)) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE}/employeesacc/${employee._id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error?.error || `Delete failed: ${response.status}`);
+      }
+
+      await fetchAll();
+      alert('Employee deleted successfully');
+    } catch (err) {
+      alert(err.message || 'Failed to delete employee');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* -----------------------------
+     CREDENTIALS MODAL STATE
+  ------------------------------*/
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  /* -----------------------------
+     URL GENERATION & SHOW CREDENTIALS
   ------------------------------*/
   const generateAuthUrl = (employee) => {
-    const urlParts = employee.url.split('/');
-    const section = urlParts[urlParts.length - 1];
     const email = employee.employeesdetails?.email;
 
     if (!email) {
-      alert('Employee must have an email address to generate auth URL');
+      alert('Employee must have an email address to generate access credentials');
       return;
     }
 
+    // Set selected employee and show modal
+    setSelectedEmployee(employee);
+    setShowCredentialsModal(true);
+  };
+
+  const handleCopyCredentials = () => {
+    const urlParts = selectedEmployee.url.split('/');
+    const section = urlParts[urlParts.length - 1];
     const baseUrl = window.location.origin;
-
-    // Generate multiple URL options
     const directUrl = `${baseUrl}/employees/${section}`;
-    const authUrlWithCreds = `${baseUrl}/auth/${section}?email=${encodeURIComponent(email)}&password=ASK_EMPLOYEE_FOR_PASSWORD`;
-    const authUrlWithoutCreds = `${baseUrl}/auth/${section}`;
+    
+    const credentials = `Employee Access Credentials
 
-    const urlOptions = `Employee Access URLs for ${employee.employeesdetails?.name || employee.employeeid}:
+Name: ${selectedEmployee.employeesdetails?.name || 'N/A'}
+Role: ${selectedEmployee.employeesdetails?.role || 'Employee'}
+Employee ID: ${selectedEmployee.employeeid}
 
-1. DIRECT ACCESS (Recommended):
-   ${directUrl}
-   - Employee will be prompted to login if not authenticated
-   - Clean URL that can be bookmarked
+LOGIN CREDENTIALS:
+Email: ${selectedEmployee.employeesdetails?.email}
+Password: [Set by admin during creation]
 
-2. PRE-FILLED LOGIN:
-   ${authUrlWithCreds}
-   - Replace 'ASK_EMPLOYEE_FOR_PASSWORD' with actual password
-   - Automatically logs in the employee
+ACCESS URL:
+${directUrl}
 
-3. LOGIN PAGE:
-   ${authUrlWithoutCreds}
-   - Shows login form for the specific section
+INSTRUCTIONS:
+1. Go to: ${baseUrl}/employee-login
+2. Enter your email and password
+3. You will be redirected to your dashboard
+4. Bookmark the URL for quick access
 
-Instructions:
-- Share option 1 (Direct Access) with the employee
-- They can bookmark this URL for easy access
-- If not logged in, they'll see a login form for their section`;
+Permissions:
+${selectedEmployee.employeesdetails?.role === 'Graphic Designer' ? '✓ Inventory, Categories, Products, Banner, Blog' : ''}
+${selectedEmployee.employeesdetails?.role === 'Order Manager' ? '✓ Bulk Orders, Orders, Logistics, Set Money, Charges Plan, Corporate Settings' : ''}
+${selectedEmployee.employeesdetails?.role === 'Accounting and Management' ? '✓ Bank Details, Employee Management, User Analysis, Invoice, Sales' : ''}`;
 
-    // Copy to clipboard and show modal
-    navigator.clipboard.writeText(directUrl).then(() => {
-      alert(`Direct access URL copied to clipboard!\n\n${urlOptions}`);
+    navigator.clipboard.writeText(credentials).then(() => {
+      alert('✅ Credentials copied to clipboard!');
     }).catch(() => {
-      // Fallback if clipboard API fails
-      prompt('Employee Access URLs:', urlOptions);
+      alert('❌ Failed to copy. Please copy manually from the modal.');
     });
+  };
+
+  const handleOpenURL = () => {
+    const urlParts = selectedEmployee.url.split('/');
+    const section = urlParts[urlParts.length - 1];
+    const baseUrl = window.location.origin;
+    const directUrl = `${baseUrl}/employees/${section}`;
+    
+    window.open(directUrl, '_blank', 'noopener,noreferrer');
   };
 
   /* ===========================================
@@ -310,11 +356,15 @@ Instructions:
               <input
                 value={form.url}
                 onChange={(e) => setForm((s) => ({ ...s, url: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 outline-none"
-                placeholder="employees/gimme (creates route: /employees/gimme)"
+                className="w-full px-3 py-2 rounded-xl bg-[#1a1a1a] border border-white/10 outline-none text-white"
+                placeholder="employees/username (e.g., employees/jatin)"
+                style={{ backgroundColor: '#1a1a1a', color: 'white' }}
               />
               <p className="text-xs text-gray-400 mt-1">
-                This will create a route like /employees/[section-name] for the employee
+                ⚠️ This creates a unique identifier for the employee. They will be redirected to their allowed sections based on their role.
+              </p>
+              <p className="text-xs text-blue-400 mt-1">
+                💡 Tip: Use format "employees/[employeename]" (e.g., employees/jatin, employees/john)
               </p>
             </Field>
 
@@ -374,18 +424,46 @@ Instructions:
                     employeesdetails: { ...s.employeesdetails, role: e.target.value },
                   }))
                 }
-                className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 outline-none"
+                className="w-full px-3 py-2 rounded-xl bg-[#1a1a1a] border border-white/10 outline-none text-white"
+                style={{ 
+                  backgroundColor: '#1a1a1a',
+                  color: 'white'
+                }}
               >
-                <option value="">Select Role</option>
-                <option value="Admin">Admin</option>
-                <option value="Manager">Manager</option>
-                <option value="Supervisor">Supervisor</option>
-                <option value="Executive">Executive</option>
-                <option value="Assistant">Assistant</option>
-                <option value="Intern">Intern</option>
-                <option value="Consultant">Consultant</option>
-                <option value="Specialist">Specialist</option>
+                <option value="" style={{ backgroundColor: '#1a1a1a', color: 'white' }}>Select Role</option>
+                <optgroup label="Specialized Roles" style={{ backgroundColor: '#0A0A0A', color: '#E5C870', fontWeight: 'bold' }}>
+                  <option value="Graphic Designer" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>
+                    🎨 Graphic Designer (Inventory, Categories, Products, Banner, Blog)
+                  </option>
+                  <option value="Order Manager" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>
+                    📦 Order Manager (Bulk Orders, Orders, Logistics, Money, Charges, Corporate Settings)
+                  </option>
+                  <option value="Accounting and Management" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>
+                    💼 Accounting and Management (Bank Details, Employees, Users, Invoice, Sales)
+                  </option>
+                </optgroup>
+                <optgroup label="General Roles" style={{ backgroundColor: '#0A0A0A', color: '#E5C870', fontWeight: 'bold' }}>
+                  <option value="Admin" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Admin</option>
+                  <option value="Manager" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Manager</option>
+                  <option value="Supervisor" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Supervisor</option>
+                  <option value="Executive" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Executive</option>
+                  <option value="Assistant" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Assistant</option>
+                  <option value="Intern" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Intern</option>
+                  <option value="Consultant" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Consultant</option>
+                  <option value="Specialist" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Specialist</option>
+                </optgroup>
               </select>
+              {form.employeesdetails.role && (
+                <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-xs text-blue-300 font-semibold mb-1">Access Permissions:</p>
+                  <p className="text-xs text-gray-300">
+                    {form.employeesdetails.role === 'Graphic Designer' && '✓ Inventory, Categories, Products, Banner, Blog'}
+                    {form.employeesdetails.role === 'Order Manager' && '✓ Bulk Orders, Orders, Logistics, Set Money, Charges Plan, Corporate Settings'}
+                    {form.employeesdetails.role === 'Accounting and Management' && '✓ Bank Details, Employee Management, User Analysis, Invoice, Sales'}
+                    {!['Graphic Designer', 'Order Manager', 'Accounting and Management'].includes(form.employeesdetails.role) && '⚠️ No specific permissions assigned'}
+                  </p>
+                </div>
+              )}
             </Field>
 
             <div className="md:col-span-2">
@@ -452,9 +530,25 @@ Instructions:
                       <span className="line-clamp-2">{row.employeesNote || "-"}</span>
                     </td>
                     <td className="py-2 pr-4">
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <GhostBtn onClick={() => openEdit(row)}>Edit</GhostBtn>
-                        <GhostBtn onClick={() => generateAuthUrl(row)}>Get URL</GhostBtn>
+                        <button
+                          onClick={() => generateAuthUrl(row)}
+                          className="px-3 py-1.5 rounded-2xl border transition hover:bg-green-500/20"
+                          style={{ borderColor: '#10b981', color: '#10b981' }}
+                          title="Open employee access URL in new tab"
+                        >
+                          🔗 Open URL
+                        </button>
+                        <button
+                          onClick={() => handleDelete(row)}
+                          disabled={saving}
+                          className="px-3 py-1.5 rounded-2xl border transition hover:bg-red-500/20 disabled:opacity-50"
+                          style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                          title="Delete this employee"
+                        >
+                          🗑️ Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -535,18 +629,46 @@ Instructions:
                         employeesdetails: { ...s.employeesdetails, role: e.target.value },
                       }))
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-[#1a1a1a] border border-white/10 outline-none text-white"
+                    style={{ 
+                      backgroundColor: '#1a1a1a',
+                      color: 'white'
+                    }}
                   >
-                    <option value="">Select Role</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Manager">Manager</option>
-                    <option value="Supervisor">Supervisor</option>
-                    <option value="Executive">Executive</option>
-                    <option value="Assistant">Assistant</option>
-                    <option value="Intern">Intern</option>
-                    <option value="Consultant">Consultant</option>
-                    <option value="Specialist">Specialist</option>
+                    <option value="" style={{ backgroundColor: '#1a1a1a', color: 'white' }}>Select Role</option>
+                    <optgroup label="Specialized Roles" style={{ backgroundColor: '#0A0A0A', color: '#E5C870', fontWeight: 'bold' }}>
+                      <option value="Graphic Designer" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>
+                        🎨 Graphic Designer
+                      </option>
+                      <option value="Order Manager" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>
+                        📦 Order Manager
+                      </option>
+                      <option value="Accounting and Management" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>
+                        💼 Accounting and Management
+                      </option>
+                    </optgroup>
+                    <optgroup label="General Roles" style={{ backgroundColor: '#0A0A0A', color: '#E5C870', fontWeight: 'bold' }}>
+                      <option value="Admin" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Admin</option>
+                      <option value="Manager" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Manager</option>
+                      <option value="Supervisor" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Supervisor</option>
+                      <option value="Executive" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Executive</option>
+                      <option value="Assistant" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Assistant</option>
+                      <option value="Intern" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Intern</option>
+                      <option value="Consultant" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Consultant</option>
+                      <option value="Specialist" style={{ backgroundColor: '#1a1a1a', color: 'white', padding: '8px' }}>Specialist</option>
+                    </optgroup>
                   </select>
+                  {edit.employeesdetails.role && (
+                    <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <p className="text-xs text-blue-300 font-semibold mb-1">Access Permissions:</p>
+                      <p className="text-xs text-gray-300">
+                        {edit.employeesdetails.role === 'Graphic Designer' && '✓ Inventory, Categories, Products, Banner, Blog'}
+                        {edit.employeesdetails.role === 'Order Manager' && '✓ Bulk Orders, Orders, Logistics, Set Money, Charges Plan, Corporate Settings'}
+                        {edit.employeesdetails.role === 'Accounting and Management' && '✓ Bank Details, Employee Management, User Analysis, Invoice, Sales'}
+                        {!['Graphic Designer', 'Order Manager', 'Accounting and Management'].includes(edit.employeesdetails.role) && '⚠️ No specific permissions assigned'}
+                      </p>
+                    </div>
+                  )}
                 </Field>
                 <div className="md:col-span-2">
                   <Field label="Note">
@@ -565,6 +687,118 @@ Instructions:
                   {saving ? "Saving…" : "Save Changes"}
                 </Button>
                 <GhostBtn onClick={closeEdit}>Cancel</GhostBtn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CREDENTIALS MODAL */}
+        {showCredentialsModal && selectedEmployee && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div
+              className="w-full max-w-2xl rounded-3xl p-6 shadow-xl relative"
+              style={{ backgroundColor: BG, border: `2px solid ${ACCENT}` }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-semibold" style={{ color: ACCENT }}>
+                  🔐 Employee Access Credentials
+                </h3>
+                <button 
+                  onClick={() => setShowCredentialsModal(false)} 
+                  className="text-gray-300 hover:text-white text-2xl"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Employee Info */}
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <h4 className="font-semibold mb-3" style={{ color: ACCENT }}>Employee Information</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-400">Name:</span>
+                      <p className="font-medium">{selectedEmployee.employeesdetails?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Role:</span>
+                      <p className="font-medium">{selectedEmployee.employeesdetails?.role || 'Employee'}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Employee ID:</span>
+                      <p className="font-medium">{selectedEmployee.employeeid}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Section:</span>
+                      <p className="font-medium">{selectedEmployee.url.split('/').pop()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Login Credentials */}
+                <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
+                  <h4 className="font-semibold mb-3 text-green-400">🔑 Login Credentials</h4>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-gray-400">Email:</span>
+                      <p className="font-mono font-medium text-green-300">{selectedEmployee.employeesdetails?.email}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Password:</span>
+                      <p className="font-medium text-yellow-300">⚠️ [Set by admin during creation]</p>
+                      <p className="text-xs text-gray-400 mt-1">Note: Share the password you set when creating this employee account</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Access URL */}
+                <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30">
+                  <h4 className="font-semibold mb-3 text-blue-400">🔗 Access URL</h4>
+                  <div className="space-y-2">
+                    <div className="bg-black/30 rounded-lg p-3 font-mono text-sm break-all">
+                      {window.location.origin}/employee-login
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Employee should go to this URL and login with their email and password
+                    </p>
+                  </div>
+                </div>
+
+                {/* Permissions */}
+                <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/30">
+                  <h4 className="font-semibold mb-3 text-purple-400">✓ Access Permissions</h4>
+                  <p className="text-sm text-gray-300">
+                    {selectedEmployee.employeesdetails?.role === 'Graphic Designer' && '✓ Inventory, Categories, Products, Banner, Blog'}
+                    {selectedEmployee.employeesdetails?.role === 'Order Manager' && '✓ Bulk Orders, Orders, Logistics, Set Money, Charges Plan, Corporate Settings'}
+                    {selectedEmployee.employeesdetails?.role === 'Accounting and Management' && '✓ Bank Details, Employee Management, User Analysis, Invoice, Sales'}
+                    {!['Graphic Designer', 'Order Manager', 'Accounting and Management'].includes(selectedEmployee.employeesdetails?.role) && '⚠️ No specific permissions assigned'}
+                  </p>
+                </div>
+
+                {/* Instructions */}
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <h4 className="font-semibold mb-3" style={{ color: ACCENT }}>📋 Instructions for Employee</h4>
+                  <ol className="text-sm space-y-2 text-gray-300 list-decimal list-inside">
+                    <li>Go to: <span className="font-mono text-blue-400">{window.location.origin}/employee-login</span></li>
+                    <li>Enter your email: <span className="font-mono text-green-400">{selectedEmployee.employeesdetails?.email}</span></li>
+                    <li>Enter the password provided by admin</li>
+                    <li>You will be redirected to your dashboard</li>
+                    <li>Bookmark the URL for quick access</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 flex gap-3 flex-wrap">
+                <Button onClick={handleCopyCredentials}>
+                  📋 Copy All Credentials
+                </Button>
+                <Button onClick={handleOpenURL}>
+                  🔗 Open Login Page
+                </Button>
+                <GhostBtn onClick={() => setShowCredentialsModal(false)}>
+                  Close
+                </GhostBtn>
               </div>
             </div>
           </div>

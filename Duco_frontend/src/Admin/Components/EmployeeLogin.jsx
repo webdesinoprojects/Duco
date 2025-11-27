@@ -30,13 +30,18 @@ const EmployeeLogin = () => {
       console.log("📡 Response data:", data);
 
       if (data.ok) {
-        // save session with employee data
-        localStorage.setItem("employeeAuth", JSON.stringify({
+        // save session with employee data with clear employee identifier
+        const employeeAuthData = {
           email: form.email,
           employeeid: data.employee?.employeeid,
           url: data.url,
-          employee: data.employee
-        }));
+          employee: data.employee,
+          authType: 'EMPLOYEE', // Clear identifier that this is employee auth
+          loginTime: new Date().toISOString()
+        };
+        
+        localStorage.setItem("employeeAuth", JSON.stringify(employeeAuthData));
+        console.log("✅ Employee login successful, stored auth:", employeeAuthData);
         
         // Dynamic URL mapping based on employee's assigned section
         let redirectPath = "/employees/banners"; // default fallback

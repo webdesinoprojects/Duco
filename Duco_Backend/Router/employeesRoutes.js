@@ -5,6 +5,7 @@ const {
   getEmployeesAcc,
   getEmployeeAccById,
   updateEmployeeAcc,
+  deleteEmployeeAcc,
   checkEmployeeLogin,
   resetEmployeePassword,
 } = require("../Controller/employeesAccController");
@@ -16,6 +17,8 @@ router.get("/employeesacc", getEmployeesAcc);
 router.get("/employeesacc/:id", getEmployeeAccById);
 
 router.patch("/employeesacc/:id", updateEmployeeAcc);
+
+router.delete("/employeesacc/:id", deleteEmployeeAcc);
 
 router.post("/employeesacc/login", checkEmployeeLogin);
 
