@@ -321,12 +321,15 @@ const completeOrder = async (req, res) => {
   });
 
   // ✅ Normalize charge structure (accept both orderData.charges.* or flat fields)
+  // Order model has pf and printing as direct fields, not nested in charges
   const pfCharge =
-    safeNum(orderData?.charges?.pf, 0) || safeNum(orderData?.pf, 0) || 0;
+    safeNum(orderData?.pf, 0) || safeNum(orderData?.charges?.pf, 0) || 0;
   const printingCharge =
-    safeNum(orderData?.charges?.printing, 0) ||
     safeNum(orderData?.printing, 0) ||
+    safeNum(orderData?.charges?.printing, 0) ||
     0;
+  
+  console.log('💰 Charges extracted:', { pfCharge, printingCharge, orderDataPf: orderData?.pf, orderDataPrinting: orderData?.printing });
 
   try {
     // ✅ Check for duplicate orders based on payment ID

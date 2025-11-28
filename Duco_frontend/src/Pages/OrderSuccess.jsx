@@ -232,6 +232,20 @@ const InvoiceDucoTailwind = ({ data }) => {
                 <td style={{ padding: "4px", textAlign: "right", fontWeight: "bold" }}>{subtotal.toFixed(2)}</td>
               </tr>
               
+              {/* ✅ P&F Charges Row - Always show */}
+              <tr>
+                <td style={{ padding: "4px" }}>P&F Charges</td>
+                <td style={{ padding: "4px", textAlign: "right" }}></td>
+                <td style={{ padding: "4px", textAlign: "right" }}>{(charges?.pf || 0).toFixed(2)}</td>
+              </tr>
+              
+              {/* ✅ Printing Charges Row - Always show */}
+              <tr>
+                <td style={{ padding: "4px" }}>Printing</td>
+                <td style={{ padding: "4px", textAlign: "right" }}></td>
+                <td style={{ padding: "4px", textAlign: "right" }}>{(charges?.printing || 0).toFixed(2)}</td>
+              </tr>
+              
               {/* Show CGST + SGST + IGST for same state (Chhattisgarh) */}
               {tax.type === 'INTRASTATE' && (
                 <>
@@ -500,8 +514,42 @@ export default function OrderSuccess() {
           0
         );
 
-        const pf = Number(inv.charges?.pf ?? inv.pfCharges ?? 0);
-        const printing = Number(inv.charges?.printing ?? inv.printingCharges ?? 0);
+        // ✅ Extract charges from invoice, with fallback to order data
+        let pf = Number(inv.charges?.pf ?? inv.pfCharges ?? 0);
+        let printing = Number(inv.charges?.printing ?? inv.printingCharges ?? 0);
+        
+        // ✅ If charges are 0, try to get from order object
+        if (pf === 0 && inv.order) {
+          pf = Number(inv.order.pf ?? 0);
+        }
+        if (printing === 0 && inv.order) {
+          printing = Number(inv.order.printing ?? 0);
+        }
+        
+        // ✅ If still 0, calculate based on quantity (fallback)
+        if (pf === 0 || printing === 0) {
+          const totalQty = items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+          if (pf === 0) {
+            pf = 15; // Fixed P&F charge
+          }
+          if (printing === 0) {
+            // Calculate printing based on items with print sides
+            printing = items.reduce((sum, item) => {
+              const sides = item.printSides || 0;
+              const qty = Number(item.qty || 0);
+              return sum + (qty * sides * 15); // ₹15 per side
+            }, 0);
+          }
+        }
+        
+        console.log('💰 Invoice Charges Debug:', {
+          invCharges: inv.charges,
+          pf,
+          printing,
+          orderPf: inv.order?.pf,
+          orderPrinting: inv.order?.printing,
+          calculatedFromItems: printing > 0
+        });
         const gstRate = inv.tax?.igstRate ?? inv.tax?.gstRate ?? inv.gstRate ?? 5;
         const gstTotal =
           inv.tax?.igstAmount ??
