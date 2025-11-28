@@ -44,12 +44,13 @@ async function createAdmin() {
         console.log(`ℹ️ ${adminData.employeesdetails.name} already exists`);
         console.log(`   Employee ID: ${adminData.employeeid}`);
         console.log(`   Email: ${adminData.employeesdetails.email}`);
-        console.log(`   Role: ${adminData.employeesdetails.role}\n`);
+        console.log(`   Role: ${adminData.employeesdetails.role}`);
+        console.log(`   ⚠️  To recreate, delete this employee first\n`);
       } else {
         // Hash password and create admin
         const hashedPassword = await bcrypt.hash(adminData.password, 10);
         
-        await EmployeesAcc.create({
+        const newAdmin = await EmployeesAcc.create({
           ...adminData,
           password: hashedPassword
         });
@@ -58,7 +59,8 @@ async function createAdmin() {
         console.log(`   Employee ID: ${adminData.employeeid}`);
         console.log(`   Password: ${adminData.password}`);
         console.log(`   Email: ${adminData.employeesdetails.email}`);
-        console.log(`   Role: ${adminData.employeesdetails.role}\n`);
+        console.log(`   Role: ${adminData.employeesdetails.role}`);
+        console.log(`   Database ID: ${newAdmin._id}\n`);
       }
     }
 

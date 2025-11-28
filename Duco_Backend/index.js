@@ -179,7 +179,7 @@ app.use('/api', walletRoutes);
 app.use('/api', require('./Router/adminForgotPasswordRoutes'));
 app.use('/api/blogs', blogRoutes);
 
-// ======= Admin login (bcrypt + DB) =======
+// ======= Admin login (hardcoded credentials from .env) =======
 app.post('/api/admin/check', async (req, res) => {
   const { userid, password } = req.body || {};
 
@@ -189,6 +189,17 @@ app.post('/api/admin/check', async (req, res) => {
       .json({ ok: false, message: 'userid and password are required' });
   }
 
+  // Hardcoded admin credentials from environment
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'developerduco@gmail.com';
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Duco@1234';
+
+  // Check hardcoded credentials first
+  if (userid === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    console.log('✅ Admin authenticated with hardcoded credentials');
+    return res.status(200).json({ ok: true, message: 'Admin authenticated' });
+  }
+
+  // Fallback: Check database for employee accounts with admin role
   try {
     const user = await EmployeesAcc.findOne({ employeeid: userid });
     if (!user) {
@@ -199,10 +210,12 @@ app.post('/api/admin/check', async (req, res) => {
 
     const ok = await bcrypt.compare(password, user.password);
     if (ok) {
+      console.log('✅ Admin authenticated via employee account:', userid);
       return res.status(200).json({ ok: true, message: 'Admin authenticated' });
     }
     return res.status(401).json({ ok: false, message: 'Invalid credentials' });
   } catch (err) {
+    console.error('❌ Admin login error:', err);
     return res.status(500).json({ ok: false, message: 'Server error' });
   }
 });
