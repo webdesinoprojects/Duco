@@ -111,6 +111,11 @@ async function createInvoice(data) {
     'singapore': 'SGD',
   };
   data.currency = countryCurrencyMap[country] || 'INR';
+  
+  // ✅ Ensure orderType is set (default to B2C if not provided)
+  if (!data.orderType) {
+    data.orderType = 'B2C';
+  }
   // --------------------------------------
 
   const invoice = await Invoice.create(data);

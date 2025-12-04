@@ -3,7 +3,7 @@ import CartItem from "../Components/CartItem.jsx";
 import AddressManagerEnhanced from "../Components/AddressManagerEnhanced";
 import Loading from "../Components/Loading";
 import { CartContext } from "../ContextAPI/CartContext";
-import { getproducts, getChargePlanRates } from "../Service/APIservice";
+import { getproducts, getChargePlanRates, getChargePlanTotals } from "../Service/APIservice";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { usePriceContext } from "../ContextAPI/PriceContext.jsx";
@@ -189,57 +189,87 @@ const InvoiceDucoTailwind = ({ data }) => {
         </tbody>
       </table>
 
-      <h2 style={{ textAlign: "right", marginTop: "10px" }}>
-        Subtotal: {data.formatCurrency(data.subtotal)}
-      </h2>
+      {/* ✅ Tax Summary Table */}
+      <div style={{ marginTop: "20px", display: "flex", justifyContent: "flex-end" }}>
+        <table style={{ width: "400px", borderCollapse: "collapse", fontSize: "14px" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #000" }}>
+              <th style={{ textAlign: "left", padding: "6px", width: "40%" }}>Description</th>
+              <th style={{ textAlign: "center", padding: "6px", width: "30%" }}>Total Tax</th>
+              <th style={{ textAlign: "right", padding: "6px", width: "30%" }}>Total Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ padding: "6px" }}>Subtotal</td>
+              <td style={{ textAlign: "center", padding: "6px" }}>-</td>
+              <td style={{ textAlign: "right", padding: "6px" }}>{data.formatCurrency(data.subtotal)}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: "6px" }}>P&F Charges</td>
+              <td style={{ textAlign: "center", padding: "6px" }}>-</td>
+              <td style={{ textAlign: "right", padding: "6px" }}>{data.formatCurrency(data.subtotal + (data.pfCost || 0))}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: "6px" }}>Printing Charges</td>
+              <td style={{ textAlign: "center", padding: "6px" }}>-</td>
+              <td style={{ textAlign: "right", padding: "6px" }}>{data.formatCurrency(data.subtotal + (data.pfCost || 0) + (data.printingCost || 0))}</td>
+            </tr>
+            
+            {data.locationTax?.percentage > 0 && (
+              <tr>
+                <td style={{ padding: "6px" }}>Location Adjustment ({data.locationTax.country})</td>
+                <td style={{ textAlign: "center", padding: "6px" }}>
+                  {data.formatCurrency((data.subtotal + (data.printingCost || 0) + (data.pfCost || 0)) * (data.locationTax.percentage / 100))}
+                </td>
+                <td style={{ textAlign: "right", padding: "6px" }}>
+                  {data.formatCurrency(data.subtotal + (data.pfCost || 0) + (data.printingCost || 0) + ((data.subtotal + (data.printingCost || 0) + (data.pfCost || 0)) * (data.locationTax.percentage / 100)))}
+                </td>
+              </tr>
+            )}
 
-      <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-        P&F Charges: {data.formatCurrency(data.pfCost || 0)}
-      </h2>
+            {/* ✅ GST Breakdown */}
+            {(() => {
+              const gstRate = data.gstPercent || 5;
+              const taxableAmount = data.subtotal + (data.printingCost || 0) + (data.pfCost || 0);
+              const totalGstAmount = (taxableAmount * gstRate) / 100;
+              const cgstAmount = totalGstAmount / 2;
+              const sgstAmount = totalGstAmount / 2;
+              
+              return (
+                <>
+                  <tr>
+                    <td style={{ padding: "6px" }}>Add: CGST</td>
+                    <td style={{ textAlign: "center", padding: "6px" }}>
+                      {data.formatCurrency(cgstAmount)}
+                    </td>
+                    <td style={{ textAlign: "right", padding: "6px" }}>
+                      {data.formatCurrency(taxableAmount + cgstAmount)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "6px" }}>Add: SGST</td>
+                    <td style={{ textAlign: "center", padding: "6px" }}>
+                      {data.formatCurrency(sgstAmount)}
+                    </td>
+                    <td style={{ textAlign: "right", padding: "6px" }}>
+                      {data.formatCurrency(taxableAmount + cgstAmount + sgstAmount)}
+                    </td>
+                  </tr>
+                </>
+              );
+            })()}
 
-      <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-        Printing Charges: {data.formatCurrency(data.printingCost || 0)}
-      </h2>
-
-      {data.locationTax?.percentage > 0 && (
-        <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-          Location Adjustment ({data.locationTax.country}){" "}
-          {data.locationTax.percentage}%{" "}
-          {data.locationTax.currency?.country
-            ? `(${data.locationTax.currency.country})`
-            : ""}
-        </h2>
-      )}
-
-      {/* ✅ GST Breakdown */}
-      {(() => {
-        const gstRate = data.gstPercent || 5;
-        const taxableAmount = data.subtotal + (data.printingCost || 0) + (data.pfCost || 0);
-        const totalGstAmount = (taxableAmount * gstRate) / 100;
-        const cgstAmount = totalGstAmount / 2;
-        const sgstAmount = totalGstAmount / 2;
-        
-        return (
-          <>
-            <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-              CGST ({(gstRate / 2).toFixed(1)}%):{" "}
-              {data.formatCurrency(cgstAmount)}
-            </h2>
-            <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-              SGST ({(gstRate / 2).toFixed(1)}%):{" "}
-              {data.formatCurrency(sgstAmount)}
-            </h2>
-            <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-              Total GST ({gstRate}%):{" "}
-              {data.formatCurrency(totalGstAmount)}
-            </h2>
-          </>
-        );
-      })()}
-
-      <h2 style={{ textAlign: "right", marginTop: "5px" }}>
-        Grand Total: {data.formatCurrency(data.total)}
-      </h2>
+            <tr style={{ borderTop: "2px solid #000", fontWeight: "bold", backgroundColor: "#f5f5f5" }}>
+              <td style={{ padding: "8px" }}>Grand Total</td>
+              <td style={{ textAlign: "center", padding: "8px" }}>
+                {data.items.reduce((sum, it) => sum + it.qty, 0)} {data.items[0]?.unit || "Pcs"}
+              </td>
+              <td style={{ textAlign: "right", padding: "8px" }}>{data.formatCurrency(data.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
@@ -536,32 +566,48 @@ const Cart = () => {
     const fetchRates = async () => {
       try {
         setLoadingRates(true);
-        const res = await getChargePlanRates(totalQuantity || 1);
+        
+        // ✅ Try new endpoint first (getTotals)
+        const res = await getChargePlanTotals(totalQuantity || 1, itemsSubtotal || 0);
 
         if (res?.success && res?.data) {
+          // ✅ New format from getTotals endpoint
           setPfPerUnit(safeNum(res.data?.perUnit?.pakageingandforwarding, 0));
           setPrintPerUnit(safeNum(res.data?.perUnit?.printingcost, 0));
-          console.log('🔍 API Response for GST:', res?.data?.gstPercent);
-          setGstPercent(safeNum(res?.data?.gstPercent, 5));
+          console.log('✅ Using new charge plan totals:', res.data);
+          setGstPercent(safeNum(res?.data?.perUnit?.gstPercent, 5));
           setPfFlat(0);
           setPrintingPerSide(0);
           return;
         }
 
-        if (res && (Array.isArray(res.slabs) || res.gstRate != null)) {
-          const slab = pickSlab(res, totalQuantity || 0);
+        // ✅ Fallback to old endpoint (getRates)
+        const oldRes = await getChargePlanRates(totalQuantity || 1);
+        
+        if (oldRes?.success && oldRes?.data) {
+          setPfPerUnit(safeNum(oldRes.data?.perUnit?.pakageingandforwarding, 0));
+          setPrintPerUnit(safeNum(oldRes.data?.perUnit?.printingcost, 0));
+          console.log('⚠️ Using old charge plan rates (fallback):', oldRes.data);
+          setGstPercent(safeNum(oldRes?.data?.gstPercent, 5));
+          setPfFlat(0);
+          setPrintingPerSide(0);
+          return;
+        }
+
+        if (oldRes && (Array.isArray(oldRes.slabs) || oldRes.gstRate != null)) {
+          const slab = pickSlab(oldRes, totalQuantity || 0);
           setPfPerUnit(safeNum(slab?.pnfPerUnit, 0));
           setPfFlat(safeNum(slab?.pnfFlat, 0));
           setPrintingPerSide(
             safeNum(slab?.printingPerSide ?? slab?.printingPerUnit, 0)
           );
           setPrintPerUnit(0);
-          console.log('🔍 Fallback GST Rate:', res.gstRate);
-          setGstPercent(safeNum((res.gstRate ?? 0.05) * 100, 5));
+          console.log('⚠️ Using slab-based pricing (fallback):', slab);
+          setGstPercent(safeNum((oldRes.gstRate ?? 0.05) * 100, 5));
           return;
         }
-      } catch {
-        console.warn("Could not fetch charge plan; using defaults");
+      } catch (err) {
+        console.warn("Could not fetch charge plan; using defaults", err);
         console.log('🔍 Using default GST: 5%');
         setGstPercent(5);
       } finally {
@@ -618,38 +664,48 @@ const Cart = () => {
     // Taxable amount = items (with location pricing) + printing (fixed) + P&F (with location pricing)
     const adjustedTaxable = safeNum(itemsSubtotal) + safeNum(printingCost) + pfWithLocation;
     
-    // Determine GST rate based on location (use billing address)
-    const customerState = billingAddress?.state || '';
-    const customerCountry = billingAddress?.country || '';
-    const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
-    const countryLower = customerCountry.toLowerCase().trim();
-    
-    // Determine if India based on address country field
-    let isIndia = false;
-    if (customerCountry) {
-      // If country is explicitly set, use it
-      isIndia = countryLower === 'india' || 
-               countryLower === 'bharat' || 
-               countryLower === 'in' ||
-               countryLower.includes('india') || 
-               countryLower.includes('bharat');
-    } else {
-      // If no country set, check resolvedLocation
-      // Asia = India (default), anything else = International
-      isIndia = !resolvedLocation || resolvedLocation === 'Asia';
-    }
+    // ✅ Check if this is a B2B order
+    const isBulkOrder = actualData.some(item => item.isCorporate === true);
     
     let gstRate = 0;
-    if (!isIndia) {
-      gstRate = 1; // TAX 1% for outside India
-    } else if (isChhattisgarh) {
-      gstRate = 5; // CGST 2.5% + SGST 2.5% + IGST 0% = 5%
-    } else {
-      gstRate = 5; // CGST 0% + SGST 0% + IGST 5% = 5%
-    }
+    let adjustedGst = 0;
     
-    // GST on adjusted taxable amount
-    const adjustedGst = (adjustedTaxable * gstRate) / 100;
+    // ✅ Only apply tax for B2B orders
+    if (isBulkOrder) {
+      // Determine GST rate based on location (use billing address)
+      const customerState = billingAddress?.state || '';
+      const customerCountry = billingAddress?.country || '';
+      const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
+      const countryLower = customerCountry.toLowerCase().trim();
+      
+      // Determine if India based on address country field
+      let isIndia = false;
+      if (customerCountry) {
+        // If country is explicitly set, use it
+        isIndia = countryLower === 'india' || 
+                 countryLower === 'bharat' || 
+                 countryLower === 'in' ||
+                 countryLower.includes('india') || 
+                 countryLower.includes('bharat');
+      } else {
+        // If no country set, check resolvedLocation
+        // Asia = India (default), anything else = International
+        isIndia = !resolvedLocation || resolvedLocation === 'Asia';
+      }
+      
+      // B2B: 18% GST
+      if (!isIndia) {
+        gstRate = 18; // TAX 18% for outside India
+      } else if (isChhattisgarh) {
+        gstRate = 18; // CGST 9% + SGST 9% + IGST 0% = 18%
+      } else {
+        gstRate = 18; // CGST 0% + SGST 0% + IGST 18% = 18%
+      }
+      
+      // GST on adjusted taxable amount
+      adjustedGst = (adjustedTaxable * gstRate) / 100;
+    }
+    // ✅ B2C: No tax (gstRate = 0, adjustedGst = 0)
     
     // Total before round off
     const total = adjustedTaxable + adjustedGst;
@@ -660,16 +716,17 @@ const Cart = () => {
       pfCost: safeNum(pfCost),
       pfWithLocation,
       adjustedTaxable,
+      isBulkOrder,
       gstRate,
       adjustedGst,
       totalBeforeRoundOff: total,
       totalAfterRoundOff: Math.ceil(total),
       currency: currencySymbol,
-      location: { state: customerState, country: customerCountry, isChhattisgarh, isIndia }
+      orderType: isBulkOrder ? 'B2B' : 'B2C'
     });
     
     return total; // Return before round off, we'll round in display
-  }, [itemsSubtotal, printingCost, pfCost, priceIncrease, conversionRate, currencySymbol, billingAddress]);
+  }, [itemsSubtotal, printingCost, pfCost, priceIncrease, conversionRate, currencySymbol, billingAddress, actualData]);
 
   if (loadingProducts) return <Loading />;
   if (!cart.length)
@@ -734,8 +791,17 @@ const Cart = () => {
                 <span className="font-medium">{formatCurrency(itemsSubtotal + printingCost + applyLocationPricing(pfCost, priceIncrease, conversionRate))}</span>
               </div>
               
-              {/* GST Breakdown based on location */}
+              {/* Tax Breakdown - Only for B2B orders */}
               {(() => {
+                // ✅ Check if this is a B2B order
+                const isBulkOrder = actualData.some(item => item.isCorporate === true);
+                
+                if (!isBulkOrder) {
+                  // ✅ B2C Orders: NO TAX
+                  return null;
+                }
+                
+                // ✅ B2B Orders: Show 18% GST breakdown
                 const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
                 const taxableAmount = itemsSubtotal + printingCost + pfWithLocation;
                 const customerState = billingAddress?.state || '';
@@ -760,7 +826,7 @@ const Cart = () => {
                   isIndia = !resolvedLocation || resolvedLocation === 'Asia';
                 }
                 
-                console.log('🌍 Tax Calculation Debug:', {
+                console.log('🌍 Tax Calculation Debug (B2B):', {
                   billingAddress,
                   shippingAddress,
                   customerCountry,
@@ -772,36 +838,36 @@ const Cart = () => {
                 });
                 
                 if (!isIndia) {
-                  // Outside India: TAX 1% (no GST)
-                  const taxAmount = (taxableAmount * 1) / 100;
+                  // Outside India: TAX 18%
+                  const taxAmount = (taxableAmount * 18) / 100;
                   return (
                     <div className="flex justify-between">
-                      <span>TAX (1%)</span>
+                      <span>TAX (18%)</span>
                       <span>{formatCurrency(taxAmount)}</span>
                     </div>
                   );
                 } else if (isChhattisgarh) {
-                  // ✅ Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% (Intra-state)
-                  const cgstAmount = (taxableAmount * 2.5) / 100;
-                  const sgstAmount = (taxableAmount * 2.5) / 100;
+                  // ✅ Same state (Chhattisgarh): CGST 9% + SGST 9% (Intra-state)
+                  const cgstAmount = (taxableAmount * 9) / 100;
+                  const sgstAmount = (taxableAmount * 9) / 100;
                   return (
                     <>
                       <div className="flex justify-between">
-                        <span>CGST (2.5%)</span>
+                        <span>CGST (9%)</span>
                         <span>{formatCurrency(cgstAmount)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>SGST (2.5%)</span>
+                        <span>SGST (9%)</span>
                         <span>{formatCurrency(sgstAmount)}</span>
                       </div>
                     </>
                   );
                 } else {
-                  // ✅ Different state in India: IGST 5% only (Inter-state)
-                  const igstAmount = (taxableAmount * 5) / 100;
+                  // ✅ Different state in India: IGST 18% only (Inter-state)
+                  const igstAmount = (taxableAmount * 18) / 100;
                   return (
                     <div className="flex justify-between">
-                      <span>IGST (5%)</span>
+                      <span>IGST (18%)</span>
                       <span>{formatCurrency(igstAmount)}</span>
                     </div>
                   );
@@ -995,6 +1061,12 @@ const Cart = () => {
                 navigate("/payment", {
                   state: {
                     items: actualData,
+                    // ✅ Charges at root level for backend
+                    pf: pfCost,
+                    printing: printingCost,
+                    gst: gstTotal,
+                    gstPercent: gstPercent,
+                    // ✅ Totals breakdown
                     totals: {
                       itemsSubtotal,
                       printingCost,
@@ -1005,7 +1077,7 @@ const Cart = () => {
                       gstTotal,
                       locationIncreasePercent: priceIncrease || 0,
                       grandTotal,
-                      conversionRate: conversionRate, // ✅ ADD: Include conversion rate
+                      conversionRate: conversionRate,
                     },
                     totalPay: totalPayINR, // ✅ Send INR amount to Razorpay
                     totalPayDisplay: displayTotal, // ✅ Keep display amount for reference
@@ -1134,6 +1206,7 @@ const Cart = () => {
               currency: { country: currency, toconvert: conversionRate },
             },
             formatCurrency,
+            orderType: actualData.some(item => item.isCorporate === true) ? 'B2B' : 'B2C', // ✅ Add orderType
           }}
         />
       </div>

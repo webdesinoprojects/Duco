@@ -15,9 +15,9 @@ function normalizeRange(raw, label) {
   if (minqty < 1) throw new Error(`${label}.minqty must be >= 1`);
   if (maxqty < minqty) throw new Error(`${label}.maxqty must be >= minqty`);
 
-  // ✅ If this is GST, use percent
-  if (raw.percent != null) {
-    const percent = toNum(raw.percent, `${label}.percent`);
+  // ✅ If this is GST, use percent (required for GST)
+  if (raw.percent != null || label.includes('gst')) {
+    const percent = toNum(raw.percent ?? raw.cost ?? 0, `${label}.percent`);
     if (percent < 0) throw new Error(`${label}.percent must be >= 0`);
     return { minqty, maxqty, percent };
   }
@@ -138,9 +138,8 @@ exports.getTotalsForQty = async (req, res) => {
     const subtotal = Number(req.query.subtotal ?? req.body?.subtotal ?? 0);
     const plan = await getOrCreateSinglePlan();
 
-    // TODO: Commented out packaging and forwarding for testing - uncomment later
-    // const packaging = findTierValue(plan.pakageingandforwarding, qty, "pakageingandforwarding");
-    const packaging = 0; // Temporarily set to 0 for testing
+    // ✅ Get per-unit rates from tiers
+    const packaging = findTierValue(plan.pakageingandforwarding, qty, "pakageingandforwarding");
     const printing = findTierValue(plan.printingcost, qty, 'printingcost');
     const gstPercent = findTierValue(plan.gst, qty, 'gst');
 
@@ -154,15 +153,12 @@ exports.getTotalsForQty = async (req, res) => {
       data: {
         qty,
         perUnit: {
-          // TODO: Commented out packaging and forwarding for testing - uncomment later
-          // pakageingandforwarding: packaging,
-          pakageingandforwarding: 0, // Temporarily set to 0 for testing
+          pakageingandforwarding: packaging,
           printingcost: printing,
+          gstPercent: gstPercent,
         },
         totals: {
-          // TODO: Commented out packaging and forwarding for testing - uncomment later
-          // pakageingandforwarding: pfTotal,
-          pakageingandforwarding: 0, // Temporarily set to 0 for testing
+          pakageingandforwarding: pfTotal,
           printingcost: printTotal,
           gstPercent,
           gstAmount,
@@ -199,7 +195,11 @@ exports.getRatesForQty = async (req, res) => {
       success: true,
       data: {
         qty,
-        perUnit: { pakageingandforwarding: packaging, printingcost: printing },
+        perUnit: { 
+          pakageingandforwarding: packaging, 
+          printingcost: printing,
+          gstPercent: gstPercent,
+        },
         gstPercent,
       },
     });

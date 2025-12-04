@@ -198,7 +198,7 @@ export default function Invoice() {
                 <TextField label="CIN" value={data.company.cin} onChange={(v) => onChange(["company", "cin"], v)} />
                 <TextField label="PAN" value={data.company.pan} onChange={(v) => onChange(["company", "pan"], v)} />
                 <TextField label="IEC" value={data.company.iec} onChange={(v) => onChange(["company", "iec"], v)} />
-                <TextField label="GST % / Note" value={data.company.gst} onChange={(v) => onChange(["company", "gst"], v)} />
+                
                 <TextField label="Company State" value={data.company.state} onChange={(v) => onChange(["company", "state"], v)} /> {/* 👈 added field */}
                 <TextArea  label="Address" value={data.company.address} onChange={(v) => onChange(["company", "address"], v)} rows={3} />
               </div>

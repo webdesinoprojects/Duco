@@ -156,7 +156,7 @@ function addressToLine(a = {}) {
 }
 
 // ✅ Helper to build invoice payload with billing and shipping addresses
-function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings) {
+function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType) {
   const billingAddr = addresses?.billing || legacyAddress;
   const shippingAddr = addresses?.shipping || legacyAddress;
   
@@ -187,6 +187,7 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
     terms: settings?.terms,
     forCompany: settings?.forCompany,
     order: order._id,
+    orderType: orderType, // ✅ Pass order type to invoice
   };
   
   // ✅ Add shipTo only if different from billing
@@ -522,7 +523,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings);
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -564,7 +565,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings);
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -638,7 +639,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings);
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -718,7 +719,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings);
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {

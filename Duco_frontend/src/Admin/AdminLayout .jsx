@@ -92,7 +92,7 @@ const AdminLayout = () => {
             Set Money
           </Link>
           <Link to="order" className="block hover:text-blue-300">
-            Manage Order
+            B2C Order
           </Link>
           <Link to="bulkorder" className="block hover:text-blue-300">
             Bulk Order

@@ -160,6 +160,10 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
     const printing = r2(Number(charges.printing || 0));
     const taxable = r2(sub + pf + printing);
 
+    // ✅ Check if this is a B2B order
+    const orderType = d.orderType || 'B2C';
+    const isB2B = orderType === 'B2B';
+
     // --- Determine tax type ---
     const normalize = (s) => (s || "").trim().toLowerCase();
     const companyState = normalize(d.company?.state);
@@ -173,17 +177,21 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
       sgst = 0,
       igst = 0;
 
-    if (isSameState) {
-      // within state
-      cgstRate = 2.5;
-      sgstRate = 2.5;
-      cgst = r2((taxable * cgstRate) / 100);
-      sgst = r2((taxable * sgstRate) / 100);
-    } else {
-      // interstate
-      igstRate = 5;
-      igst = r2((taxable * igstRate) / 100);
+    // ✅ Only apply tax for B2B orders
+    if (isB2B) {
+      if (isSameState) {
+        // within state - B2B: 18% GST
+        cgstRate = 9;
+        sgstRate = 9;
+        cgst = r2((taxable * cgstRate) / 100);
+        sgst = r2((taxable * sgstRate) / 100);
+      } else {
+        // interstate - B2B: 18% GST
+        igstRate = 18;
+        igst = r2((taxable * igstRate) / 100);
+      }
     }
+    // ✅ B2C: No tax (all rates remain 0)
 
     const grand = r2(taxable + cgst + sgst + igst);
     const totalQty = r2(items.reduce((s, it) => s + Number(it.qty || 0), 0));
@@ -203,6 +211,8 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
       grand,
       totalQty,
       isSameState,
+      isB2B,
+      orderType,
     };
   }, [d, charges]);
 
@@ -267,56 +277,81 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
         </table>
 
         {/* Totals */}
-        <div className="mt-4 text-[12px] ml-auto w-[80mm]">
+        <div className="mt-4 text-[12px] ml-auto w-[110mm]">
           <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border p-1 text-left w-[40%]">Description</th>
+                <th className="border p-1 text-center w-[30%]">Total Tax</th>
+                <th className="border p-1 text-right w-[30%]">Total Amount</th>
+              </tr>
+            </thead>
             <tbody>
               <tr>
                 <td className="border p-1">Sub Total</td>
+                <td className="border p-1 text-center">-</td>
                 <td className="border p-1 text-right">{fmtINR(calc.sub)}</td>
               </tr>
               <tr>
                 <td className="border p-1">P&F Charges</td>
-                <td className="border p-1 text-right">{fmtINR(calc.pf)}</td>
+                <td className="border p-1 text-center">-</td>
+                <td className="border p-1 text-right">{fmtINR(calc.sub + calc.pf)}</td>
               </tr>
               <tr>
                 <td className="border p-1">Printing</td>
+                <td className="border p-1 text-center">-</td>
                 <td className="border p-1 text-right">
-                  {fmtINR(calc.printing)}
+                  {fmtINR(calc.sub + calc.pf + calc.printing)}
                 </td>
               </tr>
 
-              {calc.isSameState ? (
-                <>
+              {/* ✅ Only show tax for B2B orders */}
+              {calc.isB2B && (
+                calc.isSameState ? (
+                  <>
+                    <tr>
+                      <td className="border p-1">
+                        Add: CGST
+                      </td>
+                      <td className="border p-1 text-center">
+                        {fmtINR(calc.cgst)}
+                      </td>
+                      <td className="border p-1 text-right">
+                        {fmtINR(calc.taxable + calc.cgst)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1">
+                        Add: SGST
+                      </td>
+                      <td className="border p-1 text-center">
+                        {fmtINR(calc.sgst)}
+                      </td>
+                      <td className="border p-1 text-right">
+                        {fmtINR(calc.taxable + calc.cgst + calc.sgst)}
+                      </td>
+                    </tr>
+                  </>
+                ) : (
                   <tr>
                     <td className="border p-1">
-                      Add: CGST @ {calc.cgstRate}%
+                      Add: IGST
+                    </td>
+                    <td className="border p-1 text-center">
+                      {fmtINR(calc.igst)}
                     </td>
                     <td className="border p-1 text-right">
-                      {fmtINR(calc.cgst)}
+                      {fmtINR(calc.taxable + calc.igst)}
                     </td>
                   </tr>
-                  <tr>
-                    <td className="border p-1">
-                      Add: SGST @ {calc.sgstRate}%
-                    </td>
-                    <td className="border p-1 text-right">
-                      {fmtINR(calc.sgst)}
-                    </td>
-                  </tr>
-                </>
-              ) : (
-                <tr>
-                  <td className="border p-1">
-                    Add: IGST @ {calc.igstRate}%
-                  </td>
-                  <td className="border p-1 text-right">
-                    {fmtINR(calc.igst)}
-                  </td>
-                </tr>
+                )
               )}
 
-              <tr className="font-bold">
+              <tr className="font-bold bg-gray-100">
                 <td className="border p-1">Grand Total</td>
+                <td className="border p-1 text-center">
+                  {calc.totalQty} Pcs.
+                </td>
                 <td className="border p-1 text-right">
                   {fmtINR(calc.grand)}
                 </td>

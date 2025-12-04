@@ -3,7 +3,7 @@ import { createOrUpdatePrice, fetchAllPrices } from "../Service/APIservice";
 
 const MoneySet = () => {
   const [location, setLocation] = useState("");
-  const [aliases, setAliases] = useState(""); // ✅ new field
+  const [aliases, setAliases] = useState("");
   const [priceIncrease, setPriceIncrease] = useState("");
   const [currencyCountry, setCurrencyCountry] = useState("");
   const [currencyConvert, setCurrencyConvert] = useState("");
@@ -11,6 +11,7 @@ const MoneySet = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [editingEntry, setEditingEntry] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchPrices = async () => {
     try {
@@ -99,145 +100,262 @@ const MoneySet = () => {
     fetchPrices();
   }, []);
 
+  // Filter entries based on search
+  const filteredEntries = entries.filter(entry => 
+    entry.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    entry.aliases?.some(alias => alias.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    entry.currency?.country.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Common currency options
+  const currencyOptions = [
+    { code: 'INR', name: 'Indian Rupee', rate: 1 },
+    { code: 'USD', name: 'US Dollar', rate: 0.012 },
+    { code: 'EUR', name: 'Euro', rate: 0.011 },
+    { code: 'GBP', name: 'British Pound', rate: 0.0095 },
+    { code: 'AED', name: 'UAE Dirham', rate: 0.044 },
+    { code: 'AUD', name: 'Australian Dollar', rate: 0.018 },
+    { code: 'CAD', name: 'Canadian Dollar', rate: 0.017 },
+    { code: 'SGD', name: 'Singapore Dollar', rate: 0.016 },
+  ];
+
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h2 className="text-2xl font-bold mb-4">Location Price Manager</h2>
+    <div className="max-w-6xl mx-auto p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h2 className="text-3xl font-bold text-gray-800 mb-2">💰 Location Price Manager</h2>
+        <p className="text-gray-600">Manage pricing and currency conversion rates for different locations</p>
+      </div>
 
       {message && (
-        <div className={`mb-3 p-3 rounded ${message.includes('Error') || message.includes('required') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-          {message}
+        <div className={`mb-4 p-4 rounded-lg flex items-center gap-3 ${message.includes('Error') || message.includes('required') ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700'}`}>
+          <span className="text-xl">{message.includes('Error') ? '❌' : '✅'}</span>
+          <span>{message}</span>
         </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className="mb-6 space-y-4 bg-gray-100 p-4 rounded"
-      >
+      {/* Form Card */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          {editingEntry ? '✏️ Edit Location' : '➕ Add New Location'}
+        </h3>
+        
         {editingEntry && (
-          <div className="bg-blue-100 border-l-4 border-blue-500 p-3 mb-4">
-            <p className="text-blue-700 font-semibold">
-              Editing: {editingEntry.location}
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded">
+            <p className="text-blue-700 font-semibold flex items-center gap-2">
+              <span>📍</span> Editing: {editingEntry.location}
             </p>
           </div>
         )}
-        <div>
-          <label className="block mb-1 font-medium">Location</label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
 
-        {/* ✅ New Aliases Field */}
-        <div>
-          <label className="block mb-1 font-medium">
-            Aliases (comma-separated)
-          </label>
-          <input
-            type="text"
-            value={aliases}
-            onChange={(e) => setAliases(e.target.value)}
-            placeholder="Example: USA, US, United States of America"
-            className="w-full p-2 border rounded"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 font-medium">Price Increase</label>
-          <input
-            type="number"
-            value={priceIncrease}
-            onChange={(e) => setPriceIncrease(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 font-medium">Currency Country</label>
-          <input
-            type="text"
-            value={currencyCountry}
-            onChange={(e) => setCurrencyCountry(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 font-medium">
-            Currency Conversion Rate
-          </label>
-          <input
-            type="number"
-            value={currencyConvert}
-            onChange={(e) => setCurrencyConvert(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            {editingEntry ? "Update Entry" : "Create Entry"}
-          </button>
-          {editingEntry && (
-            <button
-              type="button"
-              onClick={handleCancelEdit}
-              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-
-      <h3 className="text-xl font-semibold mb-2">All Price Entries</h3>
-      {loading ? (
-        <p>Loading...</p>
-      ) : entries.length === 0 ? (
-        <p className="text-gray-500 text-center py-8">No price entries found. Create one above.</p>
-      ) : (
-        <div className="space-y-2">
-          {entries.map((entry, index) => (
-            <div key={index} className="border p-3 rounded bg-white shadow-sm">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <p>
-                    <strong>Location:</strong> {entry.location}
-                  </p>
-                  <p>
-                    <strong>Aliases:</strong> {entry.aliases?.join(", ") || "—"}
-                  </p>
-                  <p>
-                    <strong>Price Increase:</strong> {entry.price_increase}%
-                  </p>
-                  <p>
-                    <strong>Currency:</strong> {entry.currency?.country} (Rate: {entry.currency?.toconvert})
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    <strong>Updated:</strong>{" "}
-                    {new Date(entry.time_stamp).toLocaleString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleEdit(entry)}
-                  className="ml-4 px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
-                >
-                  Edit
-                </button>
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Location */}
+            <div>
+              <label className="block mb-2 font-medium text-gray-700">
+                Location Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g., North America, Europe, Asia"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
             </div>
-          ))}
+
+            {/* Aliases */}
+            <div>
+              <label className="block mb-2 font-medium text-gray-700">
+                Aliases (comma-separated)
+              </label>
+              <input
+                type="text"
+                value={aliases}
+                onChange={(e) => setAliases(e.target.value)}
+                placeholder="e.g., USA, US, United States"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-1">Alternative names for this location</p>
+            </div>
+
+            {/* Price Increase */}
+            <div>
+              <label className="block mb-2 font-medium text-gray-700">
+                Price Increase (%) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={priceIncrease}
+                onChange={(e) => setPriceIncrease(e.target.value)}
+                placeholder="e.g., 20"
+                min="0"
+                step="0.01"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Percentage markup for this location</p>
+            </div>
+
+            {/* Currency */}
+            <div>
+              <label className="block mb-2 font-medium text-gray-700">
+                Currency Code <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={currencyCountry}
+                onChange={(e) => {
+                  setCurrencyCountry(e.target.value);
+                  const selected = currencyOptions.find(c => c.code === e.target.value);
+                  if (selected) setCurrencyConvert(selected.rate.toString());
+                }}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="">Select Currency</option>
+                {currencyOptions.map(curr => (
+                  <option key={curr.code} value={curr.code}>
+                    {curr.code} - {curr.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Conversion Rate */}
+            <div className="md:col-span-2">
+              <label className="block mb-2 font-medium text-gray-700">
+                Conversion Rate (to INR) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={currencyConvert}
+                onChange={(e) => setCurrencyConvert(e.target.value)}
+                placeholder="e.g., 0.012"
+                step="0.000001"
+                min="0"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                How much 1 INR equals in this currency (e.g., 1 INR = 0.012 USD)
+              </p>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition font-medium flex items-center justify-center gap-2"
+            >
+              {editingEntry ? '💾 Update Entry' : '➕ Create Entry'}
+            </button>
+            {editingEntry && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition font-medium"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {/* Entries List */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold flex items-center gap-2">
+            📋 All Price Entries ({entries.length})
+          </h3>
+          <button
+            onClick={fetchPrices}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition flex items-center gap-2"
+            disabled={loading}
+          >
+            🔄 Refresh
+          </button>
         </div>
-      )}
+
+        {/* Search Bar */}
+        <div className="mb-4">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="🔍 Search by location, alias, or currency..."
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-gray-600">Loading entries...</p>
+          </div>
+        ) : filteredEntries.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">
+              {searchTerm ? '🔍 No entries match your search' : '📭 No price entries found. Create one above.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredEntries.map((entry, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition bg-gradient-to-br from-white to-gray-50">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                      📍 {entry.location}
+                    </h4>
+                    {entry.aliases && entry.aliases.length > 0 && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        <span className="font-medium">Aliases:</span> {entry.aliases.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleEdit(entry)}
+                    className="px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm font-medium flex items-center gap-1"
+                  >
+                    ✏️ Edit
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-gray-700">💰 Price Increase:</span>
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-bold">
+                      +{entry.price_increase}%
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-gray-700">💱 Currency:</span>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded font-bold">
+                      {entry.currency?.country}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-gray-700">🔄 Conversion Rate:</span>
+                    <span className="text-gray-800 font-mono">
+                      1 INR = {entry.currency?.toconvert} {entry.currency?.country}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
+                    <span className="font-medium">Last Updated:</span>{" "}
+                    {new Date(entry.time_stamp).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

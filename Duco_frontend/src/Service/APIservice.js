@@ -296,6 +296,68 @@ export const cacheChargePlanRates = (plan) => {
   } catch {}
 };
 
+/**
+ * ✅ NEW: Get charge plan totals (P&F, Printing, GST) for a given quantity
+ * Returns: { success: true, data: { qty, perUnit: {...}, totals: {...} } }
+ */
+export const getChargePlanTotals = async (qty = 1, subtotal = 0) => {
+  try {
+    const res = await axios.get(`${API_BASE}api/chargeplan/totals`, {
+      params: { qty, subtotal },
+      timeout: 8000,
+    });
+    const data = res?.data;
+
+    // Cache successful plan for offline/fallback use
+    try {
+      localStorage.setItem("chargePlanTotals", JSON.stringify(data));
+    } catch {}
+
+    return data;
+  } catch (err) {
+    console.warn(
+      "getChargePlanTotals(): API failed, using cached/default plan.",
+      err?.response?.status,
+      err?.message
+    );
+
+    // 1) Try cached plan from localStorage
+    try {
+      const cached = localStorage.getItem("chargePlanTotals");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+
+    // 2) Final hardcoded fallback with new format
+    const packaging = qty <= 50 ? 12 : qty <= 200 ? 10 : 8;
+    const printing = qty <= 50 ? 15 : qty <= 200 ? 12 : 10;
+    const gstPercent = 5;
+    
+    const pfTotal = packaging * qty;
+    const printTotal = printing * qty;
+    const gstAmount = ((subtotal + pfTotal + printTotal) * gstPercent) / 100;
+    
+    return {
+      success: true,
+      data: {
+        qty,
+        perUnit: {
+          pakageingandforwarding: packaging,
+          printingcost: printing,
+          gstPercent: gstPercent,
+        },
+        totals: {
+          pakageingandforwarding: pfTotal,
+          printingcost: printTotal,
+          gstPercent,
+          gstAmount,
+          subtotal,
+          grandTotal: subtotal + pfTotal + printTotal + gstAmount,
+        },
+      },
+    };
+  }
+};
+
 /* ------------------------------- BANK DETAILS ------------------------------- */
 async function handle(res) {
   const data = await res.json().catch(() => ({}));

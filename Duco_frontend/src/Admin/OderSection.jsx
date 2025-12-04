@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import OrderDetailsCard from "../Admin/Components/OrderDetailsCard"; // ✅ ensure path is correct
-import LabelGenerator from "../Admin/Components/LabelGenerator";
+import OrderDetailsCard from "../Admin/Components/OrderDetailsCard";
+import JsBarcode from 'jsbarcode';
 
-// ✅ Better status badge colors
 const statusClass = (s = "") => {
   switch (s) {
     case "Pending": return "bg-amber-500 text-white";
@@ -16,7 +15,6 @@ const statusClass = (s = "") => {
   }
 };
 
-// ✅ Helper function to convert number to words
 const numberToWords = (num) => {
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
   const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
@@ -32,7 +30,6 @@ const numberToWords = (num) => {
   return numberToWords(Math.floor(num / 10000000)) + ' Crore' + (num % 10000000 !== 0 ? ' ' + numberToWords(num % 10000000) : '');
 };
 
-// Currency names map
 const currencyNames = {
   INR: "Rupees",
   USD: "Dollars",
@@ -44,7 +41,6 @@ const currencyNames = {
   SGD: "Singapore Dollars",
 };
 
-// ✅ Generate invoice HTML for display (matching OrderSuccess.jsx template)
 const generateInvoiceHTML = (invoice, totals) => {
   const currency = invoice.currency || 'INR';
   const currencySymbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency;
@@ -138,81 +134,178 @@ const generateInvoiceHTML = (invoice, totals) => {
           </tr>
         </thead>
         <tbody>
-          ${items.map((item, i) => `
-            <tr>
-              <td style="text-align: center;">${i + 1}</td>
-              <td>${item.description || ''}${item.printSides ? ` (${item.printSides} sides printing)` : ''}</td>
-              <td style="text-align: center;">${item.barcode || '000002'}</td>
-              <td style="text-align: center;">${item.hsn || '4901101'}</td>
-              <td style="text-align: center;">${item.qty || 0} ${item.unit || 'Pcs.'}</td>
-              <td style="text-align: right;">${Number(item.price || 0).toFixed(2)}</td>
-              <td style="text-align: right;">${(Number(item.qty || 0) * Number(item.price || 0)).toFixed(2)}</td>
-            </tr>
-          `).join('')}
-          ${[...Array(Math.max(0, 5 - items.length))].map(() => `
-            <tr style="height: 40px;">
-              <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
-            </tr>
-          `).join('')}
+          ${items.map((item, i) => {
+            const canvas = document.createElement('canvas');
+            try {
+              JsBarcode(canvas, item.barcode || '000002', {
+                format: 'CODE128',
+                width: 1,
+                height: 30,
+                displayValue: false,
+                margin: 0
+              });
+              const barcodeDataUrl = canvas.toDataURL('image/png');
+              return `
+                <tr>
+                  <td style="text-align: center;">${i + 1}</td>
+                  <td>${item.description || ''}${item.printSides ? ` (${item.printSides} sides printing)` : ''}</td>
+                  <td style="text-align: center;"><img src="${barcodeDataUrl}" alt="Barcode" style="max-width: 80px; height: auto;" /></td>
+                  <td style="text-align: center;">${item.hsn || '4901101'}</td>
+                  <td style="text-align: center;">${item.qty || 0} ${item.unit || 'Pcs.'}</td>
+                  <td style="text-align: right;">${Number(item.price || 0).toFixed(2)}</td>
+                  <td style="text-align: right;">${(Number(item.qty || 0) * Number(item.price || 0)).toFixed(2)}</td>
+                </tr>
+              `;
+            } catch (error) {
+              return `
+                <tr>
+                  <td style="text-align: center;">${i + 1}</td>
+                  <td>${item.description || ''}${item.printSides ? ` (${item.printSides} sides printing)` : ''}</td>
+                  <td style="text-align: center;">${item.barcode || '000002'}</td>
+                  <td style="text-align: center;">${item.hsn || '4901101'}</td>
+                  <td style="text-align: center;">${item.qty || 0} ${item.unit || 'Pcs.'}</td>
+                  <td style="text-align: right;">${Number(item.price || 0).toFixed(2)}</td>
+                  <td style="text-align: right;">${(Number(item.qty || 0) * Number(item.price || 0)).toFixed(2)}</td>
+                </tr>
+              `;
+            }
+          }).join('')}
         </tbody>
       </table>
 
       <!-- TAX SUMMARY -->
       <div style="display: flex; border-top: 1px solid #000;">
         <div style="flex: 1;"></div>
-        <div style="width: 300px;">
+        <div style="width: 350px;">
           <table style="width: 100%; font-size: 11px; border: none;">
+            <thead>
+              <tr>
+                <th style="padding: 4px; text-align: left; border: none;"></th>
+                <th style="padding: 4px; text-align: center; border: none; font-weight: bold;">Total Tax</th>
+                <th style="padding: 4px; text-align: right; border: none; font-weight: bold;">Total Amount</th>
+              </tr>
+            </thead>
             <tbody>
               <tr>
-                <td style="padding: 4px; text-align: right; border: none;"></td>
-                <td style="padding: 4px; text-align: right; border: none;"></td>
+                <td style="padding: 4px; border: none;">Sub Total</td>
+                <td style="padding: 4px; text-align: center; border: none;">-</td>
                 <td style="padding: 4px; text-align: right; font-weight: bold; border: none;">${subtotal.toFixed(2)}</td>
               </tr>
-              ${tax.type === 'INTRASTATE' || tax.type === 'INTERSTATE' ? `
-                ${tax.cgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : CGST</td><td style="padding: 4px; text-align: right; border: none;">@ ${tax.cgstRate} %</td><td style="padding: 4px; text-align: right; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td></tr>` : ''}
-                ${tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST</td><td style="padding: 4px; text-align: right; border: none;">@ ${tax.sgstRate} %</td><td style="padding: 4px; text-align: right; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td></tr>` : ''}
-                ${tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST</td><td style="padding: 4px; text-align: right; border: none;">@ ${tax.igstRate} %</td><td style="padding: 4px; text-align: right; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td></tr>` : ''}
-              ` : tax.type === 'INTERNATIONAL' ? `
-                <tr><td style="padding: 4px; border: none;">Add : TAX</td><td style="padding: 4px; text-align: right; border: none;">@ ${tax.taxRate || 1} %</td><td style="padding: 4px; text-align: right; border: none;">${(tax.taxAmount || 0).toFixed(2)}</td></tr>
+              
+              ${(charges?.pf || 0) > 0 ? `
+                <tr>
+                  <td style="padding: 4px; border: none;">P&F Charges</td>
+                  <td style="padding: 4px; text-align: center; border: none;">-</td>
+                  <td style="padding: 4px; text-align: right; border: none;">${(charges?.pf || 0).toFixed(2)}</td>
+                </tr>
               ` : ''}
-              ${Math.abs(Math.ceil(total) - total) > 0.01 ? `<tr><td style="padding: 4px; border: none;" colspan="2">Round Off</td><td style="padding: 4px; text-align: right; border: none;">+${(Math.ceil(total) - total).toFixed(2)}</td></tr>` : ''}
+              
+              ${(charges?.printing || 0) > 0 ? `
+                <tr>
+                  <td style="padding: 4px; border: none;">Printing</td>
+                  <td style="padding: 4px; text-align: center; border: none;">-</td>
+                  <td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0)).toFixed(2)}</td>
+                </tr>
+              ` : ''}
+              
+              ${tax.cgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : CGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0)).toFixed(2)}</td></tr>` : ''}
+              ${tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0)).toFixed(2)}</td></tr>` : ''}
+              ${tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0) + (tax.igstAmount || 0)).toFixed(2)}</td></tr>` : ''}
+              
+              ${Math.abs(Math.ceil(total) - total) > 0.01 ? `<tr><td style="padding: 4px; border: none;">Round Off</td><td style="padding: 4px; text-align: center; border: none;">+${(Math.ceil(total) - total).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td></tr>` : ''}
               <tr style="border-top: 1px solid #000; font-weight: bold;">
                 <td style="padding: 4px; border: none;">Grand Total</td>
-                <td style="padding: 4px; text-align: right; border: none;">${items.reduce((sum, it) => sum + Number(it.qty || 0), 0)} ${items[0]?.unit || 'Pcs.'}.</td>
+                <td style="padding: 4px; text-align: center; border: none;">${items.reduce((sum, it) => sum + Number(it.qty || 0), 0)} ${items[0]?.unit || 'Pcs.'}.</td>
                 <td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td>
               </tr>
+            
             </tbody>
           </table>
         </div>
       </div>
+<!-- FOUR SUMMARY BOXES -->
+<div
+  style="
+    margin-top: 12px;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    font-size: 11px;
+  "
+>
+  <!-- Box 1: Taxable Amount -->
+  <div
+    style="
+      flex: 0 0 160px;
+      border: 1px solid #000;
+      padding: 6px 10px;
+      text-align: center;
+    "
+  >
+    <div style="font-weight: bold; margin-bottom: 4px;">Taxable Amount</div>
+    <div style="text-align: right;">
+      ${(
+        subtotal +
+        (charges?.pf || 0) +
+        (charges?.printing || 0)
+      ).toFixed(2)}
+    </div>
+  </div>
 
-      <!-- TAX BREAKDOWN TABLE -->
-      <table style="margin-top: 10px; border: 1px solid #000;">
-        <thead>
-          <tr style="background-color: #f5f5f5;">
-            <th>Tax Rate</th>
-            <th>Taxable Amt.</th>
-            ${tax.type === 'INTRASTATE' ? '<th>CGST Amt.</th><th>SGST Amt.</th><th>IGST Amt.</th>' : ''}
-            ${tax.type === 'INTERSTATE' ? '<th>IGST Amt.</th>' : ''}
-            ${tax.type === 'INTERNATIONAL' ? '<th>TAX Amt.</th>' : ''}
-            <th>Total Tax</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="text-align: center;">
-              ${tax.type === 'INTRASTATE' ? `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%` : ''}
-              ${tax.type === 'INTERSTATE' ? `${tax.igstRate || 0}%` : ''}
-              ${tax.type === 'INTERNATIONAL' ? `${tax.taxRate || 1}%` : ''}
-            </td>
-            <td style="text-align: right;">${subtotal.toFixed(2)}</td>
-            ${tax.type === 'INTRASTATE' ? `<td style="text-align: right;">${(tax.cgstAmount || 0).toFixed(2)}</td><td style="text-align: right;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="text-align: right;">${(tax.igstAmount || 0).toFixed(2)}</td>` : ''}
-            ${tax.type === 'INTERSTATE' ? `<td style="text-align: right;">${(tax.igstAmount || 0).toFixed(2)}</td>` : ''}
-            ${tax.type === 'INTERNATIONAL' ? `<td style="text-align: right;">${(tax.taxAmount || 0).toFixed(2)}</td>` : ''}
-            <td style="text-align: right;">${(totals?.totalTaxAmt || 0).toFixed(2)}</td>
-          </tr>
-        </tbody>
-      </table>
+  <!-- Box 2: Total Tax -->
+  <div
+    style="
+      flex: 0 0 160px;
+      border: 1px solid #000;
+      padding: 6px 10px;
+      text-align: center;
+    "
+  >
+    <div style="font-weight: bold; margin-bottom: 4px;">Total Tax</div>
+    <div style="text-align: right;">
+      ${(Number(tax.type === 'INTERNATIONAL'
+        ? (tax.taxAmount || 0)
+        : (totals?.totalTaxAmt || 0)
+      )).toFixed(2)}
+    </div>
+  </div>
+
+  <!-- Box 3: Round Off -->
+  <div
+    style="
+      flex: 0 0 160px;
+      border: 1px solid #000;
+      padding: 6px 10px;
+      text-align: center;
+    "
+  >
+    <div style="font-weight: bold; margin-bottom: 4px;">Round Off</div>
+    <div style="text-align: right;">
+      ${(
+        Math.abs(Math.ceil(total) - total) > 0.01
+          ? (Math.ceil(total) - total)
+          : 0
+      ).toFixed(2)}
+    </div>
+  </div>
+
+  <!-- Box 4: Grand Total -->
+  <div
+    style="
+      flex: 0 0 160px;
+      border: 1px solid #000;
+      padding: 6px 10px;
+      text-align: center;
+      background-color: #f5f5f5;
+    "
+  >
+    <div style="font-weight: bold; margin-bottom: 4px;">Grand Total</div>
+    <div style="text-align: right;">
+      ${Math.ceil(total).toFixed(2)}
+    </div>
+  </div>
+</div>
+
 
       <!-- AMOUNT IN WORDS -->
       <div style="margin-top: 10px; font-size: 11px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 10px;">
@@ -240,7 +333,6 @@ const OderSection = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [labelOrder, setLabelOrder] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [toast, setToast] = useState(null);
 
@@ -255,7 +347,6 @@ const OderSection = () => {
       
       const data = await res.json();
 
-      // ✅ handle both formats {orders: [...]} or [...]
       if (Array.isArray(data)) {
         setOrders(data);
       } else if (Array.isArray(data.orders)) {
@@ -290,22 +381,6 @@ const OderSection = () => {
     );
   };
 
-  const generateBulkLabels = async () => {
-    if (selectedOrders.length === 0) {
-      alert('Please select at least one order');
-      return;
-    }
-
-    const selectedOrdersData = orders.filter(order => selectedOrders.includes(order._id));
-    
-    // Generate labels for each selected order
-    for (const order of selectedOrdersData) {
-      setLabelOrder(order);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between labels
-    }
-  };
-
-  // ✅ View Invoice/Bill
   const viewInvoice = async (orderId) => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
@@ -323,14 +398,12 @@ const OderSection = () => {
 
       const { invoice, totals } = await response.json();
       
-      // Open invoice in new window with formatted display
       const invoiceWindow = window.open('', '_blank');
       if (!invoiceWindow) {
         setToast({ type: "error", msg: "Please allow popups to view invoice" });
         return;
       }
 
-      // Format invoice HTML
       const invoiceHTML = generateInvoiceHTML(invoice, totals);
       invoiceWindow.document.write(invoiceHTML);
       invoiceWindow.document.close();
@@ -343,7 +416,6 @@ const OderSection = () => {
 
   return (
     <div className="p-4">
-      {/* Toast Notification */}
       {toast && (
         <div
           className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm shadow-lg ${
@@ -382,12 +454,6 @@ const OderSection = () => {
               {selectedOrders.length} selected
             </span>
             <button
-              onClick={generateBulkLabels}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-            >
-              🏷️ Generate Labels ({selectedOrders.length})
-            </button>
-            <button
               onClick={() => setSelectedOrders([])}
               className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
             >
@@ -410,7 +476,6 @@ const OderSection = () => {
                 key={order._id}
                 className="bg-white rounded-lg p-4 shadow flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               >
-                {/* Checkbox for bulk selection */}
                 <div className="flex items-start">
                   <input
                     type="checkbox"
@@ -420,7 +485,6 @@ const OderSection = () => {
                   />
                 </div>
 
-                {/* Left: Basic info */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span
@@ -435,7 +499,6 @@ const OderSection = () => {
                     </span>
                   </div>
 
-                  {/* ✅ Show product image + name */}
                   <div className="flex items-center gap-3 mb-1">
                     {first.image && (
                       <img
@@ -471,7 +534,6 @@ const OderSection = () => {
                   <p className="text-xs text-gray-500">📧 {email}</p>
                 </div>
 
-                {/* Right: Price + Actions */}
                 <div className="flex items-center justify-between sm:justify-end gap-3">
                   <p className="font-semibold text-right">
                     ₹{Number(order.price || 0).toFixed(2)}
@@ -490,13 +552,6 @@ const OderSection = () => {
                     >
                       🧾 Invoice
                     </button>
-                    <button
-                      onClick={() => setLabelOrder(order)}
-                      className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                      title="Generate Shipping Label"
-                    >
-                      🏷️ Label
-                    </button>
                   </div>
                 </div>
               </div>
@@ -505,7 +560,6 @@ const OderSection = () => {
         </div>
       )}
 
-      {/* Modal for Order Details */}
       {selectedOrderId && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div
@@ -527,14 +581,6 @@ const OderSection = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Label Generator Modal */}
-      {labelOrder && (
-        <LabelGenerator
-          order={labelOrder}
-          onClose={() => setLabelOrder(null)}
-        />
       )}
     </div>
   );

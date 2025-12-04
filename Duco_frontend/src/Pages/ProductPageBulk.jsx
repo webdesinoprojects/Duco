@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { FaCheckCircle } from 'react-icons/fa';
 import { MdOutlinePrint, MdOutlineColorLens, MdOutlineStraighten } from 'react-icons/md';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -62,6 +62,8 @@ const ProductPageBulk = () => {
 
   const[iscount,setIscount]= useState(0)
   const [minOrderQty, setMinOrderQty] = useState(100); // Minimum order quantity from admin settings
+  const [videoThumbnail, setVideoThumbnail] = useState(null);
+  const videoRef = useRef(null);
 
 
   // Load minimum order quantity from corporate settings
@@ -83,6 +85,29 @@ const ProductPageBulk = () => {
     loadMinQty();
   }, []);
 
+  // ✅ Generate video thumbnail
+  const generateVideoThumbnail = (videoUrl) => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.src = videoUrl;
+      video.crossOrigin = 'anonymous';
+      video.currentTime = 1; // Get frame at 1 second
+      
+      video.onloadedmetadata = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg'));
+      };
+      
+      video.onerror = () => {
+        resolve(null);
+      };
+    });
+  };
+
   // Fetch product
   useEffect(() => {
     // Scroll to top when product changes
@@ -99,6 +124,12 @@ const ProductPageBulk = () => {
          setPrice(calculatePrice(toConvert,p?.pricing?.[0]?.price_per,priceIncrease))
          setGender(p.gender)
 
+        // Generate video thumbnail if video exists
+        if (p.image_url?.[0]?.videolink) {
+          generateVideoThumbnail(p.image_url[0].videolink).then(thumb => {
+            setVideoThumbnail(thumb);
+          });
+        }
       }
       // Removed redirect - priceIncrease might not be loaded yet
     };
@@ -173,29 +204,61 @@ const validateMinimumQuantity = () => {
   return (
     <section className="p-6 text-white ">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-        {/* Left - Images */}
+        {/* Left - Images & Video */}
         <div className="h-auto">
-          {/* <ImageMagnifier
-      src=
-      zoom={2.5}        // tweak as you like
-      lensSize={160}    // tweak lens size
-    /> */}
-   <Zoom>
-  <img className='bg-white w-full sm:h-[600px] max-w-[500px] md:max-w-full   object-contain shadow-md overflow-hidden   rounded-2xl' src={defaultColorGroup?.url?.[iscount] ?? ''} alt="Product" />
-</Zoom>
- 
-  
+          {defaultColorGroup?.videolink && iscount === -1 ? (
+            <div className="bg-white w-full sm:h-[600px] max-w-[500px] md:max-w-full shadow-md overflow-hidden rounded-2xl flex items-center justify-center">
+              <video
+                className="w-full h-full object-contain"
+                controls
+                autoPlay
+                loop
+                muted
+                key={defaultColorGroup.videolink}
+              >
+                <source src={defaultColorGroup.videolink} type="video/mp4" />
+                <source src={defaultColorGroup.videolink} type="video/webm" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          ) : (
+            <Zoom>
+              <img className='bg-white w-full sm:h-[600px] max-w-[500px] md:max-w-full object-contain shadow-md overflow-hidden rounded-2xl' src={defaultColorGroup?.url?.[iscount] ?? ''} alt="Product" />
+            </Zoom>
+          )}
 
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
             {defaultColorGroup?.url?.map((img, i) => (
               <img
                 key={i}
                 src={img}
                 onClick={()=> setIscount(i)}
                 alt="Thumbnail"
-                className={`w-16 h-16 object-cover rounded-md  ${iscount == i ? "border-3 border-[#E5C870]  scale-1.5 ":""} `}
+                className={`w-16 h-16 object-cover rounded-md flex-shrink-0 cursor-pointer ${iscount == i ? "border-3 border-[#E5C870] scale-1.5 ":""} `}
               />
             ))}
+            {defaultColorGroup?.videolink && (
+              <button
+                onClick={() => setIscount(-1)}
+                className={`w-16 h-16 rounded-md flex-shrink-0 cursor-pointer flex items-center justify-center text-2xl transition-all relative overflow-hidden ${
+                  iscount === -1 ? "border-3 border-[#E5C870] scale-105" : "hover:opacity-80"
+                }`}
+                title="Play Video"
+              >
+                {videoThumbnail ? (
+                  <>
+                    <img src={videoThumbnail} alt="Video thumbnail" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/20 transition">
+                      <span className="text-white text-xl drop-shadow-lg">▶️</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full bg-gray-600 flex items-center justify-center">
+                    <span className="text-white text-xl">▶️</span>
+                  </div>
+                )}
+              </button>
+            )}
           </div>
         </div>
         

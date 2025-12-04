@@ -115,12 +115,15 @@ const CorporateSettings = () => {
   };
 
   const updateDiscountTier = (index, field, value) => {
-    setSettings(prev => ({
-      ...prev,
-      bulkDiscountTiers: prev.bulkDiscountTiers.map((tier, i) => 
-        i === index ? { ...tier, [field]: Number(value) } : tier
-      )
-    }));
+    // Only allow digits or empty string
+    if (value === '' || /^\d+$/.test(value)) {
+      setSettings(prev => ({
+        ...prev,
+        bulkDiscountTiers: prev.bulkDiscountTiers.map((tier, i) => 
+          i === index ? { ...tier, [field]: value === '' ? 0 : Number(value) } : tier
+        )
+      }));
+    }
   };
 
   const removeDiscountTier = (index) => {
@@ -130,17 +133,69 @@ const CorporateSettings = () => {
     }));
   };
 
+  // Calculate discount for preview
+  const calculateDiscountPreview = (quantity) => {
+    const tier = settings.bulkDiscountTiers.find(
+      t => quantity >= t.minQty && quantity <= t.maxQty
+    );
+    return tier ? tier.discount : 0;
+  };
+
+  // Validate tiers before saving
+  const validateTiers = () => {
+    const tiers = settings.bulkDiscountTiers;
+    
+    // Check for empty values
+    for (let i = 0; i < tiers.length; i++) {
+      if (!tiers[i].minQty || !tiers[i].maxQty || tiers[i].discount === undefined) {
+        setMessage(`❌ Tier ${i + 1}: All fields are required`);
+        return false;
+      }
+      if (tiers[i].minQty >= tiers[i].maxQty) {
+        setMessage(`❌ Tier ${i + 1}: Min quantity must be less than max quantity`);
+        return false;
+      }
+    }
+
+    // Check for gaps
+    const sortedTiers = [...tiers].sort((a, b) => a.minQty - b.minQty);
+    for (let i = 1; i < sortedTiers.length; i++) {
+      const prevMax = sortedTiers[i - 1].maxQty;
+      const currentMin = sortedTiers[i].minQty;
+      if (currentMin !== prevMax + 1) {
+        setMessage(`⚠️ Warning: Gap between tier ending at ${prevMax} and tier starting at ${currentMin}`);
+      }
+    }
+
+    return true;
+  };
+
+  const handleSave = () => {
+    if (validateTiers()) {
+      saveSettings();
+    }
+  };
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Bulk order Settings</h1>
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">🏢 Corporate/Bulk Order Settings</h1>
+        <p className="text-gray-600">Configure minimum order quantities, bulk discount tiers, and payment options for corporate customers</p>
+      </div>
 
       {message && (
-        <div className={`mb-4 p-3 rounded-lg ${
+        <div className={`mb-4 p-4 rounded-lg flex items-center gap-3 ${
           message.includes('✅') 
-            ? 'bg-green-100 text-green-800 border border-green-200' 
-            : 'bg-red-100 text-red-800 border border-red-200'
+            ? 'bg-green-50 border border-green-200 text-green-800' 
+            : message.includes('⚠️')
+            ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+            : 'bg-red-50 border border-red-200 text-red-800'
         }`}>
-          {message}
+          <span className="text-xl">
+            {message.includes('✅') ? '✅' : message.includes('⚠️') ? '⚠️' : '❌'}
+          </span>
+          <span>{message}</span>
         </div>
       )}
 
@@ -154,18 +209,22 @@ const CorporateSettings = () => {
               Minimum Order Quantity
             </label>
             <input
-              type="number"
-              value={settings.minOrderQuantity}
+              type="text"
+              value={settings.minOrderQuantity === 0 ? '' : settings.minOrderQuantity}
               onChange={(e) => {
-                const newValue = Number(e.target.value);
-                console.log('📝 Minimum Order Quantity changed to:', newValue);
-                setSettings(prev => ({ 
-                  ...prev, 
-                  minOrderQuantity: newValue
-                }));
+                const value = e.target.value;
+                // Only allow digits or empty string
+                if (value === '' || /^\d+$/.test(value)) {
+                  const newValue = value === '' ? 0 : Number(value);
+                  console.log('📝 Minimum Order Quantity changed to:', newValue);
+                  setSettings(prev => ({ 
+                    ...prev, 
+                    minOrderQuantity: newValue
+                  }));
+                }
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              min="1"
+              placeholder="Enter minimum quantity"
             />
             <p className="text-xs text-gray-500 mt-1">
               Minimum quantity required for corporate orders
@@ -176,59 +235,99 @@ const CorporateSettings = () => {
         {/* Bulk Discount Tiers */}
         <div className="bg-white p-6 rounded-lg shadow border">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">Bulk Discount Tiers</h2>
+            <div>
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                💰 Bulk Discount Tiers
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">Define discount percentages based on order quantity</p>
+            </div>
             <button
               onClick={addDiscountTier}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
             >
-              + Add Tier
+              ➕ Add Tier
             </button>
           </div>
 
-          <div className="space-y-3">
-            {settings.bulkDiscountTiers.map((tier, index) => (
-              <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-600">Min Qty</label>
-                  <input
-                    type="number"
-                    value={tier.minQty}
-                    onChange={(e) => updateDiscountTier(index, 'minQty', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                    min="0"
-                  />
+          {settings.bulkDiscountTiers.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="mb-2">No discount tiers configured</p>
+              <p className="text-sm">Click "Add Tier" to create your first discount tier</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {settings.bulkDiscountTiers.map((tier, index) => (
+                <div key={index} className="flex items-end gap-3 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:shadow-md transition">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Min Quantity
+                    </label>
+                    <input
+                      type="text"
+                      value={tier.minQty === 0 ? '' : tier.minQty}
+                      onChange={(e) => updateDiscountTier(index, 'minQty', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., 100"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Max Quantity
+                    </label>
+                    <input
+                      type="text"
+                      value={tier.maxQty === 0 ? '' : tier.maxQty}
+                      onChange={(e) => updateDiscountTier(index, 'maxQty', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., 499"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Discount (%)
+                    </label>
+                    <input
+                      type="text"
+                      value={tier.discount === 0 ? '' : tier.discount}
+                      onChange={(e) => updateDiscountTier(index, 'discount', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="e.g., 5"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-gray-600 text-center">Tier {index + 1}</span>
+                    <button
+                      onClick={() => removeDiscountTier(index)}
+                      className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition"
+                      title="Remove this tier"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-600">Max Qty</label>
-                  <input
-                    type="number"
-                    value={tier.maxQty}
-                    onChange={(e) => updateDiscountTier(index, 'maxQty', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                    min="0"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-600">Discount (%)</label>
-                  <input
-                    type="number"
-                    value={tier.discount}
-                    onChange={(e) => updateDiscountTier(index, 'discount', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                  />
-                </div>
-                <button
-                  onClick={() => removeDiscountTier(index)}
-                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                >
-                  Remove
-                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Discount Preview */}
+          {settings.bulkDiscountTiers.length > 0 && (
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-semibold text-blue-900 mb-3">📊 Discount Preview</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[100, 250, 500, 750, 1000, 2500, 5000, 10000].map(qty => {
+                  const discount = calculateDiscountPreview(qty);
+                  return (
+                    <div key={qty} className="bg-white p-3 rounded border text-center">
+                      <div className="text-sm text-gray-600">{qty} units</div>
+                      <div className={`text-lg font-bold ${discount > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                        {discount > 0 ? `${discount}% OFF` : 'No discount'}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Integration Settings */}
@@ -299,13 +398,28 @@ const CorporateSettings = () => {
         </div>
 
         {/* Save Button */}
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
           <button
-            onClick={saveSettings}
-            disabled={loading}
-            className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={loadSettings}
+            className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center gap-2"
           >
-            {loading ? 'Saving...' : 'Save Corporate Settings'}
+            🔄 Reset to Saved
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                Saving...
+              </>
+            ) : (
+              <>
+                💾 Save Corporate Settings
+              </>
+            )}
           </button>
         </div>
       </div>

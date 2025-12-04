@@ -55,7 +55,7 @@ const TaxSchema = new Schema({
   igstAmount: { type: Number, default: 0 },
   taxAmount: { type: Number, default: 0 },
   totalTax: { type: Number, default: 0 },
-  type: { type: String, enum: ['INTRASTATE', 'INTERSTATE', 'INTERNATIONAL', ''], default: '' },
+  type: { type: String, enum: ['INTRASTATE', 'INTERSTATE', 'INTERNATIONAL', 'B2C_NO_TAX', ''], default: '' },
   label: { type: String, default: '' },
 }, { _id: false });
 
@@ -73,6 +73,7 @@ const InvoiceSchema = new Schema({
   order: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
   currency: { type: String, default: 'INR' }, // ✅ Add currency field
   total: { type: Number, default: 0 }, // ✅ Add total field
+  orderType: { type: String, enum: ['B2B', 'B2C'], default: 'B2C' }, // ✅ Add orderType field
 }, { timestamps: true });
 
 InvoiceSchema.index({ order: 1 }, { unique: true, sparse: true });

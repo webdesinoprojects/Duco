@@ -72,7 +72,27 @@ const InvoiceDucoTailwind = ({ data }) => {
     currencySymbol = "₹", // ✅ Get currency symbol from data
     currency = "INR",
   } = data;
-  
+  const baseAmount = subtotal;
+
+  const totalTaxAmount = (() => {
+    if (tax.type === "INTRASTATE") {
+      return Number(tax.cgstAmount || 0) + Number(tax.sgstAmount || 0) + Number(tax.igstAmount || 0);
+    }
+    if (tax.type === "INTERSTATE") {
+      return Number(tax.igstAmount || 0);
+    }
+    if (tax.type === "INTERNATIONAL") {
+      return Number(tax.taxAmount || 0);
+    }
+    // fallback (no tax.type)
+    return (
+      Number(tax.cgstAmount || 0) +
+      Number(tax.sgstAmount || 0) +
+      Number(tax.igstAmount || 0)
+    );
+  })();
+
+  const amountInclTax = baseAmount + totalTaxAmount;
   console.log("🧾 Invoice Template - Tax Info:", tax);
   console.log("💱 Invoice Template - Currency:", currency, currencySymbol);
 
@@ -223,46 +243,55 @@ const InvoiceDucoTailwind = ({ data }) => {
       {/* TAX SUMMARY */}
       <div style={{ display: "flex", borderTop: "1px solid #000" }}>
         <div style={{ flex: 1 }}></div>
-        <div style={{ width: "300px" }}>
+        <div style={{ width: "350px" }}>
           <table style={{ width: "100%", fontSize: "11px" }}>
             <tbody>
               <tr>
-                <td style={{ padding: "4px", textAlign: "right" }}></td>
-                <td style={{ padding: "4px", textAlign: "right" }}></td>
+                <td style={{ padding: "4px", width: "40%" }}></td>
+                <td style={{ padding: "4px", textAlign: "center", width: "30%", fontWeight: "bold" }}>Total Tax</td>
+                <td style={{ padding: "4px", textAlign: "right", width: "30%", fontWeight: "bold" }}>Total Amount</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "4px" }}>Sub Total</td>
+                <td style={{ padding: "4px", textAlign: "center" }}>-</td>
                 <td style={{ padding: "4px", textAlign: "right", fontWeight: "bold" }}>{subtotal.toFixed(2)}</td>
               </tr>
               
-              {/* ✅ P&F Charges Row - Always show */}
-              <tr>
-                <td style={{ padding: "4px" }}>P&F Charges</td>
-                <td style={{ padding: "4px", textAlign: "right" }}></td>
-                <td style={{ padding: "4px", textAlign: "right" }}>{(charges?.pf || 0).toFixed(2)}</td>
-              </tr>
+              {/* ✅ P&F Charges Row - Show only if charges exist */}
+              {(charges?.pf || 0) > 0 && (
+                <tr>
+                  <td style={{ padding: "4px" }}>P&F Charges</td>
+                  <td style={{ padding: "4px", textAlign: "center" }}>-</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{( (charges?.pf || 0)).toFixed(2)}</td>
+                </tr>
+              )}
               
-              {/* ✅ Printing Charges Row - Always show */}
-              <tr>
-                <td style={{ padding: "4px" }}>Printing</td>
-                <td style={{ padding: "4px", textAlign: "right" }}></td>
-                <td style={{ padding: "4px", textAlign: "right" }}>{(charges?.printing || 0).toFixed(2)}</td>
-              </tr>
+              {/* ✅ Printing Charges Row - Show only if charges exist */}
+              {(charges?.printing || 0) > 0 && (
+                <tr>
+                  <td style={{ padding: "4px" }}>Printing</td>
+                  <td style={{ padding: "4px", textAlign: "center" }}>-</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0)).toFixed(2)}</td>
+                </tr>
+              )}
               
               {/* Show CGST + SGST + IGST for same state (Chhattisgarh) */}
               {tax.type === 'INTRASTATE' && (
                 <>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : CGST</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.cgstRate} %</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.cgstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "center" }}>{tax.cgstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : SGST</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.sgstRate} %</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.sgstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "center" }}>{tax.sgstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : IGST</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.igstRate} %</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "center" }}>{tax.igstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount + tax.igstAmount).toFixed(2)}</td>
                   </tr>
                 </>
               )}
@@ -272,18 +301,18 @@ const InvoiceDucoTailwind = ({ data }) => {
                 <>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : CGST</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.cgstRate} %</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.cgstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "center" }}>{tax.cgstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : SGST</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.sgstRate} %</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.sgstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "center" }}>{tax.sgstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : IGST</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.igstRate} %</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "center" }}>{tax.igstAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount + tax.igstAmount).toFixed(2)}</td>
                   </tr>
                 </>
               )}
@@ -292,33 +321,33 @@ const InvoiceDucoTailwind = ({ data }) => {
               {tax.type === 'INTERNATIONAL' && (
                 <tr>
                   <td style={{ padding: "4px" }}>Add : TAX</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.taxRate} %</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>{tax.taxAmount.toFixed(2)}</td>
+                  <td style={{ padding: "4px", textAlign: "center" }}>{tax.taxAmount.toFixed(2)}</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.taxAmount).toFixed(2)}</td>
                 </tr>
               )}
               
               {/* Fallback for old invoices without type */}
               {!tax.type && (
                 <>
-                  {tax.sgstRate > 0 && (
-                    <tr>
-                      <td style={{ padding: "4px" }}>Add : SGST</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.sgstRate} %</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>{tax.sgstAmount.toFixed(2)}</td>
-                    </tr>
-                  )}
                   {tax.cgstRate > 0 && (
                     <tr>
                       <td style={{ padding: "4px" }}>Add : CGST</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.cgstRate} %</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>{tax.cgstAmount.toFixed(2)}</td>
+                      <td style={{ padding: "4px", textAlign: "center" }}>{tax.cgstAmount.toFixed(2)}</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount).toFixed(2)}</td>
+                    </tr>
+                  )}
+                  {tax.sgstRate > 0 && (
+                    <tr>
+                      <td style={{ padding: "4px" }}>Add : SGST</td>
+                      <td style={{ padding: "4px", textAlign: "center" }}>{tax.sgstAmount.toFixed(2)}</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + tax.sgstAmount).toFixed(2)}</td>
                     </tr>
                   )}
                   {tax.igstRate > 0 && (
                     <tr>
                       <td style={{ padding: "4px" }}>Add : IGST</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>@ {tax.igstRate} %</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
+                      <td style={{ padding: "4px", textAlign: "center" }}>{tax.igstAmount.toFixed(2)}</td>
+                      <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0) + tax.igstAmount).toFixed(2)}</td>
                     </tr>
                   )}
                 </>
@@ -327,92 +356,183 @@ const InvoiceDucoTailwind = ({ data }) => {
               {/* Round off - always added */}
               {Math.abs(Math.ceil(adjustedTotal) - adjustedTotal) > 0.01 && (
                 <tr>
-                  <td style={{ padding: "4px" }} colSpan="2">Round Off</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>
-                    +{(Math.ceil(adjustedTotal) - adjustedTotal).toFixed(2)}
-                  </td>
+                  <td style={{ padding: "4px" }}>Round Off</td>
+                  <td style={{ padding: "4px", textAlign: "center" }}>+{(Math.ceil(adjustedTotal) - adjustedTotal).toFixed(2)}</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{Math.ceil(adjustedTotal).toFixed(2)}</td>
                 </tr>
               )}
               
-              <tr style={{ borderTop: "1px solid #000", fontWeight: "bold" }}>
-                <td style={{ padding: "4px" }}>Grand Total</td>
-                <td style={{ padding: "4px", textAlign: "right" }}>
+              <tr style={{ borderTop: "2px solid #000", fontWeight: "bold", backgroundColor: "#f5f5f5" }}>
+                <td style={{ padding: "6px" }}>Grand Total</td>
+                <td style={{ padding: "6px", textAlign: "center" }}>
                   {items.reduce((sum, it) => sum + Number(it.qty), 0)} {items[0]?.unit || "Pcs"}.
                 </td>
-                <td style={{ padding: "4px", textAlign: "right" }}>{Math.ceil(adjustedTotal).toFixed(2)}</td>
+                <td style={{ padding: "6px", textAlign: "right" }}>{Math.ceil(adjustedTotal).toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
         </div>
-      </div>
+      </div>{/* TAX BREAKDOWN TABLE */}
+<table
+  style={{
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "11px",
+    marginTop: "10px",
+    border: "1px solid #000",
+  }}
+>
+  <thead>
+    <tr style={{ backgroundColor: "#f5f5f5" }}>
+      <th style={{ border: "1px solid #000", padding: "4px" }}>Tax Rate</th>
+      <th style={{ border: "1px solid #000", padding: "4px" }}>Total Tax</th>
+      {tax.type === "INTRASTATE" && (
+        <>
+          <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
+          <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
+          <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
+        </>
+      )}
+      {tax.type === "INTERSTATE" && (
+        <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
+      )}
+      {tax.type === "INTERNATIONAL" && (
+        <th style={{ border: "1px solid #000", padding: "4px" }}>TAX Amt.</th>
+      )}
+      {!tax.type && (
+        <>
+          <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
+          <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
+        </>
+      )}
+      <th style={{ border: "1px solid #000", padding: "4px" }}>
+        Amount (Incl. Tax)
+      </th>
+    </tr>
+  </thead>
 
-      {/* TAX BREAKDOWN TABLE */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", marginTop: "10px", border: "1px solid #000" }}>
-        <thead>
-          <tr style={{ backgroundColor: "#f5f5f5" }}>
-            <th style={{ border: "1px solid #000", padding: "4px" }}>Tax Rate</th>
-            <th style={{ border: "1px solid #000", padding: "4px" }}>Taxable Amt.</th>
-            {tax.type === 'INTRASTATE' && (
-              <>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
-              </>
-            )}
-            {tax.type === 'INTERSTATE' && (
-              <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
-            )}
-            {tax.type === 'INTERNATIONAL' && (
-              <th style={{ border: "1px solid #000", padding: "4px" }}>TAX Amt.</th>
-            )}
-            {!tax.type && (
-              <>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
-              </>
-            )}
-            <th style={{ border: "1px solid #000", padding: "4px" }}>Total Tax</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "center" }}>
-              {tax.type === 'INTRASTATE' && `${tax.cgstRate + tax.sgstRate + tax.igstRate}%`}
-              {tax.type === 'INTERSTATE' && `${tax.igstRate}%`}
-              {tax.type === 'INTERNATIONAL' && `${tax.taxRate || 1}%`}
-              {!tax.type && `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%`}
-            </td>
-            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
-            
-            {tax.type === 'INTRASTATE' && (
-              <>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.cgstAmount.toFixed(2)}</td>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.sgstAmount.toFixed(2)}</td>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
-              </>
-            )}
-            {tax.type === 'INTERSTATE' && (
-              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.igstAmount.toFixed(2)}</td>
-            )}
-            {tax.type === 'INTERNATIONAL' && (
-              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{tax.taxAmount.toFixed(2)}</td>
-            )}
-            {!tax.type && (
-              <>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{(tax.cgstAmount || 0).toFixed(2)}</td>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{(tax.sgstAmount || 0).toFixed(2)}</td>
-              </>
-            )}
-            
-            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>
-              {tax.type === 'INTRASTATE' && (tax.cgstAmount + tax.sgstAmount + tax.igstAmount).toFixed(2)}
-              {tax.type === 'INTERSTATE' && tax.igstAmount.toFixed(2)}
-              {tax.type === 'INTERNATIONAL' && tax.taxAmount.toFixed(2)}
-              {!tax.type && ((tax.cgstAmount || 0) + (tax.sgstAmount || 0) + (tax.igstAmount || 0)).toFixed(2)}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  <tbody>
+    <tr>
+      {/* Tax Rate */}
+      <td
+        style={{
+          border: "1px solid #000",
+          padding: "4px",
+          textAlign: "center",
+        }}
+      >
+        {tax.type === "INTRASTATE" &&
+          `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%`}
+        {tax.type === "INTERSTATE" && `${tax.igstRate || 0}%`}
+        {tax.type === "INTERNATIONAL" && `${tax.taxRate || 1}%`}
+        {!tax.type &&
+          `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%`}
+      </td>
+
+      {/* 2nd column: Total Tax */}
+      <td
+        style={{
+          border: "1px solid #000",
+          padding: "4px",
+          textAlign: "right",
+        }}
+      >
+        {totalTaxAmount.toFixed(2)}
+      </td>
+
+      {/* Per‑tax columns */}
+      {tax.type === "INTRASTATE" && (
+        <>
+          <td
+            style={{
+              border: "1px solid #000",
+              padding: "4px",
+              textAlign: "right",
+            }}
+          >
+            {Number(tax.cgstAmount || 0).toFixed(2)}
+          </td>
+          <td
+            style={{
+              border: "1px solid #000",
+              padding: "4px",
+              textAlign: "right",
+            }}
+          >
+            {Number(tax.sgstAmount || 0).toFixed(2)}
+          </td>
+          <td
+            style={{
+              border: "1px solid #000",
+              padding: "4px",
+              textAlign: "right",
+            }}
+          >
+            {Number(tax.igstAmount || 0).toFixed(2)}
+          </td>
+        </>
+      )}
+
+      {tax.type === "INTERSTATE" && (
+        <td
+          style={{
+            border: "1px solid #000",
+            padding: "4px",
+            textAlign: "right",
+          }}
+        >
+          {Number(tax.igstAmount || 0).toFixed(2)}
+        </td>
+      )}
+
+      {tax.type === "INTERNATIONAL" && (
+        <td
+          style={{
+            border: "1px solid #000",
+            padding: "4px",
+            textAlign: "right",
+          }}
+        >
+          {Number(tax.taxAmount || 0).toFixed(2)}
+        </td>
+      )}
+
+      {!tax.type && (
+        <>
+          <td
+            style={{
+              border: "1px solid #000",
+              padding: "4px",
+              textAlign: "right",
+            }}
+          >
+            {Number(tax.cgstAmount || 0).toFixed(2)}
+          </td>
+          <td
+            style={{
+              border: "1px solid #000",
+              padding: "4px",
+              textAlign: "right",
+            }}
+          >
+            {Number(tax.sgstAmount || 0).toFixed(2)}
+          </td>
+        </>
+      )}
+
+      {/* Last column: Amount including tax */}
+      <td
+        style={{
+          border: "1px solid #000",
+          padding: "4px",
+          textAlign: "right",
+        }}
+      >
+        {amountInclTax.toFixed(2)}
+      </td>
+    </tr>
+  </tbody>
+</table>
 
       {/* AMOUNT IN WORDS */}
       <div style={{ marginTop: "10px", fontSize: "11px", fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: "10px" }}>

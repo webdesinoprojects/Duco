@@ -30,8 +30,8 @@ const EmployessLayout = () => {
     
     // Order Manager sections
     { path: "/employees/bulkorder", label: "Bulk Orders", icon: "📦", permission: "manageBulkOrder" },
-    { path: "/employees/order", label: "Manage Orders", icon: "📋", permission: "manageOrder" },
-    { path: "/employees/logistics", label: "Logistics", icon: "🚚", permission: "logistics" },
+    { path: "/employees/order", label: "B2C Orders", icon: "📋", permission: "manageOrder" },
+    { path: "/employees/logistics", label: "B2B Logistics", icon: "🚚", permission: "logistics" },
     { path: "/employees/moneyset", label: "Set Money", icon: "💰", permission: "setMoney" },
     { path: "/employees/charges", label: "Charges Plan", icon: "💳", permission: "chargesPlan" },
     { path: "/employees/corporate-settings", label: "Corporate Settings", icon: "⚙️", permission: "corporateSettings" },

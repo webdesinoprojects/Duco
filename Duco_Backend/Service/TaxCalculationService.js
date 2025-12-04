@@ -75,9 +75,11 @@ function isInIndia(location) {
  * Calculate tax based on location
  * 
  * Rules (Updated for B2B and B2C):
- * 1. Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% + IGST 0% = 5% total
- * 2. Different state in India: CGST 0% + SGST 0% + IGST 5% = 5% total
- * 3. Outside India: TAX 1% (no GST)
+ * B2C Orders: NO TAX (0%)
+ * B2B Orders:
+ * 1. Same state (Chhattisgarh): CGST 9% + SGST 9% + IGST 0% = 18% total
+ * 2. Different state in India: CGST 0% + SGST 0% + IGST 18% = 18% total
+ * 3. Outside India: TAX 18%
  * 
  * @param {number} amount - Taxable amount
  * @param {string} customerState - Customer's state
@@ -88,15 +90,36 @@ function isInIndia(location) {
 function calculateTax(amount, customerState = '', customerCountry = '', isB2B = false) {
   const taxableAmount = Number(amount) || 0;
   
+  // ✅ B2C Orders: NO TAX
+  if (!isB2B) {
+    return {
+      type: 'B2C_NO_TAX',
+      taxRate: 0,
+      cgstRate: 0,
+      sgstRate: 0,
+      igstRate: 0,
+      taxAmount: 0,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalTax: 0,
+      label: 'No Tax (B2C)',
+      isSameState: false,
+      isIndia: true,
+      isB2B: false
+    };
+  }
+  
+  // ✅ B2B Orders: Apply 18% GST
   // Check if customer is in India
   const inIndia = isInIndia(customerCountry) || isInIndia(customerState);
   
   if (!inIndia) {
-    // Outside India: 1% TAX (no GST)
-    const taxAmount = (taxableAmount * 1) / 100;
+    // Outside India: 18% TAX
+    const taxAmount = (taxableAmount * 18) / 100;
     return {
       type: 'INTERNATIONAL',
-      taxRate: 1,
+      taxRate: 18,
       cgstRate: 0,
       sgstRate: 0,
       igstRate: 0,
@@ -105,10 +128,10 @@ function calculateTax(amount, customerState = '', customerCountry = '', isB2B = 
       sgstAmount: 0,
       igstAmount: 0,
       totalTax: taxAmount,
-      label: 'TAX (1%)',
+      label: 'TAX (18%)',
       isSameState: false,
       isIndia: false,
-      isB2B: isB2B
+      isB2B: true
     };
   }
   
@@ -117,50 +140,50 @@ function calculateTax(amount, customerState = '', customerCountry = '', isB2B = 
   const isSameState = custState === COMPANY_STATE;
   
   if (isSameState) {
-    // Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% + IGST 0% = 5%
-    const cgstAmount = (taxableAmount * 2.5) / 100;
-    const sgstAmount = (taxableAmount * 2.5) / 100;
+    // Same state (Chhattisgarh): CGST 9% + SGST 9% + IGST 0% = 18%
+    const cgstAmount = (taxableAmount * 9) / 100;
+    const sgstAmount = (taxableAmount * 9) / 100;
     const igstAmount = 0;
     const totalTax = cgstAmount + sgstAmount + igstAmount;
     
     return {
       type: 'INTRASTATE',
-      taxRate: 5,
-      cgstRate: 2.5,
-      sgstRate: 2.5,
+      taxRate: 18,
+      cgstRate: 9,
+      sgstRate: 9,
       igstRate: 0,
       taxAmount: 0,
       cgstAmount: cgstAmount,
       sgstAmount: sgstAmount,
       igstAmount: igstAmount,
       totalTax: totalTax,
-      label: 'GST (5%)',
+      label: 'GST (18%)',
       isSameState: true,
       isIndia: true,
-      isB2B: isB2B
+      isB2B: true
     };
   } else {
-    // Different state in India: CGST 0% + SGST 0% + IGST 5% = 5%
+    // Different state in India: CGST 0% + SGST 0% + IGST 18% = 18%
     const cgstAmount = 0;
     const sgstAmount = 0;
-    const igstAmount = (taxableAmount * 5) / 100;
+    const igstAmount = (taxableAmount * 18) / 100;
     const totalTax = cgstAmount + sgstAmount + igstAmount;
     
     return {
       type: 'INTERSTATE',
-      taxRate: 5,
+      taxRate: 18,
       cgstRate: 0,
       sgstRate: 0,
-      igstRate: 5,
+      igstRate: 18,
       taxAmount: 0,
       cgstAmount: cgstAmount,
       sgstAmount: sgstAmount,
       igstAmount: igstAmount,
       totalTax: totalTax,
-      label: 'GST (5%)',
+      label: 'GST (18%)',
       isSameState: false,
       isIndia: true,
-      isB2B: isB2B
+      isB2B: true
     };
   }
 }

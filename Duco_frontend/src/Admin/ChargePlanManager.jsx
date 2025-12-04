@@ -284,7 +284,8 @@ const simulate = async () => {
   setPreview(null);
   setError("");
   try {
-    const res = await fetch(`${API_BASE}/api/chargeplan/totals?qty=${qty}`);
+    const subtotal = window._simulatorSubtotal || 0;
+    const res = await fetch(`${API_BASE}/api/chargeplan/totals?qty=${qty}&subtotal=${subtotal}`);
     const json = await res.json();
     if (json.success) setPreview(json.data);
     else setError(json.error || "Failed to simulate");
@@ -460,6 +461,18 @@ const simulate = async () => {
           />
         </div>
 
+        {/* GST (Percentage) - Read Only for now */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <ReadOnlyTierList
+            title="GST Rate (%) — Current"
+            rows={(plan.gst || []).map(g => ({ minqty: g.minqty, maxqty: g.maxqty, cost: g.percent + '%' }))}
+          />
+          <ReadOnlyTierList
+            title="GST Rate — Saved on server"
+            rows={(savedPlan.gst || []).map(g => ({ minqty: g.minqty, maxqty: g.maxqty, cost: g.percent + '%' }))}
+          />
+        </div>
+
         
         {/* Simulator */}
 <section className={classNames(card, "bg-black/20 border-gray-800 mt-6")}>
@@ -478,6 +491,21 @@ const simulate = async () => {
         style={{ borderColor: "#374151" }}
       />
     </label>
+    <label className="text-sm">
+      <span className="block text-gray-300 mb-1">Subtotal (₹)</span>
+      <input
+        type="number"
+        min={0}
+        step={0.01}
+        defaultValue={0}
+        onChange={(e) => {
+          // Store subtotal for simulator
+          window._simulatorSubtotal = Number(e.target.value) || 0;
+        }}
+        className="bg-transparent border rounded px-3 py-2 focus:outline-none focus:ring-1"
+        style={{ borderColor: "#374151" }}
+      />
+    </label>
     <button
       onClick={simulate}
       className="px-4 py-2 rounded-xl font-medium"
@@ -487,28 +515,56 @@ const simulate = async () => {
     </button>
   </div>
 
+  {error && (
+    <div className="mt-3 p-3 rounded-lg bg-rose-900/30 border border-rose-700 text-rose-200 text-sm">
+      {error}
+    </div>
+  )}
+
   {preview && (
-    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="p-4 rounded-xl bg-gray-900/50">
-        <div className="text-xs text-gray-400">Qty</div>
-        <div className="text-xl font-semibold">{preview.qty}</div>
+    <div className="mt-4 space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 rounded-xl bg-gray-900/50">
+          <div className="text-xs text-gray-400">Quantity</div>
+          <div className="text-xl font-semibold">{preview.qty} units</div>
+        </div>
+        <div className="p-4 rounded-xl bg-gray-900/50">
+          <div className="text-xs text-gray-400">Subtotal</div>
+          <div className="text-lg">₹{preview.totals?.subtotal?.toFixed(2) || '0.00'}</div>
+        </div>
+        <div className="p-4 rounded-xl bg-gray-900/50">
+          <div className="text-xs text-gray-400">P&F (per-unit)</div>
+          <div className="text-lg">₹{preview.perUnit?.pakageingandforwarding?.toFixed(2) || '0.00'}</div>
+        </div>
+        <div className="p-4 rounded-xl bg-gray-900/50">
+          <div className="text-xs text-gray-400">Printing (per-unit)</div>
+          <div className="text-lg">₹{preview.perUnit?.printingcost?.toFixed(2) || '0.00'}</div>
+        </div>
       </div>
-      <div className="p-4 rounded-xl bg-gray-900/50">
-        <div className="text-xs text-gray-400">Packaging & Fwd (per-unit)</div>
-        <div className="text-lg">{preview.perUnit?.pakageingandforwarding}</div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 rounded-xl bg-gray-900/50">
+          <div className="text-xs text-gray-400">P&F Total</div>
+          <div className="text-lg font-semibold">₹{preview.totals?.pakageingandforwarding?.toFixed(2) || '0.00'}</div>
+        </div>
+        <div className="p-4 rounded-xl bg-gray-900/50">
+          <div className="text-xs text-gray-400">Printing Total</div>
+          <div className="text-lg font-semibold">₹{preview.totals?.printingcost?.toFixed(2) || '0.00'}</div>
+        </div>
+        <div className="p-4 rounded-xl bg-gray-900/50">
+          <div className="text-xs text-gray-400">GST Rate</div>
+          <div className="text-lg font-semibold">{preview.totals?.gstPercent?.toFixed(2) || '0.00'}%</div>
+        </div>
+        <div className="p-4 rounded-xl bg-gray-900/50">
+          <div className="text-xs text-gray-400">GST Amount</div>
+          <div className="text-lg font-semibold">₹{preview.totals?.gstAmount?.toFixed(2) || '0.00'}</div>
+        </div>
       </div>
-      <div className="p-4 rounded-xl bg-gray-900/50">
-        <div className="text-xs text-gray-400">Printing (per-unit)</div>
-        <div className="text-lg">{preview.perUnit?.printingcost}</div>
-      </div>
-      <div className="p-4 rounded-xl bg-gray-900/50">
-        <div className="text-xs text-gray-400">GST (per-unit)</div>
-        <div className="text-lg">{preview.perUnit?.gst}</div>
-      </div>
-      <div className="p-4 rounded-xl bg-gray-900/50 sm:col-span-2 lg:col-span-4">
+
+      <div className="p-4 rounded-xl bg-gray-900/50 border" style={{ borderColor: ACCENT }}>
         <div className="text-xs text-gray-400">Grand Total</div>
-        <div className="text-2xl font-bold" style={{ color: ACCENT }}>
-          {preview.totals?.grandTotal}
+        <div className="text-3xl font-bold" style={{ color: ACCENT }}>
+          ₹{preview.totals?.grandTotal?.toFixed(2) || '0.00'}
         </div>
       </div>
     </div>
