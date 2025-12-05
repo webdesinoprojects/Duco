@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getLogisticsByOrder } from "../../Service/logisticsApi";
 
 const SIZE_ORDER = ["S", "M", "L", "XL", "2XL", "3XL"];
 
@@ -32,6 +33,8 @@ const OrderDetailsCard = ({ orderId }) => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allProducts, setAllProducts] = useState([]); // ✅ store all products
+  const [logistics, setLogistics] = useState([]); // ✅ store logistics data
+  const [logisticsLoading, setLogisticsLoading] = useState(false);
 
   const statusOptions = [
     "Pending",
@@ -106,6 +109,25 @@ const OrderDetailsCard = ({ orderId }) => {
     };
     fetchProducts();
   }, []);
+
+  // ✅ Fetch logistics data for B2B orders
+  useEffect(() => {
+    const fetchLogistics = async () => {
+      if (!orderId) return;
+      try {
+        setLogisticsLoading(true);
+        const data = await getLogisticsByOrder(orderId, { populate: true });
+        console.log('📦 Logistics data fetched:', data);
+        setLogistics(Array.isArray(data) ? data : (data?.logistics ?? []));
+      } catch (err) {
+        console.error("❌ Failed to fetch logistics:", err);
+        setLogistics([]);
+      } finally {
+        setLogisticsLoading(false);
+      }
+    };
+    fetchLogistics();
+  }, [orderId]);
 
   if (loading) return <div className="p-4 text-center">Loading...</div>;
   if (!order) return <div className="p-4 text-center">Order not found</div>;
@@ -421,6 +443,97 @@ const OrderDetailsCard = ({ orderId }) => {
           })}
         </div>
       </div>
+
+      {/* ✅ Logistics Section for B2B Orders */}
+      {order?.isCorporate && (
+        <div className="border-t pt-6 mt-6">
+          <h3 className="text-lg font-semibold mb-4">📦 Logistics & Shipping</h3>
+          
+          {logisticsLoading ? (
+            <div className="text-center py-4 text-gray-500">Loading logistics data...</div>
+          ) : logistics.length === 0 ? (
+            <div className="text-center py-4 text-gray-500">No logistics information available</div>
+          ) : (
+            <div className="space-y-6">
+              {logistics.map((logistic, idx) => (
+                <div key={idx} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  {/* Logistics Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Tracking Number</p>
+                      <p className="font-semibold text-gray-900">{logistic.trackingNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Carrier</p>
+                      <p className="font-semibold text-gray-900">{logistic.carrier || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Estimated Delivery</p>
+                      <p className="font-semibold text-gray-900">
+                        {logistic.estimatedDelivery 
+                          ? new Date(logistic.estimatedDelivery).toLocaleDateString('en-IN')
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Status</p>
+                      <p className="font-semibold text-gray-900">
+                        {logistic.speedLogistics ? '⚡ Speed Logistics' : 'Standard'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Shipping Address */}
+                  {logistic.shippingAddress && (
+                    <div className="mb-4 pb-4 border-b border-gray-200">
+                      <p className="text-sm text-gray-600 mb-1">Shipping Address</p>
+                      <p className="text-gray-900 text-sm">{logistic.shippingAddress}</p>
+                    </div>
+                  )}
+
+                  {/* Logistics Images */}
+                  {logistic.img && logistic.img.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 mb-3">📸 Logistics Photos</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {logistic.img.map((imgObj, imgIdx) => {
+                          const imgUrl = typeof imgObj === 'string' ? imgObj : imgObj?.URL;
+                          return imgUrl ? (
+                            <div key={imgIdx} className="relative group">
+                              <img
+                                src={imgUrl}
+                                alt={`Logistics photo ${imgIdx + 1}`}
+                                className="w-full h-24 object-cover rounded-lg border border-gray-300 hover:border-blue-500 transition"
+                              />
+                              <a
+                                href={imgUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition rounded-lg"
+                                title="View full image"
+                              >
+                                <span className="text-white opacity-0 group-hover:opacity-100 transition">👁️</span>
+                              </a>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Note */}
+                  {logistic.note && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-sm text-gray-600 mb-1">Note</p>
+                      <p className="text-gray-900 text-sm">{logistic.note}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

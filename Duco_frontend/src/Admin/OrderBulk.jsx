@@ -255,7 +255,7 @@ const OderSection = () => {
   const fetchOrders = async () => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
-      const res = await fetch(`${API_BASE}/api/order?page=1&limit=50`);
+      const res = await fetch(`${API_BASE}/api/order?page=1&limit=50&orderType=B2B`);
       
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -271,7 +271,7 @@ const OderSection = () => {
         setOrders([]);
       }
     } catch (err) {
-      console.error("❌ Failed to fetch orders", err);
+      console.error("❌ Failed to fetch B2B orders", err);
       setOrders([]);
     } finally {
       setLoading(false);

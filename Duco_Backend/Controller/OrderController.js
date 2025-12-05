@@ -227,17 +227,24 @@ exports.getAllOrders = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 50, 100); // Cap at 100
     const skip = (page - 1) * limit;
+    
+    // ✅ Support filtering by orderType (B2B or B2C)
+    const orderType = req.query.orderType; // 'B2B' or 'B2C'
+    const filter = {};
+    if (orderType && ['B2B', 'B2C'].includes(orderType)) {
+      filter.orderType = orderType;
+    }
 
-    console.log(`📦 Fetching orders: page ${page}, limit ${limit}`);
+    console.log(`📦 Fetching orders: page ${page}, limit ${limit}, filter: ${JSON.stringify(filter)}`);
 
     try {
       // Get total count with timeout
-      const totalOrders = await Order.countDocuments().maxTimeMS(5000);
+      const totalOrders = await Order.countDocuments(filter).maxTimeMS(5000);
       console.log(`📦 Total orders in DB: ${totalOrders}`);
 
       // ✅ Fetch orders with proper sorting (newest first)
       console.log(`📦 Executing find query with sort...`);
-      const orders = await Order.find()
+      const orders = await Order.find(filter)
         .sort({ createdAt: -1 }) // ✅ Sort by newest first BEFORE pagination
         .limit(limit)
         .skip(skip)

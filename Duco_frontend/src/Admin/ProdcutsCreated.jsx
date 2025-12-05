@@ -154,16 +154,6 @@ const ProductsCreated = () => {
     setFormData({ ...formData, Desciptions: updated });
   };
 
-  const addPricingField = () => {
-    setFormData({
-      ...formData,
-      pricing: [
-        ...formData.pricing,
-        { quantity: "", price_per: "", discount: 0 },
-      ],
-    });
-  };
-
   const addDescriptionField = () => {
     setFormData({
       ...formData,
@@ -462,13 +452,6 @@ const ProductsCreated = () => {
                 />
               </div>
             ))}
-            <button
-              type="button"
-              onClick={addPricingField}
-              className="text-sm text-blue-600 font-medium"
-            >
-              + Add Price Tier
-            </button>
           </>
         )}
 
