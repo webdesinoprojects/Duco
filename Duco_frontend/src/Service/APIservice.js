@@ -188,9 +188,15 @@ export async function completeOrder(paymentId, paymentmode, orderData) {
 }
 
 /* ------------------------------- BANNERS ------------------------------- */
-export async function createBanner(link) {
+export async function createBanner(link, heroText, buttonText, buttonLink, type) {
   try {
-    const { data } = await axios.post(`${API_BASE}api/banners`, { link });
+    const { data } = await axios.post(`${API_BASE}api/banners`, { 
+      link,
+      heroText: heroText || "Color Of Summer Outfit",
+      buttonText: buttonText || "Shop the Look →",
+      buttonLink: buttonLink || "/women",
+      type: type || 'hero'
+    });
     return { success: true, data: data.banner, error: null };
   } catch (err) {
     const message =
@@ -210,13 +216,30 @@ export async function listBanners() {
   }
 }
 
-export async function updateBanner(id, link) {
+export async function updateBanner(id, link, heroText, buttonText, buttonLink, type) {
   try {
-    const { data } = await axios.put(`${API_BASE}api/banners/${id}`, { link });
+    const { data } = await axios.put(`${API_BASE}api/banners/${id}`, { 
+      link,
+      heroText: heroText || "Color Of Summer Outfit",
+      buttonText: buttonText || "Shop the Look →",
+      buttonLink: buttonLink || "/women",
+      type: type || 'hero'
+    });
     return { success: true, data: data.banner, error: null };
   } catch (err) {
     const message =
       err.response?.data?.error || err.message || "Failed to update banner";
+    return { success: false, data: null, error: message };
+  }
+}
+
+export async function deleteBanner(id) {
+  try {
+    const { data } = await axios.delete(`${API_BASE}api/banners/${id}`);
+    return { success: true, data: null, error: null };
+  } catch (err) {
+    const message =
+      err.response?.data?.error || err.message || "Failed to delete banner";
     return { success: false, data: null, error: message };
   }
 }

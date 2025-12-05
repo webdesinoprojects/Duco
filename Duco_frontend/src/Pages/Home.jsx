@@ -30,7 +30,15 @@ const continentMapping = {
 const Home = () => {
   const { setLocation } = usePriceContext();
   const [banner, setBanner] = useState("");
+  const [heroData, setHeroData] = useState({
+    text: "Color Of Summer Outfit",
+    buttonText: "Shop the Look →",
+    buttonLink: "/women"
+  });
   const [loading, setLoading] = useState(true);
+  const [allBanners, setAllBanners] = useState([]);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   // List of local videos for floating carousel
   const [videoList] = useState([
@@ -39,6 +47,39 @@ const Home = () => {
     "/icons/vid3.mp4",
     "/icons/vid4.mp4",
   ]);
+
+  // Function to get random banner
+  const getRandomBanner = (banners) => {
+    if (!banners || banners.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * banners.length);
+    return banners[randomIndex];
+  };
+
+  // Function to update banner display with animation
+  const updateBannerDisplay = (bannerToDisplay) => {
+    // Start fade out animation
+    setIsAnimating(true);
+    
+    // Wait for fade out, then update content
+    setTimeout(() => {
+      if (bannerToDisplay?.link) {
+        setBanner(bannerToDisplay.link);
+        console.log('🎨 Hero banner set:', bannerToDisplay.link);
+      }
+      
+      if (bannerToDisplay?.heroText) {
+        setHeroData({
+          text: bannerToDisplay.heroText,
+          buttonText: bannerToDisplay.buttonText || "Shop the Look →",
+          buttonLink: bannerToDisplay.buttonLink || "/women"
+        });
+        console.log('🎨 Hero data updated:', bannerToDisplay);
+      }
+      
+      // Start fade in animation
+      setIsAnimating(false);
+    }, 500); // Half second for fade out
+  };
 
   useEffect(() => {
     console.log('Home component mounted');
@@ -62,10 +103,19 @@ const Home = () => {
     const fetchBanner = async () => {
       try {
         const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-        console.log('🎨 Fetching banner from:', `${apiUrl}/api/banners`);
+        console.log('🎨 Fetching banners from:', `${apiUrl}/api/banners`);
         const res = await axios.get(`${apiUrl}/api/banners`);
         console.log('🎨 Banner response:', res.data);
-        setBanner(res.data.banners?.[0]?.link || "");
+        
+        const banners = res.data.banners || [];
+        setAllBanners(banners);
+        
+        if (banners.length > 0) {
+          // Get random banner for initial display
+          const randomBanner = getRandomBanner(banners);
+          updateBannerDisplay(randomBanner);
+          console.log(`🎨 Displaying random banner (${banners.length} total)`);
+        }
       } catch (err) {
         console.error("Failed to fetch banner data:", err);
         setBanner("");
@@ -76,9 +126,28 @@ const Home = () => {
     fetchBanner();
   }, [setLocation]);
 
+  // Auto-rotate banners every 4-5 seconds with animation
+  useEffect(() => {
+    if (allBanners.length === 0) return;
+
+    const interval = setInterval(() => {
+      const randomBanner = getRandomBanner(allBanners);
+      updateBannerDisplay(randomBanner);
+      console.log('🎨 Auto-rotating to random banner');
+    }, 4500); // Change banner every 4.5 seconds (includes animation time)
+
+    return () => clearInterval(interval);
+  }, [allBanners]);
+
   return (
     <div className='h-full bg-[#0A0A0A] w-full text-white'>
-      <SectionHome1 imglink={banner} />
+      <SectionHome1 
+        imglink={banner}
+        heroText={heroData.text}
+        buttonText={heroData.buttonText}
+        buttonLink={heroData.buttonLink}
+        isAnimating={isAnimating}
+      />
       <SectionHome2 />
       <BannerHome link={"https://ik.imagekit.io/vuavxn05l/5213288.jpg?updatedAt=1757162698605"} />
       <TrendingHome />

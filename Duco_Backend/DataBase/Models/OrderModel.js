@@ -219,5 +219,6 @@ OrderSchema.index({ createdAt: -1 }); // Index for sorting by creation date (new
 OrderSchema.index({ user: 1, createdAt: -1 }); // Compound index for user orders
 OrderSchema.index({ orderId: 1 }); // Index for order ID lookups
 OrderSchema.index({ printroveOrderId: 1 }); // Index for Printrove order lookups
+OrderSchema.index({ orderType: 1, createdAt: -1 }); // Index for filtering by orderType (B2B/B2C)
 
 module.exports = mongoose.model('Order', OrderSchema);

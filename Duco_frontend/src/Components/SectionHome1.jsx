@@ -1,11 +1,17 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import heroImg from '../assets/20250624_0035_Vibrant Court Relaxation_remix_01jyf2tnt9es2vn3cs02bzdyzz.png'; // Adjust the path as necessary
 import firstImg from "../assets/gloomy-young-black-model-clean-white-unlabeled-cotton-t-shirt-removebg-preview.png"
 import secondImg from "../assets/pleased-young-handsome-guy-wearing-black-t-shirt-points-up-putting-hand-hip-isolated-white-wall-removebg-preview.png"
 import { Link } from 'react-router-dom';
 
 
-const SectionHome1 = ({imglink}) => {
+const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText = "Shop the Look →", buttonLink = "/women", isAnimating = false}) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  useEffect(() => {
+    // Reset image loaded state when imglink changes
+    setImageLoaded(false);
+  }, [imglink]);
 
   return (
     <>
@@ -13,20 +19,27 @@ const SectionHome1 = ({imglink}) => {
   <div className="max-w-screen-xl mx-auto flex flex-col md:flex-row gap-3">
 
     {/* Left big image */}
-    <Link to={"/women"} className="relative w-full md:w-[70%] rounded-2xl overflow-hidden max-h-[600px] min-h-[400px] bg-gray-800">
+    <Link to={buttonLink} className={`relative w-full md:w-[70%] rounded-2xl overflow-hidden max-h-[600px] min-h-[400px] bg-gray-800 transition-opacity duration-500 ${isAnimating ? 'opacity-30' : 'opacity-100'}`}>
       <img
         src={imglink || heroImg}
         alt="Main Visual"
         className="w-full h-full object-cover rounded-2xl"
+        onLoad={() => setImageLoaded(true)}
+        onError={() => setImageLoaded(true)}
       />
       
       {/* Text Overlay */}
-      <div className="absolute top-8 left-6 z-10 text-white">
+      <div className={`absolute top-8 left-6 z-10 text-white transition-opacity duration-500 ${isAnimating ? 'opacity-30' : 'opacity-100'}`}>
         <p className="text-4xl md:text-6xl font-semibold leading-tight md:leading-[3.2rem]">
-          Color Of <br /> Summer <br /> Outfit
+          {heroText.split('\n').map((line, idx) => (
+            <React.Fragment key={idx}>
+              {line}
+              {idx < heroText.split('\n').length - 1 && <br />}
+            </React.Fragment>
+          ))}
         </p>
-        <button className="mt-4 px-6 py-2 bg-[#E5C870] text-black rounded-full shadow-lg text-sm md:text-base">
-          Shop the Look →
+        <button className="mt-4 px-6 py-2 bg-[#E5C870] text-black rounded-full shadow-lg text-sm md:text-base hover:bg-[#d4b860] transition-colors">
+          {buttonText}
         </button>
       </div>
 
