@@ -112,13 +112,26 @@ function buildInvoiceItems(products, { hsn = '7307', unit = 'Pcs.' } = {}) {
   (products || []).forEach((p) => {
     const qty = sumQuantity(p.quantity);
     if (!qty) return;
+    
+    // ✅ Priority: pricing array (actual product price) > p.price (cart price)
+    let itemPrice = 0;
+    if (p.pricing && Array.isArray(p.pricing) && p.pricing.length > 0) {
+      itemPrice = safeNum(p.pricing[0]?.price_per, 0);
+    }
+    // Fallback to p.price if pricing array doesn't have valid price
+    if (itemPrice === 0) {
+      itemPrice = safeNum(p.price, 0);
+    }
+    
+    console.log(`📦 Invoice item: ${p.products_name || p.name || 'Item'} - Price: ${itemPrice} (from ${p.pricing ? 'pricing array' : 'p.price'})`);
+    
     items.push({
-      description: p.products_name || 'Item',
+      description: p.products_name || p.name || 'Item',
       barcode: p._id || '',
       hsn,
       qty,
       unit,
-      price: safeNum(p.price, 0),
+      price: itemPrice,
     });
   });
   return items;

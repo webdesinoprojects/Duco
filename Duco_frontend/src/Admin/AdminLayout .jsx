@@ -124,6 +124,9 @@ const AdminLayout = () => {
           <Link to="bannersetup" className="block hover:text-blue-300">
             Banner
           </Link>
+          <Link to="landing-page" className="block hover:text-blue-300">
+            Landing Page
+          </Link>
           <Link to="blog" className="block hover:text-blue-300">
             Blog
           </Link>

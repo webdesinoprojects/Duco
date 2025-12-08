@@ -295,10 +295,22 @@ const Cart = () => {
 
   // ✅ Dynamic Currency Formatter (prices are already location-adjusted at item level)
   const formatCurrency = (num) => {
-    const formatted = `${currencySymbol}${Math.round(safeNum(num, 0))
-      .toString()
-      .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-    console.log(`💱 formatCurrency: ${num} → ${formatted} (symbol: ${currencySymbol})`);
+    const value = safeNum(num, 0);
+    const isINR = currencySymbol === '₹' || !currencySymbol;
+    
+    let formatted;
+    if (isINR) {
+      // INR: Round to whole numbers (₹10, ₹100)
+      formatted = `${currencySymbol}${Math.round(value)
+        .toString()
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+    } else {
+      // International: Show 2 decimal places (€10.50, $25.00)
+      formatted = `${currencySymbol}${value.toFixed(2)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+    }
+    
+    console.log(`💱 formatCurrency: ${num} → ${formatted} (symbol: ${currencySymbol}, isINR: ${isINR})`);
     return formatted;
   };
 
@@ -321,20 +333,31 @@ const Cart = () => {
       const symbol = currencySymbols[currency] || "₹";
       setCurrencySymbol(symbol);
       console.log("💱 Currency symbol set to:", symbol);
+      
+      // ✅ For INR (India), always use conversion rate of 1
+      if (currency === 'INR') {
+        setConversionRate(1);
+        console.log("💰 INR detected - using conversion rate: 1");
+        return;
+      }
     } else {
       console.log("⚠️ No currency set, keeping default ₹");
       setCurrencySymbol("₹");
+      // ✅ Default to INR with no conversion
+      setConversionRate(1);
+      console.log("💰 No currency - using default conversion rate: 1");
+      return;
     }
     
-    // Set conversion rate
-    if (toConvert) {
+    // Set conversion rate for non-INR currencies
+    if (toConvert && toConvert !== 1) {
       setConversionRate(Number(toConvert));
       console.log("💰 Using conversion rate from PriceContext:", toConvert);
     } else {
-      // Fallback to localStorage
+      // Fallback to localStorage only for non-INR
       try {
         const cached = JSON.parse(localStorage.getItem("locationPricing"));
-        if (cached && cached.currency?.toconvert) {
+        if (cached && cached.currency?.toconvert && cached.currency?.code !== 'INR') {
           setConversionRate(Number(cached.currency.toconvert));
           console.log("💰 Using conversion rate from localStorage:", cached.currency.toconvert);
         } else {
@@ -413,23 +436,45 @@ const Cart = () => {
   }, [products]);
 
   const actualData = useMemo(() => {
-    if (!cart.length) return [];
-    return cart.map((ci) => {
+    console.log('🔄 Computing actualData:', { cartLength: cart.length, productsLength: products.length });
+    
+    if (!cart.length) {
+      console.warn('⚠️ Cart is empty!');
+      return [];
+    }
+    
+    const result = cart.map((ci) => {
       const p = products.find((x) => x._id === ci.id);
-      const merged = p ? { ...p, ...ci } : ci;
       
-      // ✅ Ensure price is set - try multiple sources
-      if (!merged.price || merged.price === 0) {
-        if (p?.pricing && Array.isArray(p.pricing) && p.pricing.length > 0) {
-          merged.price = p.pricing[0]?.price_per || 0;
-          console.log(`🔧 Fixed price for ${merged.products_name || merged.name}: ${merged.price}`);
-        } else if (ci.price) {
-          merged.price = ci.price;
-        }
+      // Merge product data with cart item data
+      // Cart item data takes priority (spread last)
+      const merged = p ? { ...p, ...ci } : { ...ci };
+      
+      // ✅ CRITICAL: Ensure price is preserved from cart item
+      // The cart item should have the price that was set when added to cart
+      if (ci.price !== undefined && ci.price !== null) {
+        merged.price = ci.price;
       }
+      
+      // If still no price, try to get from product pricing array
+      if (!merged.price && p?.pricing && Array.isArray(p.pricing) && p.pricing.length > 0) {
+        merged.price = p.pricing[0]?.price_per || 0;
+      }
+      
+      console.log('🔍 Merged item:', {
+        id: ci.id,
+        name: merged.products_name || merged.name,
+        cartPrice: ci.price,
+        mergedPrice: merged.price,
+        quantity: merged.quantity,
+        foundProduct: !!p
+      });
       
       return merged;
     });
+    
+    console.log('✅ actualData computed:', result.length, 'items');
+    return result;
   }, [cart, products]);
 
   /* ---------- Quantity & Costs ---------- */
@@ -474,87 +519,65 @@ const Cart = () => {
   };
 
   const itemsSubtotal = useMemo(() => {
-    console.log('💰 Calculating itemsSubtotal with:', {
+    console.log('💰 Calculating itemsSubtotal:', {
       actualDataLength: actualData.length,
-      priceIncrease,
-      conversionRate,
-      currencySymbol
+      cartLength: cart.length,
+      actualData: actualData.map(i => ({ id: i.id, price: i.price, pricing: i.pricing, qty: i.quantity }))
     });
     
-    return actualData.reduce((sum, item) => {
-      console.log('🔍 Processing item:', {
-        id: item.id,
-        name: item.name || item.products_name,
-        price: item.price,
-        pricingArray: item.pricing,
-        quantity: item.quantity,
-        isCustomItem: item.id && item.id.startsWith('custom-tshirt-')
-      });
+    if (!actualData.length) {
+      console.warn('⚠️ actualData is empty!');
+      return 0;
+    }
+    
+    let total = 0;
+    
+    for (const item of actualData) {
+      // Get quantity
+      const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
       
-      const qty = Object.values(item.quantity || {}).reduce(
-        (a, q) => a + safeNum(q),
-        0
-      );
+      if (qty === 0) {
+        console.log(`⚠️ Item ${item.products_name || item.name} has 0 quantity`);
+        continue;
+      }
       
-      console.log('🔍 Calculated quantity:', qty);
-      
-      // ✅ ALWAYS use pricing array from database for base INR price (not item.price which might be converted)
+      // ✅ Get price - Priority: pricing array (actual product price) > item.price (cart price)
+      // The pricing array contains the actual product price from the database
       let basePrice = 0;
       
-      // Check if item is from TShirtDesigner (custom item with already applied pricing)
-      const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
-      
-      if (isCustomItem) {
-        // Custom items: use item.price as it's already converted
-        basePrice = safeNum(item.price);
-        console.log(`🔍 Custom item - using pre-converted price: ${basePrice}`);
-      } else {
-        // Regular products: ALWAYS use pricing array for base INR price
-        if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
-          basePrice = safeNum(item.pricing[0]?.price_per, 0);
-          console.log(`🔍 Regular item - using base INR price from pricing array: ${basePrice}`);
-        } else if (item.price) {
-          // Fallback to item.price only if pricing array not available
-          // But check if it's suspiciously low (might be already converted)
-          const priceValue = safeNum(item.price);
-          if (priceValue > 100 || currency === 'INR') {
-            // Likely in INR (t-shirts are usually > ₹100)
-            basePrice = priceValue;
-            console.log(`🔍 Using item.price as base (likely INR): ${basePrice}`);
-          } else {
-            // Suspiciously low - might be already converted, use a default
-            console.warn(`⚠️ Item ${item.name || item.products_name} has suspicious price ${priceValue}, might be already converted`);
-            basePrice = 499; // Default t-shirt price in INR
-          }
-        }
+      // First try to get from pricing array (actual product price)
+      if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
+        basePrice = safeNum(item.pricing[0]?.price_per, 0);
+        console.log(`💰 Using pricing array price: ${basePrice}`);
       }
       
-      // If still 0, log warning
+      // Fallback to item.price if pricing array doesn't have a valid price
       if (basePrice === 0) {
-        console.warn(`⚠️ Item ${item.name || item.products_name} has price 0!`);
+        basePrice = safeNum(item.price, 0);
+        console.log(`💰 Using item.price: ${basePrice}`);
       }
       
-      let itemTotal;
+      console.log(`💰 Item: ${item.products_name || item.name}, BasePrice(INR): ${basePrice}, Qty: ${qty}, Currency: ${currencySymbol}`);
       
-      if (isCustomItem) {
-        // ✅ Custom items already have location pricing applied in TShirtDesigner
-        itemTotal = basePrice;
-        console.log(`💰 Custom item ${item.name}: Using pre-converted price ${itemTotal} (qty: ${qty})`);
-      } else {
-        // ✅ Regular products - apply location pricing to base INR price
-        itemTotal = applyLocationPricing(
-          basePrice,
-          priceIncrease,
-          conversionRate
-        );
-        console.log(`💰 Regular item ${item.name || item.products_name}: Base INR ${basePrice} → ${itemTotal} ${currencySymbol} (after location pricing, qty: ${qty})`);
+      // ✅ For INR (₹), don't apply any conversion - use base price directly
+      const isINR = currencySymbol === '₹' || !currencySymbol;
+      const isCustomItem = item.id && String(item.id).startsWith('custom-tshirt-');
+      let finalPrice = basePrice;
+      
+      // Only apply conversion for non-INR currencies and non-custom items
+      if (!isCustomItem && !isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
+        finalPrice = applyLocationPricing(basePrice, priceIncrease, conversionRate);
+        console.log(`💰 Applied location pricing: ${basePrice} INR → ${finalPrice} ${currencySymbol}`);
       }
-
-      const lineTotal = itemTotal * qty;
-      console.log(`💰 Line total for ${item.name || item.products_name}: ${itemTotal} × ${qty} = ${lineTotal}`);
-      return sum + lineTotal;
-    }, 0);
-  }, [actualData, priceIncrease, conversionRate, currencySymbol]);
+      
+      const lineTotal = finalPrice * qty;
+      console.log(`💰 Line total: ${finalPrice} × ${qty} = ${lineTotal}`);
+      total += lineTotal;
+    }
+    
+    console.log(`💰 Total itemsSubtotal: ${total}`);
+    return total;
+  }, [actualData, priceIncrease, conversionRate, cart, currencySymbol]);
 
   const [pfPerUnit, setPfPerUnit] = useState(0);
   const [pfFlat, setPfFlat] = useState(0);
@@ -570,25 +593,38 @@ const Cart = () => {
         // ✅ Try new endpoint first (getTotals)
         const res = await getChargePlanTotals(totalQuantity || 1, itemsSubtotal || 0);
 
+        console.log('📊 Charge plan response:', res);
+
         if (res?.success && res?.data) {
           // ✅ New format from getTotals endpoint
-          setPfPerUnit(safeNum(res.data?.perUnit?.pakageingandforwarding, 0));
-          setPrintPerUnit(safeNum(res.data?.perUnit?.printingcost, 0));
-          console.log('✅ Using new charge plan totals:', res.data);
-          setGstPercent(safeNum(res?.data?.perUnit?.gstPercent, 5));
+          const pf = safeNum(res.data?.perUnit?.pakageingandforwarding, 0);
+          const print = safeNum(res.data?.perUnit?.printingcost, 0);
+          const gst = safeNum(res?.data?.perUnit?.gstPercent, 5);
+          
+          console.log('✅ Setting charge plan rates:', { pf, print, gst });
+          setPfPerUnit(pf);
+          setPrintPerUnit(print);
+          setGstPercent(gst);
           setPfFlat(0);
           setPrintingPerSide(0);
           return;
         }
 
         // ✅ Fallback to old endpoint (getRates)
+        console.log('⚠️ New endpoint failed, trying old endpoint...');
         const oldRes = await getChargePlanRates(totalQuantity || 1);
         
+        console.log('📊 Old charge plan response:', oldRes);
+        
         if (oldRes?.success && oldRes?.data) {
-          setPfPerUnit(safeNum(oldRes.data?.perUnit?.pakageingandforwarding, 0));
-          setPrintPerUnit(safeNum(oldRes.data?.perUnit?.printingcost, 0));
-          console.log('⚠️ Using old charge plan rates (fallback):', oldRes.data);
-          setGstPercent(safeNum(oldRes?.data?.gstPercent, 5));
+          const pf = safeNum(oldRes.data?.perUnit?.pakageingandforwarding, 0);
+          const print = safeNum(oldRes.data?.perUnit?.printingcost, 0);
+          const gst = safeNum(oldRes?.data?.gstPercent, 5);
+          
+          console.log('✅ Setting old charge plan rates:', { pf, print, gst });
+          setPfPerUnit(pf);
+          setPrintPerUnit(print);
+          setGstPercent(gst);
           setPfFlat(0);
           setPrintingPerSide(0);
           return;
@@ -596,52 +632,96 @@ const Cart = () => {
 
         if (oldRes && (Array.isArray(oldRes.slabs) || oldRes.gstRate != null)) {
           const slab = pickSlab(oldRes, totalQuantity || 0);
-          setPfPerUnit(safeNum(slab?.pnfPerUnit, 0));
-          setPfFlat(safeNum(slab?.pnfFlat, 0));
-          setPrintingPerSide(
-            safeNum(slab?.printingPerSide ?? slab?.printingPerUnit, 0)
-          );
+          const pf = safeNum(slab?.pnfPerUnit, 0);
+          const pfFlat = safeNum(slab?.pnfFlat, 0);
+          const printSide = safeNum(slab?.printingPerSide ?? slab?.printingPerUnit, 0);
+          const gst = safeNum((oldRes.gstRate ?? 0.05) * 100, 5);
+          
+          console.log('✅ Setting slab-based pricing:', { pf, pfFlat, printSide, gst });
+          setPfPerUnit(pf);
+          setPfFlat(pfFlat);
+          setPrintingPerSide(printSide);
           setPrintPerUnit(0);
-          console.log('⚠️ Using slab-based pricing (fallback):', slab);
-          setGstPercent(safeNum((oldRes.gstRate ?? 0.05) * 100, 5));
+          setGstPercent(gst);
           return;
         }
+        
+        // ✅ If all else fails, use defaults
+        console.warn('⚠️ Could not fetch charge plan, using defaults');
+        setPfPerUnit(25);
+        setPrintPerUnit(20);
+        setGstPercent(5);
+        setPfFlat(0);
+        setPrintingPerSide(0);
       } catch (err) {
         console.warn("Could not fetch charge plan; using defaults", err);
-        console.log('🔍 Using default GST: 5%');
+        setPfPerUnit(25);
+        setPrintPerUnit(20);
         setGstPercent(5);
+        setPfFlat(0);
+        setPrintingPerSide(0);
       } finally {
         setLoadingRates(false);
       }
     };
 
-    if (itemsSubtotal > 0 && totalQuantity > 0) fetchRates();
-  }, [itemsSubtotal, totalQuantity]);
+    // ✅ Fetch rates whenever we have items in cart
+    if (totalQuantity > 0 || actualData.length > 0) {
+      console.log('🔄 Fetching charge plan rates...', { totalQuantity, actualDataLength: actualData.length });
+      fetchRates();
+    }
+  }, [totalQuantity, actualData.length]);
 
   const printingCost = useMemo(() => {
-    // ✅ Calculate printing cost using charge plan per-unit rate
+    // ✅ Calculate printing cost ONLY if there are printed sides
+    const isINR = currencySymbol === '₹' || !currencySymbol;
+    
     const cost = actualData.reduce((total, item) => {
       const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
+      const sides = countDesignSides(item);
+      
+      // ✅ ONLY charge printing if there are actually printed sides
+      if (sides === 0) {
+        console.log(`🖨️ No printing for ${item.products_name || item.name} (0 sides)`);
+        return total;
+      }
+      
       // ✅ Use printPerUnit from charge plan (per unit, not per side)
-      const itemCost = qty * safeNum(printPerUnit, 0);
+      let itemCost = qty * safeNum(printPerUnit, 0);
+      
+      // ✅ Apply conversion for non-INR currencies
+      if (!isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
+        itemCost = applyLocationPricing(itemCost, priceIncrease, conversionRate);
+      }
+      
       console.log(`🖨️ Printing cost for ${item.products_name || item.name}:`, {
         qty,
+        sides,
         printPerUnit,
         itemCost,
+        isINR,
+        conversionApplied: !isINR
       });
       return total + itemCost;
     }, 0);
-    console.log(`🖨️ Total printing cost: ₹${cost}`);
+    console.log(`🖨️ Total printing cost: ${currencySymbol}${cost} (isINR: ${isINR})`);
     return cost;
-  }, [actualData, printPerUnit]);
+  }, [actualData, printPerUnit, currencySymbol, priceIncrease, conversionRate]);
 
   const pfCost = useMemo(() => {
     // ✅ Calculate P&F charge using charge plan per-unit rate
+    const isINR = currencySymbol === '₹' || !currencySymbol;
     const totalQty = totalQuantity || 1;
-    const cost = safeNum(pfPerUnit, 0) * totalQty;
-    console.log(`📦 P&F Cost: ₹${cost} (${pfPerUnit} per unit × ${totalQty} units)`);
+    let cost = safeNum(pfPerUnit, 0) * totalQty;
+    
+    // ✅ Apply conversion for non-INR currencies
+    if (!isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
+      cost = applyLocationPricing(cost, priceIncrease, conversionRate);
+    }
+    
+    console.log(`📦 P&F Cost: ${currencySymbol}${cost} (${pfPerUnit} per unit × ${totalQty} units, isINR: ${isINR})`);
     return cost;
-  }, [pfPerUnit, totalQuantity]);
+  }, [pfPerUnit, totalQuantity, currencySymbol, priceIncrease, conversionRate]);
 
   const taxableAmount = useMemo(() => {
     return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
@@ -657,11 +737,11 @@ const Cart = () => {
   );
 
   const grandTotal = useMemo(() => {
-    // ✅ P&F charges get location pricing, printing charges stay fixed
-    const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
+    // ✅ pfCost and printingCost are already converted in their respective useMemo
+    // ✅ itemsSubtotal is already converted in its useMemo
     
-    // Taxable amount = items (with location pricing) + printing (fixed) + P&F (with location pricing)
-    const adjustedTaxable = safeNum(itemsSubtotal) + safeNum(printingCost) + pfWithLocation;
+    // Taxable amount = items + printing + P&F (all already in target currency)
+    const adjustedTaxable = safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
     
     // ✅ Check if this is a B2B order
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
@@ -709,11 +789,11 @@ const Cart = () => {
     // Total before round off
     const total = adjustedTaxable + adjustedGst;
     
+    const isINR = currencySymbol === '₹' || !currencySymbol;
     console.log(`💰 Grand Total Calculation:`, {
       itemsSubtotal: safeNum(itemsSubtotal),
       printingCost: safeNum(printingCost),
       pfCost: safeNum(pfCost),
-      pfWithLocation,
       adjustedTaxable,
       isBulkOrder,
       gstRate,
@@ -721,11 +801,14 @@ const Cart = () => {
       totalBeforeRoundOff: total,
       totalAfterRoundOff: Math.ceil(total),
       currency: currencySymbol,
+      isINR,
+      conversionRate,
+      priceIncrease,
       orderType: isBulkOrder ? 'B2B' : 'B2C'
     });
     
     return total; // Return before round off, we'll round in display
-  }, [itemsSubtotal, printingCost, pfCost, priceIncrease, conversionRate, currencySymbol, billingAddress, actualData]);
+  }, [itemsSubtotal, printingCost, pfCost, currencySymbol, billingAddress, actualData, resolvedLocation, conversionRate, priceIncrease]);
 
   if (loadingProducts) return <Loading />;
   if (!cart.length)
@@ -781,13 +864,13 @@ const Cart = () => {
               </div>
               <div className="flex justify-between">
                 <span>P&F Charges</span>
-                <span>{formatCurrency(applyLocationPricing(pfCost, priceIncrease, conversionRate))}</span>
+                <span>{formatCurrency(pfCost)}</span>
               </div>
               
               {/* Subtotal before GST - matching invoice format */}
               <div className="flex justify-between border-t pt-2 mt-2">
                 <span className="font-medium">Subtotal</span>
-                <span className="font-medium">{formatCurrency(itemsSubtotal + printingCost + applyLocationPricing(pfCost, priceIncrease, conversionRate))}</span>
+                <span className="font-medium">{formatCurrency(itemsSubtotal + printingCost + pfCost)}</span>
               </div>
               
               {/* Tax Breakdown - Only for B2B orders */}
@@ -801,8 +884,7 @@ const Cart = () => {
                 }
                 
                 // ✅ B2B Orders: Show 18% GST breakdown
-                const pfWithLocation = applyLocationPricing(pfCost, priceIncrease, conversionRate);
-                const taxableAmount = itemsSubtotal + printingCost + pfWithLocation;
+                const taxableAmount = itemsSubtotal + printingCost + pfCost;
                 const customerState = billingAddress?.state || '';
                 const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
                 
@@ -1057,9 +1139,29 @@ const Cart = () => {
                   calculation: conversionRate !== 1 ? `${displayTotal} / ${conversionRate} = ${totalPayINR}` : 'No conversion needed'
                 });
 
+                // ✅ Fix item prices before sending to backend
+                // Use actual product price from pricing array, not cart price
+                const itemsWithCorrectPrices = actualData.map(item => {
+                  let correctPrice = 0;
+                  
+                  // Priority: pricing array (actual product price) > item.price (cart price)
+                  if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
+                    correctPrice = Number(item.pricing[0]?.price_per) || 0;
+                  } else {
+                    correctPrice = Number(item.price) || 0;
+                  }
+                  
+                  console.log(`📦 Item price fix: ${item.products_name || item.name} - Cart: ${item.price}, Actual: ${correctPrice}`);
+                  
+                  return {
+                    ...item,
+                    price: correctPrice, // ✅ Use correct product price
+                  };
+                });
+
                 navigate("/payment", {
                   state: {
-                    items: actualData,
+                    items: itemsWithCorrectPrices,
                     // ✅ Charges at root level for backend
                     pf: pfCost,
                     printing: printingCost,
@@ -1181,6 +1283,15 @@ const Cart = () => {
                 .filter(([_, qty]) => qty > 0)
                 .map(([size, qty]) => `${size} × ${qty}`)
                 .join(", ");
+              
+              // ✅ Get correct price - prioritize pricing array (actual product price)
+              let itemPrice = 0;
+              if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
+                itemPrice = Number(item.pricing[0]?.price_per) || 0;
+              } else {
+                itemPrice = Number(item.price) || 0;
+              }
+              
               return {
                 sno: idx + 1,
                 description: `${item.name || "Product"}${
@@ -1191,7 +1302,7 @@ const Cart = () => {
                   0
                 ),
                 unit: "Pcs.",
-                price: item.price,
+                price: itemPrice,
               };
             }),
             subtotal: itemsSubtotal,

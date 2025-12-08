@@ -139,11 +139,36 @@ export const PriceProvider = ({ children }) => {
           setToConvert(data.currency?.toconvert || null);
           setCurrency(data.currency?.country || null);
           setResolvedLocation(location);
+          
+          // ✅ Cache in localStorage for Cart.jsx fallback
+          try {
+            localStorage.setItem("locationPricing", JSON.stringify({
+              location,
+              percentage: data.percentage,
+              currency: {
+                code: data.currency?.country || 'INR',
+                toconvert: data.currency?.toconvert || 1
+              },
+              timestamp: Date.now()
+            }));
+            console.log("💾 Cached location pricing in localStorage");
+          } catch (e) {
+            console.warn("⚠️ Could not cache location pricing:", e);
+          }
         } else {
           console.warn("⚠ No price data for location:", location);
+          // ✅ Default to INR with no conversion if location not found
+          setPriceIncrease(0);
+          setToConvert(1);
+          setCurrency('INR');
+          setResolvedLocation(location);
         }
       } catch (error) {
         console.error("❌ Error fetching price data:", error);
+        // ✅ Default to INR on error
+        setPriceIncrease(0);
+        setToConvert(1);
+        setCurrency('INR');
       }
     };
 

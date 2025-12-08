@@ -3,6 +3,30 @@ import { getLogisticsByOrder } from "../../Service/logisticsApi";
 
 const SIZE_ORDER = ["S", "M", "L", "XL", "2XL", "3XL"];
 
+// ✅ Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+};
+
+// ✅ Format currency based on order's currency
+const formatCurrency = (amount, currency = 'INR') => {
+  const symbol = currencySymbols[currency] || '₹';
+  const value = Number(amount || 0);
+  
+  if (currency === 'INR') {
+    return `${symbol}${Math.round(value).toLocaleString('en-IN')}`;
+  } else {
+    return `${symbol}${value.toFixed(2)}`;
+  }
+};
+
 function sortedEntries(quantity = {}) {
   return Object.entries(quantity || {}).sort(
     ([a], [b]) => SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b)
@@ -190,8 +214,7 @@ const OrderDetailsCard = ({ orderId }) => {
           <h3 className="text-lg font-semibold mb-2">Payment & Delivery</h3>
           <div className="space-y-2">
             <p>
-              Total Amount: ₹
-              {Number(order.price || order.amount || 0).toFixed(2)}
+              Total Amount: {formatCurrency(order.price || order.amount || 0, order.currency)}
             </p>
             <p
               className={`font-medium ${
@@ -352,7 +375,7 @@ const OrderDetailsCard = ({ orderId }) => {
                     </div>
 
                     <p className="text-gray-800 font-semibold mt-2">
-                      ₹{Number(item.price || 0).toFixed(2)}
+                      {formatCurrency(item.price || 0, order.currency)}
                     </p>
                   </div>
                 </div>

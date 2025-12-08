@@ -325,8 +325,10 @@ export const cacheChargePlanRates = (plan) => {
  */
 export const getChargePlanTotals = async (qty = 1, subtotal = 0) => {
   try {
-    const res = await axios.get(`${API_BASE}api/chargeplan/totals`, {
-      params: { qty, subtotal },
+    const res = await axios.post(`${API_BASE}api/chargeplan/totals`, {
+      qty,
+      subtotal,
+    }, {
       timeout: 8000,
     });
     const data = res?.data;

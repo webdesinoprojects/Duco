@@ -36,6 +36,7 @@ import AnalyticsDashboard from "./Admin/AnalyticsDashboard.jsx";
 import ProductRouter from "./Pages/ProductRouter.jsx";
 import UserInfo from "./Admin/UserInfo.jsx";
 import Banner from "./Admin/Components/Banner.jsx";
+import LandingPageManager from "./Admin/Components/LandingPageManager.jsx";
 import EmployeeSection from "./Admin/Components/EmployeeSection.jsx";
 import EmployeeAuthRequired from "./Admin/Components/EmployeeAuthRequired.jsx";
 import EmployeeDebug from "./Admin/Components/EmployeeDebug.jsx";
@@ -199,6 +200,7 @@ const App = () => {
             <Route path="sales" element={<AnalyticsDashboard />} />
             <Route path="users" element={<UserInfo />} />
             <Route path="bannersetup" element={<Banner />} />
+            <Route path="landing-page" element={<LandingPageManager />} />
             <Route path="logistic" element={<LogisticsManager />} />
             <Route path="charges" element={<ChargePlanManager />} />
             <Route path="bankdetails" element={<BankDetailsManager />} />

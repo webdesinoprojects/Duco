@@ -5,7 +5,7 @@ import secondImg from "../assets/pleased-young-handsome-guy-wearing-black-t-shir
 import { Link } from 'react-router-dom';
 
 
-const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText = "Shop the Look →", buttonLink = "/women", isAnimating = false}) => {
+const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText = "Shop the Look →", buttonLink = "/women", isAnimating = false, sideCards = null}) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
@@ -50,24 +50,34 @@ const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText 
     {/* Right stacked cards */}
     <div className="flex sm:flex-col  flex-row sm:gap-3 gap-2 w-full md:w-[30%]">
       {/* Card 1 */}
-      <Link to={"/men"} className="bg-[#3a3a3a] text-[#E5C870] sm:p-6 px-2  rounded-2xl relative sm:w-full w-[40%]  h-[240px] sm:h-[260px]">
+      <Link to={sideCards?.card1?.link || "/men"} className="sm:p-6 px-2  rounded-2xl relative sm:w-full w-[40%]  h-[240px] sm:h-[260px]" style={{backgroundColor: sideCards?.card1?.bgColor || "#3a3a3a", color: sideCards?.card1?.textColor || "#E5C870"}}>
         <p className="text-2xl sm:text-5xl font-semibold sm:leading-10  leading-6 mt-[40px] z-10 relative">
-          Naturally<br />Styled
+          {sideCards?.card1?.title ? sideCards.card1.title.split('\n').map((line, idx) => (
+            <React.Fragment key={idx}>
+              {line}
+              {idx < sideCards.card1.title.split('\n').length - 1 && <br />}
+            </React.Fragment>
+          )) : <>Naturally<br />Styled</>}
         </p>
         <img
-          src={secondImg}
+          src={sideCards?.card1?.image || secondImg}
           alt="Styled Model"
           className="object-contain absolute bottom-0 right-4 sm:w-[140px] w-[100px]"
         />
       </Link>
 
       {/* Card 2 */}
-      <Link to={"/men"} className="bg-[#e2c565] text-black sm:p-6 px-2 rounded-2xl relative h-[240px] w-[60%] sm:w-full sm:h-[325px] overflow-hidden">
+      <Link to={sideCards?.card2?.link || "/men"} className="sm:p-6 px-2 rounded-2xl relative h-[240px] w-[60%] sm:w-full sm:h-[325px] overflow-hidden" style={{backgroundColor: sideCards?.card2?.bgColor || "#e2c565", color: sideCards?.card2?.textColor || "#000000"}}>
         <h2 className="text-3xl sm:text-5xl font-semibold leading-10 mt-[40px] z-10 relative">
-          Casual <br /> Comfort
+          {sideCards?.card2?.title ? sideCards.card2.title.split('\n').map((line, idx) => (
+            <React.Fragment key={idx}>
+              {line}
+              {idx < sideCards.card2.title.split('\n').length - 1 && <br />}
+            </React.Fragment>
+          )) : <>Casual <br /> Comfort</>}
         </h2>
         <img
-          src={firstImg}
+          src={sideCards?.card2?.image || firstImg}
           alt="Casual Comfort"
           className="absolute bottom-0 right-4 sm:w-[140px] w-[100px]  object-contain"
         />

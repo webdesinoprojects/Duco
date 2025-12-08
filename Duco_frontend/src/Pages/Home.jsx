@@ -39,9 +39,10 @@ const Home = () => {
   const [allBanners, setAllBanners] = useState([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [landingPageData, setLandingPageData] = useState(null);
 
   // List of local videos for floating carousel
-  const [videoList] = useState([
+  const [videoList, setVideoList] = useState([
     "/icons/vid1.mp4",
     "/icons/vid2.mp4",
     "/icons/vid3.mp4",
@@ -103,6 +104,34 @@ const Home = () => {
     const fetchBanner = async () => {
       try {
         const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        
+        // ✅ Fetch landing page data
+        console.log('🎨 Fetching landing page data from:', `${apiUrl}/api/landing-page`);
+        const landingRes = await axios.get(`${apiUrl}/api/landing-page`);
+        if (landingRes.data.success) {
+          setLandingPageData(landingRes.data.data);
+          console.log('✅ Landing page data loaded:', landingRes.data.data);
+          
+          // Use hero section from landing page data
+          if (landingRes.data.data.heroSection) {
+            const heroSection = landingRes.data.data.heroSection;
+            if (heroSection.mainImage) {
+              setBanner(heroSection.mainImage);
+            }
+            setHeroData({
+              text: heroSection.heroText || "Color Of Summer Outfit",
+              buttonText: heroSection.buttonText || "Shop the Look →",
+              buttonLink: heroSection.buttonLink || "/women"
+            });
+          }
+          
+          // Use videos from landing page data
+          if (landingRes.data.data.videoCarousel?.videos) {
+            setVideoList(landingRes.data.data.videoCarousel.videos);
+          }
+        }
+        
+        // ✅ Also fetch banners for rotation
         console.log('🎨 Fetching banners from:', `${apiUrl}/api/banners`);
         const res = await axios.get(`${apiUrl}/api/banners`);
         console.log('🎨 Banner response:', res.data);
@@ -147,11 +176,12 @@ const Home = () => {
         buttonText={heroData.buttonText}
         buttonLink={heroData.buttonLink}
         isAnimating={isAnimating}
+        sideCards={landingPageData?.sideCards}
       />
       <SectionHome2 />
-      <BannerHome link={"https://ik.imagekit.io/vuavxn05l/5213288.jpg?updatedAt=1757162698605"} />
+      <BannerHome link={landingPageData?.middleBanner?.image || "https://ik.imagekit.io/vuavxn05l/5213288.jpg?updatedAt=1757162698605"} />
       <TrendingHome />
-      <SectionHome3 />
+      <SectionHome3 promoCards={landingPageData?.promoCards} />
 
       {/* Floating video carousel */}
       <div className="w-full mt-8 mb-8 px-4 overflow-hidden relative">

@@ -30,6 +30,7 @@ const printroveRoutes = require('./Router/printroveRoutes.js');
 const printroveMappingRoutes = require('./Router/printroveMappingRoutes.js');
 const adminForgotPasswordRoutes = require('./Router/adminForgotPasswordRoutes.js');
 const blogRoutes = require('./Router/blogRoutes.js');
+const landingPageRoutes = require('./Router/LandingPageRoutes.js');
 
 // App + config
 const app = express();
@@ -178,6 +179,7 @@ app.use('/api', InvoiceRoutes);
 app.use('/api', walletRoutes);
 app.use('/api', require('./Router/adminForgotPasswordRoutes'));
 app.use('/api/blogs', blogRoutes);
+app.use('/api', landingPageRoutes);
 
 // ======= Admin login (hardcoded credentials from .env) =======
 app.post('/api/admin/check', async (req, res) => {

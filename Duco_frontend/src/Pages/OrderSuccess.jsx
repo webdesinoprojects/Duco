@@ -72,7 +72,8 @@ const InvoiceDucoTailwind = ({ data }) => {
     currencySymbol = "₹", // ✅ Get currency symbol from data
     currency = "INR",
   } = data;
-  const baseAmount = subtotal;
+  // ✅ Base amount includes subtotal + P&F + printing charges
+  const baseAmount = subtotal + (charges?.pf || 0) + (charges?.printing || 0);
 
   const totalTaxAmount = (() => {
     if (tax.type === "INTRASTATE") {
@@ -92,6 +93,7 @@ const InvoiceDucoTailwind = ({ data }) => {
     );
   })();
 
+  // ✅ Amount including tax = subtotal + P&F + printing + all taxes
   const amountInclTax = baseAmount + totalTaxAmount;
   console.log("🧾 Invoice Template - Tax Info:", tax);
   console.log("💱 Invoice Template - Currency:", currency, currencySymbol);

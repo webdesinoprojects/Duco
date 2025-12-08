@@ -375,7 +375,7 @@ export default function AnalyticsDashboard() {
       
       // Generate invoice HTML (same format as OderSection)
       const currency = invoice.currency || 'INR';
-      const currencySymbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency;
+      const currencySymbol = currencySymbols[currency] || '₹';
       const currencyName = currencyNames[currency] || "Rupees";
       
       const company = invoice.company || {};

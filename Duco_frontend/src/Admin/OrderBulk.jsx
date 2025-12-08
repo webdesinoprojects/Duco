@@ -41,9 +41,21 @@ const currencyNames = {
   SGD: "Singapore Dollars",
 };
 
+// ✅ Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+};
+
 const generateInvoiceHTML = (invoice, totals) => {
   const currency = invoice.currency || 'INR';
-  const currencySymbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency;
+  const currencySymbol = currencySymbols[currency] || '₹';
   const currencyName = currencyNames[currency] || "Rupees";
   
   const company = invoice.company || {};
@@ -452,7 +464,14 @@ const OderSection = () => {
 
                 <div className="flex items-center justify-between sm:justify-end gap-3">
                   <p className="font-semibold text-right">
-                    ₹{Number(order.price || 0).toFixed(2)}
+                    {(() => {
+                      const currency = order.currency || 'INR';
+                      const symbol = currencySymbols[currency] || '₹';
+                      const amount = Number(order.price || 0);
+                      return currency === 'INR' 
+                        ? `${symbol}${Math.round(amount).toLocaleString('en-IN')}`
+                        : `${symbol}${amount.toFixed(2)}`;
+                    })()}
                   </p>
                   <div className="flex gap-2">
                     <button
