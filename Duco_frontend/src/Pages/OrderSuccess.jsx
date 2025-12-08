@@ -277,7 +277,16 @@ const InvoiceDucoTailwind = ({ data }) => {
                 </tr>
               )}
               
-              {/* Show CGST + SGST + IGST for same state (Chhattisgarh) */}
+              {/* Show IGST only for same state (Chhattisgarh) - INTRASTATE_IGST */}
+              {tax.type === 'INTRASTATE_IGST' && (
+                <tr>
+                  <td style={{ padding: "4px" }}>Add : IGST</td>
+                  <td style={{ padding: "4px", textAlign: "center" }}>{tax.igstAmount.toFixed(2)}</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.igstAmount).toFixed(2)}</td>
+                </tr>
+              )}
+              
+              {/* Show CGST + SGST + IGST for old INTRASTATE type (backward compatibility) */}
               {tax.type === 'INTRASTATE' && (
                 <>
                   <tr>
@@ -298,7 +307,7 @@ const InvoiceDucoTailwind = ({ data }) => {
                 </>
               )}
               
-              {/* Show CGST + SGST + IGST for different state in India */}
+              {/* Show CGST + SGST for different state in India (INTERSTATE) */}
               {tax.type === 'INTERSTATE' && (
                 <>
                   <tr>
@@ -310,11 +319,6 @@ const InvoiceDucoTailwind = ({ data }) => {
                     <td style={{ padding: "4px" }}>Add : SGST</td>
                     <td style={{ padding: "4px", textAlign: "center" }}>{tax.sgstAmount.toFixed(2)}</td>
                     <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount).toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: "4px" }}>Add : IGST</td>
-                    <td style={{ padding: "4px", textAlign: "center" }}>{tax.igstAmount.toFixed(2)}</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount + tax.igstAmount).toFixed(2)}</td>
                   </tr>
                 </>
               )}
@@ -388,6 +392,11 @@ const InvoiceDucoTailwind = ({ data }) => {
     <tr style={{ backgroundColor: "#f5f5f5" }}>
       <th style={{ border: "1px solid #000", padding: "4px" }}>Tax Rate</th>
       <th style={{ border: "1px solid #000", padding: "4px" }}>Total Tax</th>
+      {/* INTRASTATE_IGST: Chhattisgarh - IGST only */}
+      {tax.type === "INTRASTATE_IGST" && (
+        <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
+      )}
+      {/* INTRASTATE: Old format with CGST+SGST+IGST */}
       {tax.type === "INTRASTATE" && (
         <>
           <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
@@ -395,8 +404,12 @@ const InvoiceDucoTailwind = ({ data }) => {
           <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
         </>
       )}
+      {/* INTERSTATE: Other Indian states - CGST+SGST */}
       {tax.type === "INTERSTATE" && (
-        <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
+        <>
+          <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
+          <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
+        </>
       )}
       {tax.type === "INTERNATIONAL" && (
         <th style={{ border: "1px solid #000", padding: "4px" }}>TAX Amt.</th>
@@ -423,9 +436,10 @@ const InvoiceDucoTailwind = ({ data }) => {
           textAlign: "center",
         }}
       >
+        {tax.type === "INTRASTATE_IGST" && `${tax.igstRate || 5}%`}
         {tax.type === "INTRASTATE" &&
           `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%`}
-        {tax.type === "INTERSTATE" && `${tax.igstRate || 0}%`}
+        {tax.type === "INTERSTATE" && `${(tax.cgstRate || 0) + (tax.sgstRate || 0)}%`}
         {tax.type === "INTERNATIONAL" && `${tax.taxRate || 1}%`}
         {!tax.type &&
           `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%`}
@@ -442,7 +456,20 @@ const InvoiceDucoTailwind = ({ data }) => {
         {totalTaxAmount.toFixed(2)}
       </td>
 
-      {/* Per‑tax columns */}
+      {/* INTRASTATE_IGST: Chhattisgarh - IGST only */}
+      {tax.type === "INTRASTATE_IGST" && (
+        <td
+          style={{
+            border: "1px solid #000",
+            padding: "4px",
+            textAlign: "right",
+          }}
+        >
+          {Number(tax.igstAmount || 0).toFixed(2)}
+        </td>
+      )}
+
+      {/* INTRASTATE: Old format with CGST+SGST+IGST */}
       {tax.type === "INTRASTATE" && (
         <>
           <td
@@ -475,16 +502,28 @@ const InvoiceDucoTailwind = ({ data }) => {
         </>
       )}
 
+      {/* INTERSTATE: Other Indian states - CGST+SGST */}
       {tax.type === "INTERSTATE" && (
-        <td
-          style={{
-            border: "1px solid #000",
-            padding: "4px",
-            textAlign: "right",
-          }}
-        >
-          {Number(tax.igstAmount || 0).toFixed(2)}
-        </td>
+        <>
+          <td
+            style={{
+              border: "1px solid #000",
+              padding: "4px",
+              textAlign: "right",
+            }}
+          >
+            {Number(tax.cgstAmount || 0).toFixed(2)}
+          </td>
+          <td
+            style={{
+              border: "1px solid #000",
+              padding: "4px",
+              textAlign: "right",
+            }}
+          >
+            {Number(tax.sgstAmount || 0).toFixed(2)}
+          </td>
+        </>
       )}
 
       {tax.type === "INTERNATIONAL" && (

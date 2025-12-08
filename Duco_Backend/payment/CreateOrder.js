@@ -98,6 +98,7 @@ const createRazorpayOrder = async (req, res) => {
       code: err.code,
       statusCode: err.statusCode,
       response: err.response?.data,
+      error: err.error,
       stack: err.stack,
     });
     console.error('🔍 Request details:', {
@@ -108,9 +109,21 @@ const createRazorpayOrder = async (req, res) => {
     });
     console.groupEnd();
 
-    res.status(500).json({
-      error: 'Razorpay order creation failed',
-      details: err.message,
+    // ✅ Better error messages for common issues
+    let errorMessage = 'Razorpay order creation failed';
+    let userMessage = err.message || 'Payment gateway error';
+    
+    // Check for test mode amount limit (typically ₹50,000)
+    const amountInRupees = (req.body.amount || 0);
+    if (err.statusCode === 400 && amountInRupees > 50000) {
+      errorMessage = 'Amount exceeds test mode limit';
+      userMessage = `Razorpay test mode has a limit of ₹50,000 per transaction. Your order amount (₹${amountInRupees.toLocaleString()}) exceeds this limit. Please use a smaller quantity for testing, or switch to live mode for production.`;
+    }
+
+    res.status(err.statusCode || 500).json({
+      error: errorMessage,
+      details: userMessage,
+      statusCode: err.statusCode,
     });
   }
 };

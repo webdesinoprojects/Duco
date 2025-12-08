@@ -27,8 +27,22 @@ const computeTotals = (doc = {}) => {
   const igstAmt = (taxableValue * igstRate) / 100;
   const taxAmt = (taxableValue * taxRate) / 100; // International tax
 
-  // Total tax is either GST (cgst+sgst+igst) or international TAX
-  const totalTaxAmt = tax.type === 'INTERNATIONAL' ? taxAmt : (cgstAmt + sgstAmt + igstAmt);
+  // Total tax calculation based on type:
+  // - INTERNATIONAL: 1% TAX
+  // - INTRASTATE_IGST: 5% IGST only (Chhattisgarh)
+  // - INTERSTATE: 2.5% CGST + 2.5% SGST (other Indian states)
+  // - INTRASTATE: Old format with CGST+SGST+IGST
+  // - B2C_NO_TAX: 0% (no tax)
+  let totalTaxAmt;
+  if (tax.type === 'INTERNATIONAL') {
+    totalTaxAmt = taxAmt;
+  } else if (tax.type === 'INTRASTATE_IGST') {
+    totalTaxAmt = igstAmt; // Only IGST for Chhattisgarh
+  } else if (tax.type === 'B2C_NO_TAX') {
+    totalTaxAmt = 0; // No tax for B2C
+  } else {
+    totalTaxAmt = cgstAmt + sgstAmt + igstAmt; // INTERSTATE or INTRASTATE
+  }
   const grandTotal = taxableValue + totalTaxAmt;
 
   return {
@@ -69,6 +83,9 @@ async function createInvoice(data) {
   const customerState = data.invoice?.placeOfSupply || data.billTo?.state || '';
   const customerCountry = data.billTo?.country || 'India';
   
+  // ✅ Determine if this is a B2B order
+  const isB2B = data.orderType === 'B2B' || data.isB2B === true || data.isCorporate === true;
+  
   // Calculate taxable amount
   const items = Array.isArray(data.items) ? data.items : [];
   const charges = data.charges || {};
@@ -76,7 +93,8 @@ async function createInvoice(data) {
   const chargesTotal = safeNum(charges.pf) + safeNum(charges.printing);
   const taxableAmount = subtotal + chargesTotal;
   
-  const taxInfo = calculateTax(taxableAmount, customerState, customerCountry);
+  // ✅ Pass isB2B flag to calculateTax
+  const taxInfo = calculateTax(taxableAmount, customerState, customerCountry, isB2B);
   
   data.tax = {
     cgstRate: taxInfo.cgstRate,
