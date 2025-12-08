@@ -619,30 +619,29 @@ const Cart = () => {
   }, [itemsSubtotal, totalQuantity]);
 
   const printingCost = useMemo(() => {
-    // ✅ Calculate printing cost based on actual sides used (₹15 per side)
+    // ✅ Calculate printing cost using charge plan per-unit rate
     const cost = actualData.reduce((total, item) => {
       const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
-      const sides = countDesignSides(item);
-      const costPerSide = 15; // ₹15 per side
-      const itemCost = qty * sides * costPerSide;
+      // ✅ Use printPerUnit from charge plan (per unit, not per side)
+      const itemCost = qty * safeNum(printPerUnit, 0);
       console.log(`🖨️ Printing cost for ${item.products_name || item.name}:`, {
         qty,
-        sides,
-        costPerSide,
+        printPerUnit,
         itemCost,
-        design: item.design
       });
       return total + itemCost;
     }, 0);
     console.log(`🖨️ Total printing cost: ₹${cost}`);
     return cost;
-  }, [actualData]);
+  }, [actualData, printPerUnit]);
 
   const pfCost = useMemo(() => {
-    // ✅ Fixed P&F charge: ₹15 flat
-    console.log(`📦 P&F Cost: ₹15`);
-    return 15;
-  }, []);
+    // ✅ Calculate P&F charge using charge plan per-unit rate
+    const totalQty = totalQuantity || 1;
+    const cost = safeNum(pfPerUnit, 0) * totalQty;
+    console.log(`📦 P&F Cost: ₹${cost} (${pfPerUnit} per unit × ${totalQty} units)`);
+    return cost;
+  }, [pfPerUnit, totalQuantity]);
 
   const taxableAmount = useMemo(() => {
     return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
