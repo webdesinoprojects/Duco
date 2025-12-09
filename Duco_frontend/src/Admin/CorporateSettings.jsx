@@ -330,31 +330,6 @@ const CorporateSettings = () => {
           )}
         </div>
 
-        {/* Integration Settings */}
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h2 className="text-lg font-semibold mb-4">Integration Settings</h2>
-          
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="enablePrintrove"
-                checked={settings.enablePrintroveIntegration}
-                onChange={(e) => setSettings(prev => ({ 
-                  ...prev, 
-                  enablePrintroveIntegration: e.target.checked 
-                }))}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor="enablePrintrove" className="ml-2 text-sm text-gray-700">
-                Enable Printrove Integration for Corporate Orders
-              </label>
-            </div>
-            <p className="text-xs text-gray-500 ml-6">
-              When disabled, corporate orders will be processed manually without Printrove
-            </p>
-          </div>
-        </div>
 
         {/* Payment Methods */}
         <div className="bg-white p-6 rounded-lg shadow border">

@@ -418,6 +418,19 @@ export default function LandingPageManager() {
           <h2 className="text-xl font-semibold text-slate-900 mb-4">🎬 Video Carousel</h2>
           <p className="text-sm text-slate-600 mb-4">Manage videos in the "Here are our products' live reviews" section</p>
           
+          {/* Supported formats info */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-900 font-medium mb-2">📹 Supported Video Formats:</p>
+            <ul className="text-xs text-blue-800 space-y-1 ml-4">
+              <li>✅ <strong>YouTube:</strong> https://youtube.com/watch?v=VIDEO_ID</li>
+              <li>✅ <strong>YouTube Short:</strong> https://youtu.be/VIDEO_ID</li>
+              <li>✅ <strong>YouTube Embed:</strong> https://youtube.com/embed/VIDEO_ID</li>
+              <li>✅ <strong>Direct Video ID:</strong> Just paste the VIDEO_ID (11 characters)</li>
+              <li>✅ <strong>Local Video:</strong> /icons/vid1.mp4</li>
+              <li>✅ <strong>External Video:</strong> https://example.com/video.mp4</li>
+            </ul>
+          </div>
+          
           <div className="space-y-4">
             {landingData.videoCarousel.videos && landingData.videoCarousel.videos.length > 0 ? (
               landingData.videoCarousel.videos.map((video, idx) => (
@@ -442,11 +455,11 @@ export default function LandingPageManager() {
                       newVideos[idx] = e.target.value;
                       updateField("videoCarousel.videos", newVideos);
                     }}
-                    placeholder="https://example.com/video.mp4 or /icons/vid1.mp4"
+                    placeholder="https://youtube.com/watch?v=... or /icons/vid1.mp4"
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                   <p className="text-xs text-slate-500 mt-2">
-                    💡 Tip: Use local path (/icons/vid1.mp4) or full URL (https://...)
+                    💡 Supports YouTube links, local paths, and external video URLs
                   </p>
                 </div>
               ))

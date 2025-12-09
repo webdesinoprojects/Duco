@@ -9,7 +9,9 @@ const TermsAndConditions = () => {
         </h1>
 
         <div className="space-y-4 leading-relaxed">
-
+          <h2 className="text-2xl font-semibold text-white mt-8 mb-4"> &#8594; Delivery </h2>
+<p> Domestic delivery - 5 days</p><p>
+International delivery - 8 days</p>
           <p>
             This document is an electronic record published in accordance with the Information Technology Act, 2000 and the rules thereunder. It does not require any physical or digital signatures.
           </p>

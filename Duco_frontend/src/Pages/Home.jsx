@@ -189,23 +189,55 @@ const Home = () => {
           Here are our products' live reviews
         </h2>
         <div className="flex gap-6 animate-marquee">
-          {videoList.concat(videoList).map((videoUrl, idx) => (
-            <div
-              key={idx}
-              className="flex-shrink-0 rounded-xl overflow-hidden shadow-lg bg-gray-800"
-              style={{ width: '300px', aspectRatio: '16/9' }}
-            >
-              <video
-                className="w-full h-full object-cover"
-                src={videoUrl}
-                autoPlay
-                loop
-                muted
-                controls
-                playsInline
-              />
-            </div>
-          ))}
+          {videoList.concat(videoList).map((videoUrl, idx) => {
+            // ✅ Extract YouTube video ID from various YouTube URL formats
+            const getYouTubeId = (url) => {
+              if (!url) return null;
+              const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+                /^([a-zA-Z0-9_-]{11})$/ // Direct video ID
+              ];
+              for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) return match[1];
+              }
+              return null;
+            };
+            
+            const youtubeId = getYouTubeId(videoUrl);
+            const isYouTube = youtubeId !== null;
+            
+            return (
+              <div
+                key={idx}
+                className="flex-shrink-0 rounded-xl overflow-hidden shadow-lg bg-gray-800"
+                style={{ width: '300px', aspectRatio: '16/9' }}
+              >
+                {isYouTube ? (
+                  // ✅ YouTube iframe
+                  <iframe
+                    className="w-full h-full"
+                    src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&loop=1&playlist=${youtubeId}`}
+                    title={`Video ${idx + 1}`}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  // ✅ Local or external video file
+                  <video
+                    className="w-full h-full object-cover"
+                    src={videoUrl}
+                    autoPlay
+                    loop
+                    muted
+                    controls
+                    playsInline
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

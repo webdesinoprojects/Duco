@@ -86,7 +86,7 @@ const SaerchingPage = () => {
 
       {/* Heading and product count */}
       <div className="flex justify-between items-center mb-2">
-        <span className="text-white text-2xl">{catogory_name}</span>
+        <span className="text-white text-2xl font-bold">{catogory_name}</span>
         <span className="text-gray-500">{filteredProducts.length} Products</span>
       </div>
 
