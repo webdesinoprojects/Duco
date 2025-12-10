@@ -1256,9 +1256,9 @@ const TshirtDesigner = () => {
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row p-0 lg:p-4 relative">
-        {/* Sidebar (desktop only) */}
-        <aside className="hidden lg:block w-80 bg-white rounded-2xl shadow-xl p-6 border border-gray-300">
+      <div className="flex flex-col lg:flex-row w-full min-h-screen bg-gray-50">
+        {/* Desktop Sidebar */}
+        <aside className="hidden lg:flex lg:flex-col w-80 bg-white shadow-xl p-6 border-r border-gray-300 overflow-y-auto">
           {renderControls()}
 
           {/* ✅ Price Display with Location Pricing */}
@@ -1283,163 +1283,82 @@ const TshirtDesigner = () => {
 
           <button
             onClick={saveSelectedViews}
-            className="mt-6 py-3 px-6 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-lg w-full hidden lg:block"
+            className="mt-6 py-3 px-6 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-lg w-full"
           >
             Submit <MdNavigateNext size={20} className="ml-2 inline" />
           </button>
         </aside>
 
-        <main className="flex-1 flex items-center justify-center mt-4 lg:mt-0 relative p-4">
-          <div className="relative w-full max-w-2xl h-96 sm:h-[30rem] md:h-[38rem] rounded-3xl mx-auto pt-20">
-            {/* View Switcher */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-              {views.map((view) => (
-                <button
-                  key={view}
-                  onClick={() => setSide(view)}
-                  className={`px-3 py-1 text-sm sm:px-4 sm:py-2 sm:text-base font-medium transition-all ${side === view
-                      ? "bg-yellow-500 text-black"
-                      : "bg-gray-800 text-white"
-                    } rounded-md`}
-                >
-                  {view.charAt(0).toUpperCase() + view.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            {/* Loading State */}
-            {isLoadingProduct ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-3xl">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading T-shirt...</p>
-                </div>
-              </div>
-            ) : (
-              views.map((view) => (
-                <div key={view}>{renderDesignArea(view)}</div>
-              ))
-            )}
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col w-full lg:overflow-hidden">
+          {/* View Switcher - Above T-shirt */}
+          <div className="flex-shrink-0 flex justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-white lg:bg-gray-50 border-b border-gray-200">
+            {views.map((view) => (
+              <button
+                key={view}
+                onClick={() => setSide(view)}
+                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium transition-all rounded ${side === view
+                    ? "bg-yellow-500 text-black"
+                    : "bg-gray-700 text-white hover:bg-gray-600"
+                  }`}
+              >
+                {view.charAt(0).toUpperCase() + view.slice(1)}
+              </button>
+            ))}
           </div>
-        </main>
-      </div>
 
-      {/* Bottom Panel (mobile only) */}
-      {isMobile && (
-        <>
-          {/* Active Panel */}
-          {activeTab !== "none" && (
-            <div className="fixed bottom-30 left-0 w-full bg-white border-t border-gray-300 shadow-lg z-40">
-              <div className="p-4 space-y-4 max-h-[40vh] overflow-y-auto">
+          {/* T-shirt Preview Area */}
+          <div className="flex-1 flex items-center justify-center p-2 sm:p-3 lg:p-4 bg-white lg:bg-gray-50 overflow-y-auto lg:overflow-hidden">
+            <div className="relative w-full max-w-2xl h-auto aspect-square sm:aspect-auto sm:h-72 md:h-80 lg:h-full rounded-xl lg:rounded-2xl mx-auto">
+
+              {/* Loading State */}
+              {isLoadingProduct ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-2xl lg:rounded-3xl">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                    <p className="text-gray-600 text-sm">Loading T-shirt...</p>
+                  </div>
+                </div>
+              ) : (
+                views.map((view) => (
+                  <div key={view}>{renderDesignArea(view)}</div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Mobile Controls Panel - Scrollable */}
+          {isMobile && activeTab !== "none" && (
+            <div className="flex-shrink-0 bg-white border-t border-gray-300 p-3 max-h-40 overflow-y-auto">
+              <div className="space-y-2">
                 {activeTab === "upload" && (
                   <>
-                    <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                      Upload Logo
-                    </h3>
-                    <label className="flex flex-col items-center px-4 py-3 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 hover:bg-gray-100 cursor-pointer transition-all">
-                      <span className="text-xs text-gray-600">
-                        Click to upload
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
+                    <h3 className="text-xs font-semibold text-gray-800">Upload Logo</h3>
+                    <label className="flex flex-col items-center px-2 py-1 bg-gray-50 rounded border border-dashed border-gray-300 hover:bg-gray-100 cursor-pointer transition-all">
+                      <span className="text-xs text-gray-600">Click to upload</span>
+                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                     </label>
                     {allDesigns[side].uploadedImage && (
                       <>
-                        <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                          Logo Size
-                        </h3>
-                        <input
-                          type="range"
-                          min="50"
-                          max="300"
-                          value={allDesigns[side].imageSize}
-                          onChange={(e) =>
-                            updateCurrentDesign(
-                              "imageSize",
-                              Number(e.target.value)
-                            )
-                          }
-                          className="w-full"
-                        />
+                        <h3 className="text-xs font-semibold text-gray-800 mt-1">Logo Size</h3>
+                        <input type="range" min="50" max="300" value={allDesigns[side].imageSize} onChange={(e) => updateCurrentDesign("imageSize", Number(e.target.value))} className="w-full h-1" />
                       </>
                     )}
                   </>
                 )}
 
-                {activeTab === "additional" && (
-                  <>
-                    <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                      Upload Additional Files
-                    </h3>
-                    <label className="flex flex-col items-center px-4 py-3 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 hover:bg-gray-100 cursor-pointer transition-all">
-                      <span className="text-xs text-gray-600">
-                        Click to select files
-                      </span>
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleAdditionalFilesUpload}
-                        className="hidden"
-                      />
-                    </label>
-                    <ul className="mt-2 max-h-24 overflow-auto text-xs text-gray-600">
-                      {additionalFiles.map((fileObj, i) => (
-                        <li key={i} className="truncate" title={fileObj.name}>
-                          {fileObj.name}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-
                 {activeTab === "text" && (
                   <>
-                    <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                      Custom Text
-                    </h3>
-                    <input
-                      type="text"
-                      value={allDesigns[side].customText}
-                      onChange={(e) =>
-                        updateCurrentDesign("customText", e.target.value)
-                      }
-                      placeholder="Your slogan here"
-                      className="w-full px-3 py-2 border border-gray-400 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-700"
-                    />
-
-                    <div className="grid grid-cols-2 gap-4 mt-3">
+                    <h3 className="text-xs font-semibold text-gray-800">Custom Text</h3>
+                    <input type="text" value={allDesigns[side].customText} onChange={(e) => updateCurrentDesign("customText", e.target.value)} placeholder="Enter text" className="w-full px-2 py-1 border border-gray-300 rounded text-xs" />
+                    <div className="grid grid-cols-2 gap-1">
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                          Text Size
-                        </h3>
-                        <input
-                          type="number"
-                          value={allDesigns[side].textSize}
-                          onChange={(e) =>
-                            updateCurrentDesign(
-                              "textSize",
-                              Number(e.target.value)
-                            )
-                          }
-                          className="w-full px-3 py-2 border border-gray-400 rounded-md text-sm"
-                        />
+                        <label className="text-xs text-gray-600 block">Size</label>
+                        <input type="number" min="10" max="100" value={allDesigns[side].textSize} onChange={(e) => updateCurrentDesign("textSize", Number(e.target.value))} className="w-full px-1 py-0.5 border border-gray-300 rounded text-xs" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                          Text Color
-                        </h3>
-                        <input
-                          type="color"
-                          value={allDesigns[side].textColor}
-                          onChange={(e) =>
-                            updateCurrentDesign("textColor", e.target.value)
-                          }
-                          className="w-10 h-10 rounded-full cursor-pointer"
-                        />
+                        <label className="text-xs text-gray-600 block">Color</label>
+                        <input type="color" value={allDesigns[side].textColor} onChange={(e) => updateCurrentDesign("textColor", e.target.value)} className="w-full h-6 border border-gray-300 rounded cursor-pointer" />
                       </div>
                     </div>
                   </>
@@ -1447,91 +1366,64 @@ const TshirtDesigner = () => {
 
                 {activeTab === "font" && (
                   <>
-                    <h3 className="text-sm font-semibold text-gray-800 mb-2">
-                      Font Style
-                    </h3>
-                    <select
-                      onChange={(e) =>
-                        updateCurrentDesign("font", e.target.value)
-                      }
-                      value={allDesigns[side].font}
-                      className="w-full px-3 py-2 border border-gray-400 rounded-md text-sm"
-                    >
-                      <option value="font-sans">Sans - Modern</option>
-                      <option value="font-serif">Serif - Classic</option>
-                      <option value="font-mono">Mono - Minimal</option>
+                    <h3 className="text-xs font-semibold text-gray-800">Font</h3>
+                    <select value={allDesigns[side].font} onChange={(e) => updateCurrentDesign("font", e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs">
+                      <option value="font-sans">Sans Serif</option>
+                      <option value="font-serif">Serif</option>
+                      <option value="font-mono">Monospace</option>
                     </select>
+                  </>
+                )}
+
+                {activeTab === "additional" && (
+                  <>
+                    <h3 className="text-sm font-semibold text-gray-800">Upload Files</h3>
+                    <label className="flex flex-col items-center px-3 py-2 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 hover:bg-gray-100 cursor-pointer transition-all">
+                      <span className="text-xs text-gray-600">Click to select files</span>
+                      <input type="file" multiple onChange={handleAdditionalFilesUpload} className="hidden" />
+                    </label>
                   </>
                 )}
               </div>
             </div>
           )}
+        </main>
+      </div>
 
-          {/* ✅ Mobile Price Display */}
-          <div className="fixed bottom-16 left-0 w-full bg-white border-t border-gray-200 py-2 z-40 lg:hidden">
-            <div className="text-center">
-              <span className="text-lg font-bold text-green-600">
-                {currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '₹'}
-                {applyLocationPricing(
-                  productDetails?.pricing?.[0]?.price_per || 499,
-                  priceIncrease,
-                  conversionRate
-                ).toLocaleString('en-IN')}
-              </span>
-              {resolvedLocation && resolvedLocation !== 'Asia' && (
-                <span className="text-xs text-gray-500 ml-2">
-                  📍 {resolvedLocation} (+{priceIncrease || 0}%)
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <button
-            onClick={saveSelectedViews}
-            className="fixed bottom-0 left-0 w-full py-4 bg-green-600 text-white text-lg font-semibold rounded-none hover:bg-green-700 shadow-lg z-50 lg:static lg:w-auto lg:rounded-lg lg:mt-6 lg:px-6 lg:py-3"
-          >
-            Submit <MdNavigateNext size={22} className="ml-2 inline" />
+      {/* Mobile Bottom Bar */}
+      {isMobile && (
+        <>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                      Custom Text
+                    </h3>
+        {/* Mobile Bottom Bar */}
+        <div className="flex-shrink-0 bg-gray-800 text-white flex justify-around py-1 border-t border-gray-700 lg:hidden">
+          <button onClick={() => setActiveTab("upload")} className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded text-xs ${activeTab === "upload" ? "bg-yellow-500 text-black" : "hover:bg-gray-700"}`}>
+            <FaUpload size={14} />
+            <span className="text-[10px]">Upload</span>
           </button>
+          <button onClick={() => setActiveTab("text")} className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded text-xs ${activeTab === "text" ? "bg-yellow-500 text-black" : "hover:bg-gray-700"}`}>
+            <FaRegKeyboard size={14} />
+            <span className="text-[10px]">Text</span>
+          </button>
+          <button onClick={() => setActiveTab("font")} className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded text-xs ${activeTab === "font" ? "bg-yellow-500 text-black" : "hover:bg-gray-700"}`}>
+            <FaFont size={14} />
+            <span className="text-[10px]">Font</span>
+          </button>
+          <button onClick={() => setActiveTab("additional")} className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded text-xs ${activeTab === "additional" ? "bg-yellow-500 text-black" : "hover:bg-gray-700"}`}>
+            <FaUpload size={14} />
+            <span className="text-[10px]">Files</span>
+          </button>
+          <button onClick={() => setActiveTab("none")} className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded text-xs ${activeTab === "none" ? "bg-yellow-500 text-black" : "hover:bg-gray-700"}`}>
+            <FaTimes size={14} />
+            <span className="text-[10px]">Close</span>
+          </button>
+        </div>
 
-          {/* Tab Bar */}
-          <div className="fixed bottom-20 left-0 w-full bg-gray-800 text-white flex justify-around py-2 z-50">
-            <button
-              onClick={() => setActiveTab("upload")}
-              className="flex flex-col items-center"
-            >
-              <FaUpload size={20} />
-              <span className="text-[10px]">Upload</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("text")}
-              className="flex flex-col items-center"
-            >
-              <FaRegKeyboard size={20} />
-              <span className="text-[10px]">Text</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("font")}
-              className="flex flex-col items-center"
-            >
-              <FaFont size={20} />
-              <span className="text-[10px]">Font</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("none")}
-              className="flex flex-col items-center"
-            >
-              <FaTimes size={20} />
-              <span className="text-[10px]">Close</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("additional")}
-              className="flex flex-col items-center"
-            >
-              <FaUpload size={20} />
-              <span className="text-[10px]">Files</span>
-            </button>
-          </div>
+        {/* Mobile Submit Button */}
+        <button onClick={saveSelectedViews} className="lg:hidden w-full py-2 px-3 bg-green-600 text-white font-semibold hover:bg-green-700 text-sm">
+          Submit Design ✓
+        </button>
         </>
       )}
     </>
