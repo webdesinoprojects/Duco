@@ -476,6 +476,17 @@ const completeOrder = async (req, res) => {
     else if (paymentmode === 'manual_payment') readableMode = 'Manual Payment';
 
     // ================================================================
+    // VALIDATION: Store Pickup is ONLY for B2B Orders
+    // ================================================================
+    if (paymentmode === 'store_pickup' && !isCorporateOrder) {
+      console.error('❌ Store Pickup payment method is only available for B2B orders');
+      return res.status(403).json({
+        success: false,
+        message: 'Store Pickup payment method is only available for B2B (Corporate) orders'
+      });
+    }
+
+    // ================================================================
     // CASE 1 – STORE PICKUP (NEW)
     // ================================================================
     if (paymentmode === 'store_pickup') {

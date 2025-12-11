@@ -384,9 +384,8 @@ const ProductPage = () => {
                 <label key={s} className="flex flex-col items-center gap-1">
                   <span className="text-sm text-white">{s}</span>
                   <input
-                    type="number"
+                    type="text"
                     inputMode="numeric"
-                    min={0}
                     className="h-12 w-16 rounded-xl border border-slate-300 text-center focus:outline-none focus:ring-2 focus:ring-sky-400"
                     value={qty[s] === 0 ? "" : qty[s]}
                     onChange={(e) => handleQty(s, e.target.value)}

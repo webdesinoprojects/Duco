@@ -30,15 +30,24 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     setCurrentPos(position);
   }, [position]);
 
-  const handleMouseDown = useCallback((e) => {
+  // ✅ Helper to get coordinates from mouse or touch event
+  const getCoordinates = (e) => {
+    if (e.touches && e.touches.length > 0) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  };
+
+  const handleStart = useCallback((e) => {
     console.log(`🎯 Drag start: ${id}`);
     setIsDragging(true);
-    setStartPos({ x: e.clientX, y: e.clientY });
+    const coords = getCoordinates(e);
+    setStartPos(coords);
     e.preventDefault();
     e.stopPropagation();
   }, [id]);
 
-  const handleMouseMove = useCallback((e) => {
+  const handleMove = useCallback((e) => {
     if (!isDragging) return;
 
     // Get the T-shirt container (the main design area)
@@ -46,8 +55,9 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const deltaX = e.clientX - startPos.x;
-    const deltaY = e.clientY - startPos.y;
+    const coords = getCoordinates(e);
+    const deltaX = coords.x - startPos.x;
+    const deltaY = coords.y - startPos.y;
 
     // Convert pixel movement to percentage
     const deltaXPercent = (deltaX / rect.width) * 100;
@@ -62,7 +72,7 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     setCurrentPos(newPos);
   }, [isDragging, startPos, position]);
 
-  const handleMouseUp = useCallback(() => {
+  const handleEnd = useCallback(() => {
     if (!isDragging) return;
     console.log(`🎯 Drag end: ${id} -> x:${currentPos.x.toFixed(1)}, y:${currentPos.y.toFixed(1)}`);
 
@@ -71,17 +81,21 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     setIsDragging(false);
   }, [isDragging, id, currentPos, onPositionChange]);
 
-  // Global mouse events
+  // ✅ Global mouse and touch events
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', handleEnd);
+      document.addEventListener('touchmove', handleMove, { passive: false });
+      document.addEventListener('touchend', handleEnd);
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', handleMove);
+        document.removeEventListener('mouseup', handleEnd);
+        document.removeEventListener('touchmove', handleMove);
+        document.removeEventListener('touchend', handleEnd);
       };
     }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMove, handleEnd]);
 
   const style = {
     position: "absolute",
@@ -89,7 +103,7 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     top: `${currentPos.y}%`,
     transform: "translate(-50%, -50%)",
     cursor: isDragging ? "grabbing" : "grab",
-    zIndex: isDragging ? 100 : 50, // Normal z-index
+    zIndex: isDragging ? 100 : 50,
     touchAction: "none",
     userSelect: "none",
     WebkitUserSelect: "none",
@@ -102,7 +116,8 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     <div
       ref={elementRef}
       style={style}
-      onMouseDown={handleMouseDown}
+      onMouseDown={handleStart}
+      onTouchStart={handleStart}
       className="custom-draggable-item"
     >
       {children}
@@ -1056,11 +1071,14 @@ const TshirtDesigner = () => {
             Text Size
           </h3>
           <input
-            type="number"
-            value={allDesigns[side].textSize}
-            onChange={(e) =>
-              updateCurrentDesign("textSize", Number(e.target.value))
-            }
+            type="text"
+            inputMode="numeric"
+            value={allDesigns[side].textSize === 0 ? "" : allDesigns[side].textSize}
+            onChange={(e) => {
+              const val = e.target.value;
+              updateCurrentDesign("textSize", val === "" ? 0 : Number(val));
+            }}
+            placeholder="0"
             className="w-full px-3 py-2 border border-gray-400 rounded-md text-sm"
           />
         </div>
@@ -1354,7 +1372,10 @@ const TshirtDesigner = () => {
                     <div className="grid grid-cols-2 gap-1">
                       <div>
                         <label className="text-xs text-gray-600 block">Size</label>
-                        <input type="number" min="10" max="100" value={allDesigns[side].textSize} onChange={(e) => updateCurrentDesign("textSize", Number(e.target.value))} className="w-full px-1 py-0.5 border border-gray-300 rounded text-xs" />
+                        <input type="text" inputMode="numeric" value={allDesigns[side].textSize === 0 ? "" : allDesigns[side].textSize} onChange={(e) => {
+                          const val = e.target.value;
+                          updateCurrentDesign("textSize", val === "" ? 0 : Number(val));
+                        }} placeholder="0" className="w-full px-1 py-0.5 border border-gray-300 rounded text-xs" />
                       </div>
                       <div>
                         <label className="text-xs text-gray-600 block">Color</label>

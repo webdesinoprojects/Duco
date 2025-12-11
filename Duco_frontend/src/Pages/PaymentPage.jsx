@@ -180,6 +180,12 @@ const PaymentPage = () => {
 
   // Selecting method
   const handlePaymentChange = (method) => {
+    // ✅ Prevent B2C users from selecting store pickup
+    if (method === "Pickup from Store" && !isB2B) {
+      toast.error("Store Pickup is only available for B2B (Corporate) orders");
+      return;
+    }
+    
     setPaymentMethod(method);
     setShowPayNow(
       method === "Pay Online" || method === "online" || method === "50%"
@@ -268,6 +274,12 @@ const PaymentPage = () => {
 
     // Pickup from Store → validate inline, then place order
     if (paymentMethod === "Pickup from Store") {
+      // ✅ Double-check that this is a B2B order
+      if (!isB2B) {
+        toast.error("❌ Store Pickup is only available for B2B (Corporate) orders");
+        return;
+      }
+      
       if (!validatePickup()) {
         toast.error("Please fix pickup details");
         return;
@@ -757,7 +769,7 @@ const PaymentPage = () => {
         {/* Debug Info */}
         <div className="mt-8 p-3 bg-gray-50 border rounded text-sm text-gray-700">
           <div>Order Type: {isB2B ? "Corporate/Bulk Order (B2B)" : "Retail (B2C)"}</div>
-          <div>Minimum Order Quantity: {minOrderQty} units</div>
+          
           <div>Available Payment Options: {paymentOptions.join(", ")}</div>
           {isB2B && (
             <div className="mt-2 text-xs text-green-700">

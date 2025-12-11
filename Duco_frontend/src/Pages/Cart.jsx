@@ -836,9 +836,6 @@ const Cart = () => {
               updateQuantity={(newQty) =>
                 updateQuantity(
                   item.id,
-                  item.quantity,
-                  item.color,
-                  item.design,
                   newQty
                 )
               }

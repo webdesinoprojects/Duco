@@ -1,12 +1,50 @@
 import QuantityControlss from "./QuantityControlss";
 import PriceDisplay from "./PriceDisplay";
 import { RiEyeFill } from "react-icons/ri";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import menstshirt from "../assets/men_s_white_polo_shirt_mockup-removebg-preview.png";
 
 const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   const [previewImage, setPreviewImage] = useState(null);
+  const [displayImage, setDisplayImage] = useState(null);
   const { toConvert, priceIncrease } = usePriceContext();
+
+  // ✅ Check if image is blank/empty by checking if it's a data URL with minimal content
+  const isBlankImage = (src) => {
+    if (!src) return true;
+    // Check if it's a data URL that's too small (likely blank)
+    if (src.startsWith('data:image')) {
+      // A blank white image is typically very small
+      return src.length < 500;
+    }
+    return false;
+  };
+
+  // ✅ Determine which image to display
+  useEffect(() => {
+    let imageToDisplay = null;
+
+    // Try preview images first (from custom T-shirt designer)
+    if (item.previewImages?.front && !isBlankImage(item.previewImages.front)) {
+      imageToDisplay = item.previewImages.front;
+    }
+    // Fallback to product image
+    else if (item.image_url?.[0]?.url?.[0]) {
+      imageToDisplay = item.image_url[0].url[0];
+    }
+    // Fallback to base T-shirt mockup
+    else if (item.previewImages?.front) {
+      // Even if blank, use it but with fallback styling
+      imageToDisplay = item.previewImages.front;
+    }
+    // Final fallback to default T-shirt
+    else {
+      imageToDisplay = menstshirt;
+    }
+
+    setDisplayImage(imageToDisplay);
+  }, [item]);
 
   // ✅ Apply location pricing to a base price
   const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
@@ -68,13 +106,13 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         {/* Product Image */}
         <div className="w-full sm:w-32 h-32 bg-gray-200 flex items-center justify-center rounded-lg overflow-hidden shadow-md">
           <img
-            src={
-              item.previewImages?.front ||
-              item.image_url?.[0]?.url?.[0] ||
-              "/fallback.png" // ✅ safe fallback
-            }
+            src={displayImage || menstshirt}
             alt={item.products_name || item.name || "Custom T-Shirt"}
             className="w-full h-full object-contain"
+            onError={(e) => {
+              // If image fails to load, use the default T-shirt
+              e.target.src = menstshirt;
+            }}
           />
         </div>
 
@@ -93,20 +131,48 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
 
           <div className="text-sm text-gray-300">{item.description}</div>
 
-          {/* ✅ Quantity Handling (multi-size display) */}
-          <div className="flex flex-wrap gap-2 mt-2">
+          {/* ✅ Quantity Handling (multi-size display with controls) */}
+          <div className="flex flex-wrap gap-2 mt-2 items-center">
             {item.quantity && typeof item.quantity === "object" ? (
               Object.entries(item.quantity).filter(([_, count]) => count > 0).length > 0 ? (
-                Object.entries(item.quantity).map(([size, count]) =>
-                  count > 0 ? (
-                    <span
-                      key={size}
-                      className="px-2 py-1 text-xs rounded border bg-gray-800 text-white"
-                    >
-                      {size} × {count}
-                    </span>
-                  ) : null
-                )
+                <>
+                  {Object.entries(item.quantity).map(([size, count]) =>
+                    count > 0 ? (
+                      <div key={size} className="flex items-center gap-2">
+                        <span className="px-2 py-1 text-xs rounded border bg-gray-800 text-white">
+                          {size} × {count}
+                        </span>
+                        <div className="flex items-center gap-1 border px-1 rounded-md bg-gray-700 text-white">
+                          <button
+                            onClick={() => {
+                              const newQty = { ...item.quantity };
+                              newQty[size] = Math.max(0, count - 1);
+                              // updateQuantity is a wrapper that expects the new quantity as first param
+                              updateQuantity(newQty);
+                            }}
+                            className="text-sm px-2 hover:text-red-500 transition"
+                            title="Decrease quantity"
+                          >
+                            −
+                          </button>
+                          <span className="text-xs font-semibold">{count}</span>
+                          <button
+                            onClick={() => {
+                              const newQty = { ...item.quantity };
+                              newQty[size] = count + 1;
+                              // updateQuantity is a wrapper that expects the new quantity as first param
+                              updateQuantity(newQty);
+                            }}
+                            className="text-sm px-2 hover:text-green-400 transition"
+                            title="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ) : null
+                  )}
+                </>
               ) : (
                 <span className="px-2 py-1 text-xs rounded border">
                   Qty: 1
