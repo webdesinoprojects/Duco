@@ -35,7 +35,10 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     if (e.touches && e.touches.length > 0) {
       return { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
-    return { x: e.clientX, y: e.clientY };
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    }
+    return { x: e.clientX || 0, y: e.clientY || 0 };
   };
 
   const handleStart = useCallback((e) => {
@@ -43,8 +46,12 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     setIsDragging(true);
     const coords = getCoordinates(e);
     setStartPos(coords);
-    e.preventDefault();
-    e.stopPropagation();
+    if (e.preventDefault) {
+      e.preventDefault();
+    }
+    if (e.stopPropagation) {
+      e.stopPropagation();
+    }
   }, [id]);
 
   const handleMove = useCallback((e) => {
@@ -56,6 +63,9 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
 
     const rect = container.getBoundingClientRect();
     const coords = getCoordinates(e);
+    
+    if (coords.x === 0 && coords.y === 0) return; // Invalid coordinates
+    
     const deltaX = coords.x - startPos.x;
     const deltaY = coords.y - startPos.y;
 
@@ -70,6 +80,11 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     };
 
     setCurrentPos(newPos);
+    
+    // Prevent default scrolling on iOS
+    if (e.preventDefault) {
+      e.preventDefault();
+    }
   }, [isDragging, startPos, position]);
 
   const handleEnd = useCallback(() => {
@@ -81,18 +96,24 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     setIsDragging(false);
   }, [isDragging, id, currentPos, onPositionChange]);
 
-  // ✅ Global mouse and touch events
+  // ✅ Global mouse and touch events with iOS compatibility
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMove);
-      document.addEventListener('mouseup', handleEnd);
-      document.addEventListener('touchmove', handleMove, { passive: false });
-      document.addEventListener('touchend', handleEnd);
+      const moveHandler = (e) => handleMove(e);
+      const endHandler = (e) => handleEnd(e);
+      
+      document.addEventListener('mousemove', moveHandler);
+      document.addEventListener('mouseup', endHandler);
+      document.addEventListener('touchmove', moveHandler, { passive: false });
+      document.addEventListener('touchend', endHandler, { passive: false });
+      document.addEventListener('touchcancel', endHandler, { passive: false });
+      
       return () => {
-        document.removeEventListener('mousemove', handleMove);
-        document.removeEventListener('mouseup', handleEnd);
-        document.removeEventListener('touchmove', handleMove);
-        document.removeEventListener('touchend', handleEnd);
+        document.removeEventListener('mousemove', moveHandler);
+        document.removeEventListener('mouseup', endHandler);
+        document.removeEventListener('touchmove', moveHandler);
+        document.removeEventListener('touchend', endHandler);
+        document.removeEventListener('touchcancel', endHandler);
       };
     }
   }, [isDragging, handleMove, handleEnd]);
@@ -109,7 +130,12 @@ const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 
     WebkitUserSelect: "none",
     WebkitTouchCallout: "none",
     WebkitUserDrag: "none",
+    WebkitTapHighlightColor: "transparent",
     pointerEvents: "auto",
+    // iOS specific fixes
+    WebkitTransform: `translate(-50%, -50%)`,
+    WebkitBackfaceVisibility: "hidden",
+    WebkitPerspective: 1000,
   };
 
   return (
@@ -1326,8 +1352,8 @@ const TshirtDesigner = () => {
           </div>
 
           {/* T-shirt Preview Area */}
-          <div className="flex-1 flex items-center justify-center p-2 sm:p-3 lg:p-4 bg-white lg:bg-gray-50 overflow-y-auto lg:overflow-hidden">
-            <div className="relative w-full max-w-2xl h-auto aspect-square sm:aspect-auto sm:h-72 md:h-80 lg:h-full rounded-xl lg:rounded-2xl mx-auto">
+          <div className="flex-1 flex items-center justify-center p-2 sm:p-3 lg:p-4 bg-white lg:bg-gray-50 overflow-y-auto lg:overflow-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="relative w-full max-w-2xl h-auto aspect-square sm:aspect-auto sm:h-72 md:h-80 lg:h-full rounded-xl lg:rounded-2xl mx-auto" style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}>
 
               {/* Loading State */}
               {isLoadingProduct ? (

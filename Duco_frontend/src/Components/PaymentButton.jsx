@@ -182,13 +182,19 @@ const PaymentButton = ({ orderData }) => {
                 JSON.stringify(orderData)
               );
 
-              // ✅ 5. Redirect to order-processing with compressed data
+              // ✅ 5. Determine payment mode based on isHalfPayment flag
+              const paymentMode = orderData.isHalfPayment ? "50%" : "online";
+              console.log("💳 Payment mode:", paymentMode, "isHalfPayment:", orderData.isHalfPayment);
+
+              // ✅ 6. Redirect to order-processing with compressed data
               navigate("/order-processing", {
                 state: {
                   paymentId: razorpay_payment_id,
                   orderData: compressedOrder, // compressed payload
                   compressed: true, // flag for backend
-                  paymentmode: "online", // ✅ lowercase for backend
+                  paymentmode: paymentMode, // ✅ "50%" for half payment, "online" for full
+                  isHalfPayment: orderData.isHalfPayment || false,
+                  originalTotal: orderData.originalTotal || orderData.totalPay,
                 },
               });
             } else {

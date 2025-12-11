@@ -172,23 +172,30 @@ const PaymentPage = () => {
   // Dynamic payment options
   const paymentOptions = useMemo(() => {
     if (isB2B) {
-      return ["Netbanking", "Pickup from Store", "Pay Online"];
+      return ["50% Advance (Razorpay)", "50% Advance (Bank Transfer)", "Netbanking", "Pickup from Store", "Pay Online"];
     } else {
       return ["Pay Online"];
     }
   }, [isB2B]);
+  
+  // Calculate 50% amount for B2B orders
+  const halfPayAmount = useMemo(() => {
+    const total = orderpayload?.totalPay || orderpayload?.totals?.grandTotal || 0;
+    return Math.ceil(total / 2);
+  }, [orderpayload]);
 
   // Selecting method
   const handlePaymentChange = (method) => {
-    // ✅ Prevent B2C users from selecting store pickup
-    if (method === "Pickup from Store" && !isB2B) {
-      toast.error("Store Pickup is only available for B2B (Corporate) orders");
+    // ✅ Prevent B2C users from selecting B2B-only options
+    if ((method === "Pickup from Store" || method.includes("50%")) && !isB2B) {
+      toast.error("This payment option is only available for B2B (Corporate) orders");
       return;
     }
     
     setPaymentMethod(method);
+    // Show Razorpay button for online payments and 50% Razorpay
     setShowPayNow(
-      method === "Pay Online" || method === "online" || method === "50%"
+      method === "Pay Online" || method === "online" || method === "50% Advance (Razorpay)"
     );
     // Reset errors when method changes
     setErrors({});
@@ -304,9 +311,35 @@ const PaymentPage = () => {
       return;
     }
 
-    // 50% payment (if you keep this path)
-    if (paymentMethod === "50%" || paymentMethod === "half_payment") {
-      return placeOrder("half_payment", "50% advance order placed successfully!");
+    // 50% Bank Transfer payment
+    if (paymentMethod === "50% Advance (Bank Transfer)") {
+      if (!validateNetbanking()) {
+        toast.error("Please fill in bank transfer details");
+        return;
+      }
+      const meta =
+        netbankingType === "bank"
+          ? {
+              netbankingType,
+              bankName: bankName.trim(),
+              accountName: accountName.trim(),
+              accountNumberMasked: maskAccount(onlyDigits(accountNumber)),
+              ifsc: String(ifsc).toUpperCase(),
+              utr: utr?.trim() || "",
+              paymentType: "50%_advance",
+              amountPaid: halfPayAmount,
+              amountDue: halfPayAmount,
+            }
+          : {
+              netbankingType,
+              upiId: upiId.trim(),
+              payerName: payerName.trim(),
+              reference: upiRef?.trim() || "",
+              paymentType: "50%_advance",
+              amountPaid: halfPayAmount,
+              amountDue: halfPayAmount,
+            };
+      return placeOrder("50%", `50% advance (₹${halfPayAmount.toLocaleString()}) order placed successfully!`, meta);
     }
   };
 
@@ -559,6 +592,192 @@ const PaymentPage = () => {
                       </div>
                     )}
 
+                  {/* 💰 50% Advance (Bank Transfer) inline form */}
+                  {option === "50% Advance (Bank Transfer)" &&
+                    paymentMethod === "50% Advance (Bank Transfer)" && (
+                      <div className="mt-3 space-y-3">
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800 font-medium">
+                            💰 50% Advance Payment: ₹{halfPayAmount.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-yellow-600 mt-1">
+                            Remaining ₹{halfPayAmount.toLocaleString()} will be due before delivery
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">Pay via:</span>
+                          <select
+                            value={netbankingType}
+                            onChange={(e) => {
+                              setNetbankingType(e.target.value);
+                              setErrors({});
+                            }}
+                            className="rounded-lg border border-gray-300 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E5C870]"
+                          >
+                            <option value="bank">Bank Transfer (NEFT/IMPS/RTGS)</option>
+                            <option value="upi">UPI</option>
+                          </select>
+                        </div>
+
+                        {/* BANK FIELDS */}
+                        {netbankingType === "bank" && (
+                          <>
+                            <div>
+                              <label className="block text-sm text-gray-600 mb-1">
+                                Bank Name
+                              </label>
+                              <input
+                                list="bank-list-50"
+                                placeholder="Start typing your bank (e.g., HDFC Bank)"
+                                value={bankName}
+                                onChange={(e) => setBankName(e.target.value)}
+                                className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                                  errors.bankName ? "border-red-500" : "border-gray-300"
+                                }`}
+                              />
+                              <datalist id="bank-list-50">
+                                {[
+                                  "HDFC Bank",
+                                  "ICICI Bank",
+                                  "State Bank of India",
+                                  "Axis Bank",
+                                  "Kotak Mahindra Bank",
+                                  "Yes Bank",
+                                  "Punjab National Bank",
+                                  "Bank of Baroda",
+                                  "IDFC FIRST Bank",
+                                  "Union Bank of India",
+                                ].map((b) => (
+                                  <option key={b} value={b} />
+                                ))}
+                              </datalist>
+                              {errors.bankName && (
+                                <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm text-gray-600 mb-1">
+                                Account Holder Name
+                              </label>
+                              <input
+                                value={accountName}
+                                onChange={(e) => setAccountName(e.target.value)}
+                                placeholder="As per bank records"
+                                className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                                  errors.accountName ? "border-red-500" : "border-gray-300"
+                                }`}
+                              />
+                              {errors.accountName && (
+                                <p className="text-xs text-red-600 mt-1">{errors.accountName}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm text-gray-600 mb-1">
+                                Account Number
+                              </label>
+                              <input
+                                inputMode="numeric"
+                                value={accountNumber}
+                                onChange={(e) =>
+                                  setAccountNumber(onlyDigits(e.target.value).slice(0, 18))
+                                }
+                                placeholder="9–18 digits"
+                                className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                                  errors.accountNumber ? "border-red-500" : "border-gray-300"
+                                }`}
+                              />
+                              {errors.accountNumber && (
+                                <p className="text-xs text-red-600 mt-1">{errors.accountNumber}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm text-gray-600 mb-1">
+                                IFSC Code
+                              </label>
+                              <input
+                                value={ifsc}
+                                onChange={(e) => setIfsc(e.target.value.toUpperCase())}
+                                placeholder="e.g., HDFC0001234"
+                                className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                                  errors.ifsc ? "border-red-500" : "border-gray-300"
+                                }`}
+                              />
+                              {errors.ifsc && (
+                                <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm text-gray-600 mb-1">
+                                UTR / Reference (optional)
+                              </label>
+                              <input
+                                value={utr}
+                                onChange={(e) => setUtr(e.target.value)}
+                                placeholder="If already paid, enter UTR"
+                                className="w-full rounded-lg border px-3 py-2 text-sm border-gray-300"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* UPI FIELDS */}
+                        {netbankingType === "upi" && (
+                          <>
+                            <div>
+                              <label className="block text-sm text-gray-600 mb-1">
+                                UPI ID
+                              </label>
+                              <input
+                                value={upiId}
+                                onChange={(e) => setUpiId(e.target.value)}
+                                placeholder="name@bank"
+                                className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                                  errors.upiId ? "border-red-500" : "border-gray-300"
+                                }`}
+                              />
+                              {errors.upiId && (
+                                <p className="text-xs text-red-600 mt-1">{errors.upiId}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm text-gray-600 mb-1">
+                                Payer Name
+                              </label>
+                              <input
+                                value={payerName}
+                                onChange={(e) => setPayerName(e.target.value)}
+                                placeholder="Your name on UPI"
+                                className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                                  errors.payerName ? "border-red-500" : "border-gray-300"
+                                }`}
+                              />
+                              {errors.payerName && (
+                                <p className="text-xs text-red-600 mt-1">{errors.payerName}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm text-gray-600 mb-1">
+                                Reference / UTR (optional)
+                              </label>
+                              <input
+                                value={upiRef}
+                                onChange={(e) => setUpiRef(e.target.value)}
+                                placeholder="If already paid, enter UTR"
+                                className="w-full rounded-lg border px-3 py-2 text-sm border-gray-300"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
                   {/* 🏬 Pickup inline form */}
                   {option === "Pickup from Store" &&
                     paymentMethod === "Pickup from Store" && (
@@ -639,8 +858,32 @@ const PaymentPage = () => {
             </div>
           ))}
 
+          {/* ✅ 50% Advance Razorpay Button */}
+          {showPayNow && paymentMethod === "50% Advance (Razorpay)" && (
+            <div className="mt-6 space-y-3">
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800 font-medium">
+                  💰 50% Advance Payment: ₹{halfPayAmount.toLocaleString()}
+                </p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  Remaining ₹{halfPayAmount.toLocaleString()} will be due before delivery
+                </p>
+              </div>
+              <PaymentButton
+                orderData={{
+                  ...orderpayload,
+                  items: orderpayload?.items?.length > 0 ? orderpayload.items : cart || [],
+                  totalPay: halfPayAmount, // Only 50% amount
+                  originalTotal: orderpayload?.totalPay || orderpayload?.totals?.grandTotal || 0,
+                  isHalfPayment: true,
+                  paymentType: "50%",
+                }}
+              />
+            </div>
+          )}
+
           {/* ✅ Razorpay button for Pay Online (unchanged) */}
-          {showPayNow && paymentMethod.toLowerCase().includes("online") && (
+          {showPayNow && paymentMethod.toLowerCase().includes("online") && paymentMethod !== "50% Advance (Razorpay)" && (
             <div className="mt-6 space-y-3">
               {import.meta.env.MODE !== "production" && (
                 <button
@@ -756,12 +999,14 @@ const PaymentPage = () => {
           {!showPayNow &&
             (paymentMethod === "Netbanking" ||
               paymentMethod === "Pickup from Store" ||
-              paymentMethod === "50%") && (
+              paymentMethod === "50% Advance (Bank Transfer)") && (
               <button
                 onClick={handleSubmit}
                 className="w-full mt-6 py-2 px-4 bg-[#E5C870] text-black rounded-lg hover:bg-[#D4B752] font-semibold"
               >
-                Continue
+                {paymentMethod === "50% Advance (Bank Transfer)" 
+                  ? `Pay 50% Advance (₹${halfPayAmount.toLocaleString()})` 
+                  : "Continue"}
               </button>
             )}
         </div>
