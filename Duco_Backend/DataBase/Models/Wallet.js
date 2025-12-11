@@ -25,8 +25,17 @@ const walletSchema = new mongoose.Schema(
         },
         type: {
           type: String,
-          enum: ["50%", "100%"], // add/remove
+          enum: ["50%", "100%", "MISC"], // 50% advance, full payment, or misc
           required: true,
+        },
+        status: {
+          type: String,
+          enum: ["Pending", "Completed", "Cancelled"],
+          default: "Pending",
+        },
+        note: {
+          type: String,
+          default: "",
         },
         createdAt: {
           type: Date,
