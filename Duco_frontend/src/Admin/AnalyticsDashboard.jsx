@@ -1513,6 +1513,38 @@ export default function AnalyticsDashboard() {
                           </div>
                         </div>
 
+                        {/* ✅ 50% Advance Payment Info */}
+                        {selectedOrder.paymentmode === '50%' && (
+                          <div className="bg-orange-500/10 border border-orange-500/30 rounded p-2">
+                            <div className="text-orange-400 font-semibold text-sm mb-2">💰 50% Advance Payment</div>
+                            <div className="space-y-1 text-xs text-gray-300">
+                              <div className="flex justify-between">
+                                <span>Amount Paid:</span>
+                                <span className="text-white font-mono">₹{Math.round((selectedOrder.price || 0) / 2).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Amount Due:</span>
+                                <span className="text-orange-300 font-mono">₹{Math.round((selectedOrder.price || 0) / 2).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="text-orange-400 text-xs mt-1">⚠️ Remaining payment due before delivery</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ✅ Store Pickup Info */}
+                        {selectedOrder.paymentmode === 'store_pickup' && (
+                          <div className="bg-blue-500/10 border border-blue-500/30 rounded p-2">
+                            <div className="text-blue-400 font-semibold text-sm mb-2">🏬 Pickup from Store</div>
+                            <div className="space-y-1 text-xs text-gray-300">
+                              <div className="flex justify-between">
+                                <span>Payment Due:</span>
+                                <span className="text-white font-mono">₹{(selectedOrder.price || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="text-blue-400 text-xs mt-1">ℹ️ Payment to be collected at pickup</div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Razorpay Payment ID */}
                         {selectedOrder.razorpayPaymentId && (
                           <div>

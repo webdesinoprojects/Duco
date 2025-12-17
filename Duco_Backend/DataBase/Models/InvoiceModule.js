@@ -74,6 +74,8 @@ const InvoiceSchema = new Schema({
   currency: { type: String, default: 'INR' }, // ✅ Add currency field
   total: { type: Number, default: 0 }, // ✅ Add total field
   orderType: { type: String, enum: ['B2B', 'B2C'], default: 'B2C' }, // ✅ Add orderType field
+  paymentmode: { type: String, default: 'online' }, // ✅ Add paymentmode field (online, 50%, store_pickup, netbanking)
+  amountPaid: { type: Number, default: 0 }, // ✅ Amount actually paid (for 50% payments)
 }, { timestamps: true });
 
 InvoiceSchema.index({ order: 1 }, { unique: true, sparse: true });

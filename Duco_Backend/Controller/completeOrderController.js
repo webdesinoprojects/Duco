@@ -169,12 +169,18 @@ function addressToLine(a = {}) {
 }
 
 // ✅ Helper to build invoice payload with billing and shipping addresses
-function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType) {
+function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType, paymentmode = 'online', totalAmount = 0) {
   const billingAddr = addresses?.billing || legacyAddress;
   const shippingAddr = addresses?.shipping || legacyAddress;
   
   // ✅ Extract GST/Tax number from orderData if provided
   const gstNumber = orderData?.gstNumber?.trim() || billingAddr?.gstNumber?.trim() || '';
+  
+  // ✅ Calculate amount paid based on payment mode
+  let amountPaid = totalAmount;
+  if (paymentmode === '50%') {
+    amountPaid = Math.ceil(totalAmount / 2);
+  }
   
   const payload = {
     company: settings?.company,
@@ -201,6 +207,8 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
     forCompany: settings?.forCompany,
     order: order._id,
     orderType: orderType, // ✅ Pass order type to invoice
+    paymentmode: paymentmode, // ✅ Add payment mode
+    amountPaid: amountPaid, // ✅ Add amount paid (for 50% payments)
   };
   
   // ✅ Add shipTo only if different from billing
@@ -468,6 +476,8 @@ const completeOrder = async (req, res) => {
     // ================================================================
     // CASE 0 – NORMALIZE PAYMENT MODE DISPLAY
     // ================================================================
+    // ✅ Keep paymentmode as enum value, create readableMode for display only
+    // ================================================================
     let readableMode = paymentmode;
     if (paymentmode === 'store_pickup') readableMode = 'Pay on Store';
     else if (paymentmode === 'netbanking') readableMode = 'Paid via Netbanking';
@@ -497,7 +507,7 @@ const completeOrder = async (req, res) => {
           totalPay: totalPay,
           user,
           status: 'Pending',
-          paymentmode: readableMode,
+          paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: pfCharge,
           gst: safeNum(orderData.gst, 0),
           printing: printingCharge,
@@ -526,7 +536,7 @@ const completeOrder = async (req, res) => {
             ...(addresses ? { addresses } : { address: legacyAddress }),
             user,
             status: 'Pending',
-            paymentmode: readableMode,
+            paymentmode: paymentmode, // ✅ Use enum value, not readableMode
             pf: pfCharge,
             gst: safeNum(orderData.gst, 0),
             printing: printingCharge,
@@ -547,7 +557,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType);
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType, paymentmode, totalPay);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -575,7 +585,7 @@ const completeOrder = async (req, res) => {
         user,
         razorpayPaymentId: paymentId || null,
         status: 'Pending',
-        paymentmode: readableMode,
+        paymentmode: paymentmode, // ✅ Use enum value, not readableMode
         pf: pfCharge,
         printing: printingCharge,
         gst: safeNum(orderData.gst, 0),
@@ -589,7 +599,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType);
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType, paymentmode, totalPay);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -621,7 +631,7 @@ const completeOrder = async (req, res) => {
           user,
           razorpayPaymentId: payment.id,
           status: 'Pending',
-          paymentmode: readableMode,
+          paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: pfCharge,
           printing: printingCharge,
           gst: safeNum(orderData.gst, 0),
@@ -642,7 +652,7 @@ const completeOrder = async (req, res) => {
             user,
             razorpayPaymentId: payment.id,
             status: 'Pending',
-            paymentmode: readableMode,
+            paymentmode: paymentmode, // ✅ Use enum value, not readableMode
             pf: pfCharge,
             printing: printingCharge,
             gst: safeNum(orderData.gst, 0),
@@ -663,7 +673,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType);
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType, paymentmode, totalPay);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {
@@ -695,7 +705,7 @@ const completeOrder = async (req, res) => {
           user,
           razorpayPaymentId: payment.id,
           status: 'Pending',
-          paymentmode: readableMode,
+          paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: pfCharge,
           printing: printingCharge,
           gst: safeNum(orderData.gst, 0),
@@ -716,7 +726,7 @@ const completeOrder = async (req, res) => {
             user,
             razorpayPaymentId: payment.id,
             status: 'Pending',
-            paymentmode: readableMode,
+            paymentmode: paymentmode, // ✅ Use enum value, not readableMode
             pf: pfCharge,
             printing: printingCharge,
             gst: safeNum(orderData.gst, 0),
@@ -743,7 +753,7 @@ const completeOrder = async (req, res) => {
       await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
-      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType);
+      const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, pfCharge, printingCharge, settings, orderType, paymentmode, totalPay);
       try {
         await createInvoice(invoicePayload);
       } catch (e) {

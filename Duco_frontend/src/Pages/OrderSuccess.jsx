@@ -71,6 +71,8 @@ const InvoiceDucoTailwind = ({ data }) => {
     locationTax,
     currencySymbol = "₹", // ✅ Get currency symbol from data
     currency = "INR",
+    paymentmode = "online", // ✅ Get payment mode
+    amountPaid = 0, // ✅ Get amount paid (for 50% payments)
   } = data;
   // ✅ Base amount includes subtotal + P&F + printing charges
   const baseAmount = subtotal + (charges?.pf || 0) + (charges?.printing || 0);
@@ -95,8 +97,13 @@ const InvoiceDucoTailwind = ({ data }) => {
 
   // ✅ Amount including tax = subtotal + P&F + printing + all taxes
   const amountInclTax = baseAmount + totalTaxAmount;
+  
+  // ✅ For 50% payments, show only the amount paid
+  const displayAmount = paymentmode === '50%' && amountPaid > 0 ? amountPaid : amountInclTax;
+  
   console.log("🧾 Invoice Template - Tax Info:", tax);
   console.log("💱 Invoice Template - Currency:", currency, currencySymbol);
+  console.log("💳 Invoice Template - Payment Mode:", paymentmode, "Amount Paid:", amountPaid);
 
   // Compute actual numeric location adjustment
   const locationAdj =
@@ -369,11 +376,11 @@ const InvoiceDucoTailwind = ({ data }) => {
               )}
               
               <tr style={{ borderTop: "2px solid #000", fontWeight: "bold", backgroundColor: "#f5f5f5" }}>
-                <td style={{ padding: "6px" }}>Grand Total</td>
+                <td style={{ padding: "6px" }}>Grand Total{paymentmode === '50%' ? ' (50% Advance)' : ''}</td>
                 <td style={{ padding: "6px", textAlign: "center" }}>
                   {items.reduce((sum, it) => sum + Number(it.qty), 0)} {items[0]?.unit || "Pcs"}.
                 </td>
-                <td style={{ padding: "6px", textAlign: "right" }}>{Math.ceil(adjustedTotal).toFixed(2)}</td>
+                <td style={{ padding: "6px", textAlign: "right" }}>{Math.ceil(displayAmount).toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
@@ -577,7 +584,7 @@ const InvoiceDucoTailwind = ({ data }) => {
 
       {/* AMOUNT IN WORDS */}
       <div style={{ marginTop: "10px", fontSize: "11px", fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: "10px" }}>
-        {currencyName} {totalInWords} Only
+        {currencyName} {numberToWords(Math.round(displayAmount))} Only{paymentmode === '50%' ? ' (50% Advance)' : ''}
       </div>
 
       {/* TERMS & SIGNATURE */}
@@ -744,6 +751,8 @@ export default function OrderSuccess() {
           currency: currency || 'INR', // ✅ Add currency
           currencySymbol: currencySymbol, // ✅ Add currency symbol
           conversionRate: toConvert || 1, // ✅ Add conversion rate
+          paymentmode: inv.paymentmode || paymentMeta.mode || 'online', // ✅ Add payment mode
+          amountPaid: inv.amountPaid || 0, // ✅ Add amount paid (for 50% payments)
         };
 
         console.log("🧾 Normalized Invoice for Success Page:", formatted);

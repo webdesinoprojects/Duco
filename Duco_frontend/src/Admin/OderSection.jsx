@@ -486,92 +486,161 @@ const OderSection = () => {
             return (
               <div
                 key={order._id}
-                className="bg-white rounded-lg p-4 shadow flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                className="bg-white rounded-lg p-4 shadow"
               >
-                <div className="flex items-start">
-                  <input
-                    type="checkbox"
-                    checked={selectedOrders.includes(order._id)}
-                    onChange={() => toggleOrderSelection(order._id)}
-                    className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                </div>
+                {/* Header Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrders.includes(order._id)}
+                      onChange={() => toggleOrderSelection(order._id)}
+                      className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass(
+                            order.status
+                          )}`}
+                        >
+                          {order.status}
+                        </span>
+                        <span className="text-xs text-gray-500 truncate">
+                          #{order._id}
+                        </span>
+                      </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass(
-                        order.status
-                      )}`}
-                    >
-                      {order.status}
-                    </span>
-                    <span className="text-xs text-gray-500 truncate">
-                      #{order._id}
-                    </span>
+                      <div className="flex items-center gap-3 mb-1">
+                        {first.image && (
+                          <img
+                            src={first.image}
+                            alt={first.name || "Product"}
+                            className="w-10 h-10 rounded object-contain border"
+                          />
+                        )}
+                        <p className="font-semibold text-sm sm:text-base truncate">
+                          {first.name ||
+                            first.products_name ||
+                            first.product_name ||
+                            "Unnamed product"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-3 mb-1">
-                    {first.image && (
-                      <img
-                        src={first.image}
-                        alt={first.name || "Product"}
-                        className="w-10 h-10 rounded object-contain border"
-                      />
-                    )}
-                    <p className="font-semibold text-sm sm:text-base truncate">
-                      {first.name ||
-                        first.products_name ||
-                        first.product_name ||
-                        "Unnamed product"}
+                  <div className="text-right">
+                    <p className="font-semibold text-lg">
+                      {(() => {
+                        const currency = order.currency || 'INR';
+                        const symbol = currencySymbols[currency] || '₹';
+                        const amount = Number(order.price || 0);
+                        return currency === 'INR' 
+                          ? `${symbol}${Math.round(amount).toLocaleString('en-IN')}`
+                          : `${symbol}${amount.toFixed(2)}`;
+                      })()}
                     </p>
                   </div>
-
-                  <p className="text-xs text-gray-600">
-                    {new Date(order.createdAt).toLocaleString("en-IN", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-
-                  <p className="text-xs text-gray-700 mt-1">
-                    {order?.address?.fullName
-                      ? `${order.address.fullName} • ${order.address.city || ""}`
-                      : "No address"}
-                  </p>
-
-                  <p className="text-xs text-gray-500">📧 {email}</p>
                 </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-3">
-                  <p className="font-semibold text-right">
-                    {(() => {
-                      const currency = order.currency || 'INR';
-                      const symbol = currencySymbols[currency] || '₹';
-                      const amount = Number(order.price || 0);
-                      return currency === 'INR' 
-                        ? `${symbol}${Math.round(amount).toLocaleString('en-IN')}`
-                        : `${symbol}${amount.toFixed(2)}`;
-                    })()}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSelectedOrderId(order._id)}
-                      className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => viewInvoice(order._id)}
-                      className="px-3 py-1.5 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700"
-                      title="View Invoice/Bill"
-                    >
-                      🧾 Invoice
-                    </button>
+                {/* Details Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3 text-xs">
+                  <div>
+                    <p className="text-gray-600">
+                      {new Date(order.createdAt).toLocaleString("en-IN", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    <p className="text-gray-700 mt-1">
+                      {order?.address?.fullName
+                        ? `${order.address.fullName} • ${order.address.city || ""}`
+                        : "No address"}
+                    </p>
+                    <p className="text-gray-500">📧 {email}</p>
                   </div>
+
+                  {/* ✅ Payment Information Section */}
+                  <div className="bg-gray-50 rounded p-2">
+                    {order.paymentmode === '50%' ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                            💰 50% Advance
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          <p>Total: {(() => {
+                            const currency = order.currency || 'INR';
+                            const symbol = currencySymbols[currency] || '₹';
+                            const amount = Number(order.price || 0);
+                            return currency === 'INR' 
+                              ? `${symbol}${Math.round(amount).toLocaleString('en-IN')}`
+                              : `${symbol}${amount.toFixed(2)}`;
+                          })()}</p>
+                          <p className="text-orange-600 font-medium">Paid: {(() => {
+                            const currency = order.currency || 'INR';
+                            const symbol = currencySymbols[currency] || '₹';
+                            const amount = Math.round(Number(order.price || 0) / 2);
+                            return currency === 'INR' 
+                              ? `${symbol}${amount.toLocaleString('en-IN')}`
+                              : `${symbol}${(amount / 2).toFixed(2)}`;
+                          })()}</p>
+                          <p className="text-orange-600 font-medium">Due: {(() => {
+                            const currency = order.currency || 'INR';
+                            const symbol = currencySymbols[currency] || '₹';
+                            const amount = Math.round(Number(order.price || 0) / 2);
+                            return currency === 'INR' 
+                              ? `${symbol}${amount.toLocaleString('en-IN')}`
+                              : `${symbol}${(amount / 2).toFixed(2)}`;
+                          })()}</p>
+                        </div>
+                      </div>
+                    ) : order.paymentmode === 'store_pickup' ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                            🏬 Store Pickup
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          <p>Payment Due: {(() => {
+                            const currency = order.currency || 'INR';
+                            const symbol = currencySymbols[currency] || '₹';
+                            const amount = Number(order.price || 0);
+                            return currency === 'INR' 
+                              ? `${symbol}${Math.round(amount).toLocaleString('en-IN')}`
+                              : `${symbol}${amount.toFixed(2)}`;
+                          })()}</p>
+                          <p className="text-blue-600 text-xs">At pickup</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-600">
+                        <p>Payment Mode: {order.paymentmode || 'Online'}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setSelectedOrderId(order._id)}
+                    className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50"
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => viewInvoice(order._id)}
+                    className="px-3 py-1.5 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700"
+                    title="View Invoice/Bill"
+                  >
+                    🧾 Invoice
+                  </button>
                 </div>
               </div>
             );

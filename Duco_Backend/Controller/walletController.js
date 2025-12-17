@@ -1,10 +1,22 @@
 const Wallet = require("../DataBase/Models/Wallet");
 
-// 🔹 Get user wallet
+// 🔹 Get user wallet (create if doesn't exist)
 const getWallet = async (req, res) => {
   try {
-    const wallet = await Wallet.findOne({ user: req.params.userId }).populate("transactions.order");
-    if (!wallet) return res.status(404).json({ message: "Wallet not found" });
+    const userId = req.params.userId;
+    let wallet = await Wallet.findOne({ user: userId }).populate("transactions.order");
+    
+    // If wallet doesn't exist, create an empty one
+    if (!wallet) {
+      wallet = new Wallet({ 
+        user: userId, 
+        balance: 0, 
+        transactions: [] 
+      });
+      await wallet.save();
+      console.log(`✅ Created new wallet for user ${userId}`);
+    }
+    
     res.json(wallet);
   } catch (err) {
     res.status(500).json({ error: err.message });

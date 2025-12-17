@@ -216,6 +216,36 @@ const OrderDetailsCard = ({ orderId }) => {
             <p>
               Total Amount: {formatCurrency(order.price || order.amount || 0, order.currency)}
             </p>
+            
+            {/* ✅ 50% Payment Information */}
+            {order.paymentmode === '50%' && (
+              <div className="bg-orange-50 border border-orange-200 rounded p-3 my-2">
+                <p className="text-sm font-semibold text-orange-800">💰 50% Advance Payment</p>
+                <p className="text-sm text-orange-700 mt-1">
+                  Amount Paid: {formatCurrency((order.price || order.amount || 0) / 2, order.currency)}
+                </p>
+                <p className="text-sm text-orange-700">
+                  Amount Due: {formatCurrency((order.price || order.amount || 0) / 2, order.currency)}
+                </p>
+                <p className="text-xs text-orange-600 mt-1">
+                  ⚠️ Remaining payment due before delivery
+                </p>
+              </div>
+            )}
+            
+            {/* ✅ Store Pickup Information */}
+            {order.paymentmode === 'store_pickup' && (
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 my-2">
+                <p className="text-sm font-semibold text-blue-800">🏬 Pickup from Store</p>
+                <p className="text-sm text-blue-700 mt-1">
+                  Payment Due: {formatCurrency(order.price || order.amount || 0, order.currency)}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  ℹ️ Payment to be collected at pickup
+                </p>
+              </div>
+            )}
+            
             <p
               className={`font-medium ${
                 order.razorpayPaymentId ? "text-green-600" : "text-yellow-600"
@@ -223,6 +253,12 @@ const OrderDetailsCard = ({ orderId }) => {
             >
               Payment Status: {order.razorpayPaymentId ? "Paid" : "Unpaid"}
             </p>
+            
+            {/* ✅ Payment Mode Display */}
+            <p className="text-sm text-gray-600">
+              Payment Mode: <span className="font-medium text-gray-800">{order.paymentmode || 'N/A'}</span>
+            </p>
+            
             <div className="pt-2 border-t border-gray-200">
               <p className="text-sm text-gray-600">Expected Delivery:</p>
               <div className="flex items-center gap-2">
