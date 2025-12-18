@@ -226,21 +226,35 @@ const generateInvoiceHTML = (invoice, totals) => {
                 </tr>
               ` : ''}
               
-              ${tax.cgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : CGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0)).toFixed(2)}</td></tr>` : ''}
-              ${tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0)).toFixed(2)}</td></tr>` : ''}
-              ${tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0) + (tax.igstAmount || 0)).toFixed(2)}</td></tr>` : ''}
+              ${tax.type === 'INTRASTATE' && tax.cgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : CGST (${tax.cgstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0)).toFixed(2)}</td></tr>` : ''}
+              ${tax.type === 'INTRASTATE' && tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST (${tax.sgstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0)).toFixed(2)}</td></tr>` : ''}
+              ${tax.type === 'INTERSTATE_IGST' && tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST (${tax.igstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.igstAmount || 0)).toFixed(2)}</td></tr>` : ''}
+              ${tax.type === 'INTERNATIONAL' && tax.taxRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : TAX (${tax.taxRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.taxAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.taxAmount || 0)).toFixed(2)}</td></tr>` : ''}
               
               ${Math.abs(Math.ceil(total) - total) > 0.01 && paymentmode !== '50%' ? `<tr><td style="padding: 4px; border: none;">Round Off</td><td style="padding: 4px; text-align: center; border: none;">+${(Math.ceil(total) - total).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td></tr>` : ''}
-              <tr style="border-top: 1px solid #000; font-weight: bold;">
-                <td style="padding: 4px; border: none;">${paymentmode === '50%' ? 'Amount Paid (50% Advance)' : 'Grand Total'}</td>
-                <td style="padding: 4px; text-align: center; border: none;">${items.reduce((sum, it) => sum + Number(it.qty || 0), 0)} ${items[0]?.unit || 'Pcs.'}.</td>
-                <td style="padding: 4px; text-align: right; border: none;">${displayTotal.toFixed(2)}</td>
-              </tr>
-              ${paymentmode === '50%' ? `<tr style="font-weight: bold; background-color: #fff3cd;">
-                <td style="padding: 4px; border: none;">Amount Due (50% Remaining)</td>
-                <td style="padding: 4px; text-align: center; border: none;">-</td>
-                <td style="padding: 4px; text-align: right; border: none;">${displayTotal.toFixed(2)}</td>
-              </tr>` : ''}
+              
+              ${paymentmode === '50%' ? `
+                
+                  <td style="padding: 6px; border: none;">Amount Paid (50% Advance)</td>
+                  <td style="padding: 6px; text-align: center; border: none;">
+                    ${items.reduce((sum, it) => sum + Number(it.qty || 0), 0)} ${items[0]?.unit || 'Pcs.'}
+                  </td>
+                  <td style="padding: 6px; text-align: right; border: none;">${displayTotal.toFixed(2)}</td>
+                </tr>
+                <tr style="border-top: 2px solid #000; font-weight: bold; background-color: #fff3cd;">
+                  <td style="padding: 6px; border: none;">Amount Due (50% Remaining)</td>
+                  <td style="padding: 6px; text-align: center; border: none;">-</td>
+                  <td style="padding: 6px; text-align: right; border: none;">${displayTotal.toFixed(2)}</td>
+                </tr>
+              ` : `
+                <tr style="border-top: 2px solid #000; font-weight: bold; background-color: #f5f5f5;">
+                  <td style="padding: 6px; border: none;">Grand Total</td>
+                  <td style="padding: 6px; text-align: center; border: none;">
+                    ${items.reduce((sum, it) => sum + Number(it.qty || 0), 0)} ${items[0]?.unit || 'Pcs.'}
+                  </td>
+                  <td style="padding: 6px; text-align: right; border: none;">${displayTotal.toFixed(2)}</td>
+                </tr>
+              `}
             
             </tbody>
           </table>
@@ -330,9 +344,45 @@ const generateInvoiceHTML = (invoice, totals) => {
 </div>
 
 
+      <!-- TAX BREAKDOWN TABLE -->
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; border: 1px solid #000;">
+        <thead>
+          <tr style="background-color: #f5f5f5;">
+            <th style="border: 1px solid #000; padding: 4px;">Tax Rate</th>
+            <th style="border: 1px solid #000; padding: 4px;">Total Tax</th>
+            ${tax.type === 'INTRASTATE_IGST' ? `<th style="border: 1px solid #000; padding: 4px;">IGST Amt.</th>` : ''}
+            ${tax.type === 'INTRASTATE' ? `<th style="border: 1px solid #000; padding: 4px;">CGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">SGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">IGST Amt.</th>` : ''}
+            ${tax.type === 'INTERSTATE' ? `<th style="border: 1px solid #000; padding: 4px;">CGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">SGST Amt.</th>` : ''}
+            ${tax.type === 'INTERNATIONAL' ? `<th style="border: 1px solid #000; padding: 4px;">TAX Amt.</th>` : ''}
+            ${!tax.type ? `<th style="border: 1px solid #000; padding: 4px;">CGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">SGST Amt.</th>` : ''}
+            <th style="border: 1px solid #000; padding: 4px;">Amount (Incl. Tax)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border: 1px solid #000; padding: 4px; text-align: center;">
+              ${tax.type === 'INTRASTATE_IGST' ? `${tax.igstRate || 5}%` : ''}
+              ${tax.type === 'INTRASTATE' ? `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%` : ''}
+              ${tax.type === 'INTERSTATE' ? `${(tax.cgstRate || 0) + (tax.sgstRate || 0)}%` : ''}
+              ${tax.type === 'INTERNATIONAL' ? `${tax.taxRate || 1}%` : ''}
+              ${!tax.type ? `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%` : ''}
+            </td>
+            <td style="border: 1px solid #000; padding: 4px; text-align: right;">
+              ${((tax.cgstAmount || 0) + (tax.sgstAmount || 0) + (tax.igstAmount || 0) + (tax.taxAmount || 0)).toFixed(2)}
+            </td>
+            ${tax.type === 'INTRASTATE_IGST' ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.igstAmount || 0).toFixed(2)}</td>` : ''}
+            ${tax.type === 'INTRASTATE' ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.cgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.sgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.igstAmount || 0).toFixed(2)}</td>` : ''}
+            ${tax.type === 'INTERSTATE' ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.cgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.sgstAmount || 0).toFixed(2)}</td>` : ''}
+            ${tax.type === 'INTERNATIONAL' ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.taxAmount || 0).toFixed(2)}</td>` : ''}
+            ${!tax.type ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.cgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.sgstAmount || 0).toFixed(2)}</td>` : ''}
+            <td style="border: 1px solid #000; padding: 4px; text-align: right;">${total.toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
+
       <!-- AMOUNT IN WORDS -->
       <div style="margin-top: 10px; font-size: 11px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 10px;">
-        ${currencyName} ${totalInWords} Only
+        ${currencyName} ${totalInWords} Only${paymentmode === '50%' ? ' (50% Advance)' : ''}
       </div>
 
       <!-- TERMS & SIGNATURE -->
@@ -545,10 +595,13 @@ const OderSection = () => {
                       {(() => {
                         const currency = order.currency || 'INR';
                         const symbol = currencySymbols[currency] || '₹';
-                        const amount = Number(order.price || 0);
+                        // ✅ For 50% payments, order.price is already 50%, so multiply by 2 to get total
+                        const baseAmount = order.paymentmode === '50%' 
+                          ? Number(order.price || 0) * 2 
+                          : Number(order.price || 0);
                         return currency === 'INR' 
-                          ? `${symbol}${Math.round(amount).toLocaleString('en-IN')}`
-                          : `${symbol}${amount.toFixed(2)}`;
+                          ? `${symbol}${Math.round(baseAmount).toLocaleString('en-IN')}`
+                          : `${symbol}${baseAmount.toFixed(2)}`;
                       })()}
                     </p>
                   </div>
@@ -587,26 +640,29 @@ const OderSection = () => {
                           <p>Total: {(() => {
                             const currency = order.currency || 'INR';
                             const symbol = currencySymbols[currency] || '₹';
-                            const amount = Number(order.price || 0);
+                            // ✅ order.price is 50%, so multiply by 2 to get total
+                            const totalAmount = Number(order.price || 0) * 2;
                             return currency === 'INR' 
-                              ? `${symbol}${Math.round(amount).toLocaleString('en-IN')}`
-                              : `${symbol}${amount.toFixed(2)}`;
+                              ? `${symbol}${Math.round(totalAmount).toLocaleString('en-IN')}`
+                              : `${symbol}${totalAmount.toFixed(2)}`;
                           })()}</p>
                           <p className="text-orange-600 font-medium">Paid: {(() => {
                             const currency = order.currency || 'INR';
                             const symbol = currencySymbols[currency] || '₹';
-                            const amount = Math.round(Number(order.price || 0) / 2);
+                            // ✅ order.price is already the 50% paid amount
+                            const paidAmount = Number(order.price || 0);
                             return currency === 'INR' 
-                              ? `${symbol}${amount.toLocaleString('en-IN')}`
-                              : `${symbol}${(amount / 2).toFixed(2)}`;
+                              ? `${symbol}${Math.round(paidAmount).toLocaleString('en-IN')}`
+                              : `${symbol}${paidAmount.toFixed(2)}`;
                           })()}</p>
                           <p className="text-orange-600 font-medium">Due: {(() => {
                             const currency = order.currency || 'INR';
                             const symbol = currencySymbols[currency] || '₹';
-                            const amount = Math.round(Number(order.price || 0) / 2);
+                            // ✅ Due is also 50% (same as paid)
+                            const dueAmount = Number(order.price || 0);
                             return currency === 'INR' 
-                              ? `${symbol}${amount.toLocaleString('en-IN')}`
-                              : `${symbol}${(amount / 2).toFixed(2)}`;
+                              ? `${symbol}${Math.round(dueAmount).toLocaleString('en-IN')}`
+                              : `${symbol}${dueAmount.toFixed(2)}`;
                           })()}</p>
                         </div>
                       </div>

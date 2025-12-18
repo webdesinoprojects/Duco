@@ -11,7 +11,8 @@ const invoiceSchema = new mongoose.Schema(
       email: { type: String, trim: true },
       pan: { type: String, trim: true },
       iec: { type: String, trim: true },
-      gst: { type: String, trim: true }
+      gst: { type: String, trim: true },
+      state: { type: String, trim: true, default: "Chhattisgarh" } // ✅ Added state field
     },
     invoice: {
       placeOfSupply: { type: String, trim: true },

@@ -14,7 +14,8 @@ const INITIAL_DOC = {
     email: "ducoart1@gmail.com",
     pan: "",
     iec: "",
-    gst: ""
+    gst: "",
+    state: "Chhattisgarh" // ✅ Added state field
   },
   invoice: {
     placeOfSupply: "Chhattisgarh (22)",
@@ -77,8 +78,25 @@ router.put("/", async (req, res) => {
       current.forCompany = payload.forCompany;
     }
 
+    console.log('💾 Saving invoice helper data:', {
+      company: current.company,
+      invoice: current.invoice,
+      terms: current.terms,
+      forCompany: current.forCompany
+    });
+
     await current.save();
-    res.json(current);
+    
+    // ✅ Return the saved document to confirm all fields were saved
+    const saved = await getOrCreateSingleton();
+    console.log('✅ Saved successfully:', {
+      company: saved.company,
+      invoice: saved.invoice,
+      terms: saved.terms,
+      forCompany: saved.forCompany
+    });
+    
+    res.json(saved);
   } catch (err) {
     console.error("PUT /invoice-helper error:", err);
     res.status(500).json({ error: "Failed to update invoice helper" });

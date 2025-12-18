@@ -180,26 +180,25 @@ export default function Invoice() {
           <div className="md:col-span-2 space-y-6">
             <Card title="Company Details">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <SelectField
-  label="Company State"
-  value={data.company.state}
-  onChange={(v) => onChange(["company", "state"], v)}
-  options={[
-    "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh",
-    "Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
-    "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal",
-    "Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir",
-    "Ladakh","Lakshadweep","Puducherry"
-  ]}
-/>
-
+                <TextField label="Company Name" value={data.company.name} onChange={(v) => onChange(["company", "name"], v)} />
                 <TextField label="Email" value={data.company.email} onChange={(v) => onChange(["company", "email"], v)} />
                 <TextField label="GSTIN" value={data.company.gstin} onChange={(v) => onChange(["company", "gstin"], v)} />
                 <TextField label="CIN" value={data.company.cin} onChange={(v) => onChange(["company", "cin"], v)} />
                 <TextField label="PAN" value={data.company.pan} onChange={(v) => onChange(["company", "pan"], v)} />
                 <TextField label="IEC" value={data.company.iec} onChange={(v) => onChange(["company", "iec"], v)} />
                 
-                <TextField label="Company State" value={data.company.state} onChange={(v) => onChange(["company", "state"], v)} /> {/* 👈 added field */}
+                <SelectField
+                  label="Company State"
+                  value={data.company.state || ""}
+                  onChange={(v) => onChange(["company", "state"], v)}
+                  options={[
+                    "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh",
+                    "Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
+                    "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal",
+                    "Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir",
+                    "Ladakh","Lakshadweep","Puducherry"
+                  ]}
+                />
                 <TextArea  label="Address" value={data.company.address} onChange={(v) => onChange(["company", "address"], v)} rows={3} />
               </div>
             </Card>
@@ -317,11 +316,12 @@ function SelectField({ label, value, onChange, options }) {
     <div className="flex flex-col gap-1">
       <label className="text-sm text-gray-700">{label}</label>
       <select
-        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900"
-        value={value}
+        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900 cursor-pointer"
+        value={value || ""}
         onChange={(e) => onChange(e.target.value)}
       >
-        {options.map((opt) => (
+        <option value="">-- Select {label} --</option>
+        {Array.isArray(options) && options.map((opt) => (
           <option key={opt} value={opt}>
             {opt}
           </option>

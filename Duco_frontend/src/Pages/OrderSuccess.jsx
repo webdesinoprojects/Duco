@@ -79,13 +79,22 @@ const InvoiceDucoTailwind = ({ data }) => {
 
   const totalTaxAmount = (() => {
     if (tax.type === "INTRASTATE") {
-      return Number(tax.cgstAmount || 0) + Number(tax.sgstAmount || 0) + Number(tax.igstAmount || 0);
+      return Number(tax.cgstAmount || 0) + Number(tax.sgstAmount || 0);
+    }
+    if (tax.type === "INTERSTATE_IGST") {
+      return Number(tax.igstAmount || 0);
+    }
+    if (tax.type === "INTRASTATE_IGST") {
+      return Number(tax.igstAmount || 0);
     }
     if (tax.type === "INTERSTATE") {
-      return Number(tax.igstAmount || 0);
+      return Number(tax.cgstAmount || 0) + Number(tax.sgstAmount || 0);
     }
     if (tax.type === "INTERNATIONAL") {
       return Number(tax.taxAmount || 0);
+    }
+    if (tax.type === "B2C_NO_TAX") {
+      return 0;
     }
     // fallback (no tax.type)
     return (
@@ -374,15 +383,15 @@ const InvoiceDucoTailwind = ({ data }) => {
                   <td style={{ padding: "4px", textAlign: "right" }}>{Math.ceil(adjustedTotal).toFixed(2)}</td>
                 </tr>
               )}
-              
-              <tr style={{ borderTop: "2px solid #000", fontWeight: "bold", backgroundColor: "#f5f5f5" }}>
-                <td style={{ padding: "6px" }}>
+               <td style={{ padding: "6px" }}>
                   {paymentmode === '50%' ? 'Amount Paid (50% Advance)' : 'Grand Total'}
                 </td>
                 <td style={{ padding: "6px", textAlign: "center" }}>
                   {items.reduce((sum, it) => sum + Number(it.qty), 0)} {items[0]?.unit || "Pcs"}.
                 </td>
                 <td style={{ padding: "6px", textAlign: "right" }}>{displayAmount.toFixed(2)}</td>
+              <tr style={{ borderTop: "2px solid #000", fontWeight: "bold", backgroundColor: "#f5f5f5" }}>
+               
               </tr>
               
               {/* ✅ Show remaining amount due for 50% payments */}

@@ -774,8 +774,8 @@ const Cart = () => {
       
       // ✅ B2B Tax Rates (Updated):
       // - Outside India: 1% TAX
-      // - Chhattisgarh (same state): 5% IGST only
-      // - Other Indian states: 2.5% CGST + 2.5% SGST = 5%
+      // - Chhattisgarh (same state): 5% CGST + SGST
+      // - Other Indian states: 5% IGST
       if (!isIndia) {
         gstRate = 1; // TAX 1% for outside India
       } else {
@@ -881,6 +881,15 @@ const Cart = () => {
                   return null;
                 }
                 
+                // ✅ If no billing address selected, show message
+                if (!billingAddress) {
+                  return (
+                    <div className="flex justify-between text-yellow-400 text-sm italic">
+                      <span>Tax: Select address to calculate</span>
+                    </div>
+                  );
+                }
+                
                 // ✅ B2B Orders: Show GST breakdown (Updated rates)
                 const taxableAmount = itemsSubtotal + printingCost + pfCost;
                 const customerState = billingAddress?.state || '';
@@ -908,12 +917,15 @@ const Cart = () => {
                 console.log('🌍 Tax Calculation Debug (B2B):', {
                   billingAddress,
                   shippingAddress,
+                  customerState,
+                  isChhattisgarh,
                   customerCountry,
                   countryLower,
                   resolvedLocation,
                   isIndia,
                   currency,
-                  currencySymbol
+                  currencySymbol,
+                  taxableAmount
                 });
                 
                 if (!isIndia) {
@@ -926,16 +938,7 @@ const Cart = () => {
                     </div>
                   );
                 } else if (isChhattisgarh) {
-                  // ✅ Same state (Chhattisgarh): IGST 5% only
-                  const igstAmount = (taxableAmount * 5) / 100;
-                  return (
-                    <div className="flex justify-between">
-                      <span>IGST (5%)</span>
-                      <span>{formatCurrency(igstAmount)}</span>
-                    </div>
-                  );
-                } else {
-                  // ✅ Different state in India: CGST 2.5% + SGST 2.5% = 5%
+                  // ✅ Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% = 5%
                   const cgstAmount = (taxableAmount * 2.5) / 100;
                   const sgstAmount = (taxableAmount * 2.5) / 100;
                   return (
@@ -949,6 +952,15 @@ const Cart = () => {
                         <span>{formatCurrency(sgstAmount)}</span>
                       </div>
                     </>
+                  );
+                } else {
+                  // ✅ Different state in India: IGST 5%
+                  const igstAmount = (taxableAmount * 5) / 100;
+                  return (
+                    <div className="flex justify-between">
+                      <span>IGST (5%)</span>
+                      <span>{formatCurrency(igstAmount)}</span>
+                    </div>
                   );
                 }
               })()}
