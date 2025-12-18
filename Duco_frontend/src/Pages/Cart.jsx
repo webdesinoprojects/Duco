@@ -1196,33 +1196,7 @@ const Cart = () => {
               CHECK OUT
             </button>
 
-            <button
-              onClick={() => {
-                const input = invoiceRef.current;
-                if (!input) return;
-                html2canvas(input, { scale: 2, useCORS: true }).then(
-                  (canvas) => {
-                    const imgData = canvas.toDataURL("image/png");
-                    const pdf = new jsPDF("p", "mm", "a4");
-                    const pageWidth = pdf.internal.pageSize.getWidth();
-                    const ratio = pageWidth / canvas.width;
-                    pdf.addImage(
-                      imgData,
-                      "PNG",
-                      0,
-                      10,
-                      pageWidth,
-                      canvas.height * ratio
-                    );
-                    pdf.save("Invoice.pdf");
-                  }
-                );
-              }}
-              disabled={!actualData.length}
-              className="mt-4 w-full py-3 rounded bg-black text-white hover:opacity-90 disabled:opacity-40 cursor-pointer"
-            >
-              Download Invoice (PDF)
-            </button>
+           
           </div>
 
           <AddressManagerEnhanced

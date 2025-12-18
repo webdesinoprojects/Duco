@@ -177,9 +177,12 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
   const gstNumber = orderData?.gstNumber?.trim() || billingAddr?.gstNumber?.trim() || '';
   
   // ✅ Calculate amount paid based on payment mode
+  // For 50% payments, totalAmount is already the 50% amount (from frontend)
+  // So we use it directly as amountPaid
   let amountPaid = totalAmount;
   if (paymentmode === '50%') {
-    amountPaid = Math.ceil(totalAmount / 2);
+    // totalAmount is already 50% from frontend, so use it directly
+    amountPaid = totalAmount;
   }
   
   const payload = {

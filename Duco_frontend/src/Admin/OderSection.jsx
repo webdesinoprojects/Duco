@@ -70,7 +70,13 @@ const generateInvoiceHTML = (invoice, totals) => {
   
   const subtotal = totals?.subtotal || 0;
   const total = totals?.grandTotal || 0;
-  const totalInWords = numberToWords(Math.round(total));
+  
+  // ✅ For 50% payments, use amountPaid instead of total
+  const paymentmode = invoice.paymentmode || 'online';
+  const amountPaid = invoice.amountPaid || 0;
+  const displayTotal = paymentmode === '50%' && amountPaid > 0 ? amountPaid : total;
+  
+  const totalInWords = numberToWords(Math.round(displayTotal));
   
   return `
     <!DOCTYPE html>
@@ -224,12 +230,17 @@ const generateInvoiceHTML = (invoice, totals) => {
               ${tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0)).toFixed(2)}</td></tr>` : ''}
               ${tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0) + (tax.igstAmount || 0)).toFixed(2)}</td></tr>` : ''}
               
-              ${Math.abs(Math.ceil(total) - total) > 0.01 ? `<tr><td style="padding: 4px; border: none;">Round Off</td><td style="padding: 4px; text-align: center; border: none;">+${(Math.ceil(total) - total).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td></tr>` : ''}
+              ${Math.abs(Math.ceil(total) - total) > 0.01 && paymentmode !== '50%' ? `<tr><td style="padding: 4px; border: none;">Round Off</td><td style="padding: 4px; text-align: center; border: none;">+${(Math.ceil(total) - total).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td></tr>` : ''}
               <tr style="border-top: 1px solid #000; font-weight: bold;">
-                <td style="padding: 4px; border: none;">Grand Total</td>
+                <td style="padding: 4px; border: none;">${paymentmode === '50%' ? 'Amount Paid (50% Advance)' : 'Grand Total'}</td>
                 <td style="padding: 4px; text-align: center; border: none;">${items.reduce((sum, it) => sum + Number(it.qty || 0), 0)} ${items[0]?.unit || 'Pcs.'}.</td>
-                <td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td>
+                <td style="padding: 4px; text-align: right; border: none;">${displayTotal.toFixed(2)}</td>
               </tr>
+              ${paymentmode === '50%' ? `<tr style="font-weight: bold; background-color: #fff3cd;">
+                <td style="padding: 4px; border: none;">Amount Due (50% Remaining)</td>
+                <td style="padding: 4px; text-align: center; border: none;">-</td>
+                <td style="padding: 4px; text-align: right; border: none;">${displayTotal.toFixed(2)}</td>
+              </tr>` : ''}
             
             </tbody>
           </table>
@@ -311,9 +322,9 @@ const generateInvoiceHTML = (invoice, totals) => {
       background-color: #f5f5f5;
     "
   >
-    <div style="font-weight: bold; margin-bottom: 4px;">Grand Total</div>
+    <div style="font-weight: bold; margin-bottom: 4px;">${paymentmode === '50%' ? 'Amount Paid (50%)' : 'Grand Total'}</div>
     <div style="text-align: right;">
-      ${Math.ceil(total).toFixed(2)}
+      ${displayTotal.toFixed(2)}
     </div>
   </div>
 </div>

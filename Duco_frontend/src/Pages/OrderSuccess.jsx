@@ -376,12 +376,23 @@ const InvoiceDucoTailwind = ({ data }) => {
               )}
               
               <tr style={{ borderTop: "2px solid #000", fontWeight: "bold", backgroundColor: "#f5f5f5" }}>
-                <td style={{ padding: "6px" }}>Grand Total{paymentmode === '50%' ? ' (50% Advance)' : ''}</td>
+                <td style={{ padding: "6px" }}>
+                  {paymentmode === '50%' ? 'Amount Paid (50% Advance)' : 'Grand Total'}
+                </td>
                 <td style={{ padding: "6px", textAlign: "center" }}>
                   {items.reduce((sum, it) => sum + Number(it.qty), 0)} {items[0]?.unit || "Pcs"}.
                 </td>
-                <td style={{ padding: "6px", textAlign: "right" }}>{Math.ceil(displayAmount).toFixed(2)}</td>
+                <td style={{ padding: "6px", textAlign: "right" }}>{displayAmount.toFixed(2)}</td>
               </tr>
+              
+              {/* ✅ Show remaining amount due for 50% payments */}
+              {paymentmode === '50%' && (
+                <tr style={{ fontWeight: "bold", backgroundColor: "#fff3cd" }}>
+                  <td style={{ padding: "6px" }}>Amount Due (50% Remaining)</td>
+                  <td style={{ padding: "6px", textAlign: "center" }}>-</td>
+                  <td style={{ padding: "6px", textAlign: "right" }}>{displayAmount.toFixed(2)}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
