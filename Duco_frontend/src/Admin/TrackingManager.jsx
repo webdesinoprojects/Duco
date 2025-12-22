@@ -18,6 +18,7 @@ const TrackingManager = () => {
   const [editingOrder, setEditingOrder] = useState(null);
   const [newStatus, setNewStatus] = useState('');
   const [statusNote, setStatusNote] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const statusOptions = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
   const statusColors = {
@@ -100,6 +101,15 @@ const TrackingManager = () => {
     return new Date(date).toLocaleString();
   };
 
+  // Filter orders based on search query
+  const filteredOrders = orders.filter(order => {
+    const customerName = (order.address?.fullName || '').toLowerCase();
+    const orderId = (order.orderId || order._id.slice(-8)).toLowerCase();
+    const query = searchQuery.toLowerCase();
+    
+    return customerName.includes(query) || orderId.includes(query);
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white p-8">
@@ -142,10 +152,36 @@ const TrackingManager = () => {
           </button>
         </div>
 
+        {/* Search Bar */}
+        <div className="mb-8">
+          <div className="flex gap-3">
+            <input
+              type="text"
+              placeholder="Search by customer name or order ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-400 hover:text-white transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="text-sm text-gray-400 mt-2">
+              Found {filteredOrders.length} order(s) matching "{searchQuery}"
+            </p>
+          )}
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {statusOptions.map(status => {
-            const count = orders.filter(o => o.status === status).length;
+            const count = filteredOrders.filter(o => o.status === status).length;
             return (
               <div key={status} className="bg-gray-900 rounded-lg p-6 border border-gray-700">
                 <div className="flex items-center justify-between">
@@ -163,7 +199,7 @@ const TrackingManager = () => {
         {/* Orders Table */}
         <div className="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
           <div className="p-6 border-b border-gray-700">
-            <h2 className="text-xl font-semibold">All Orders ({orders.length})</h2>
+            <h2 className="text-xl font-semibold">All Orders ({filteredOrders.length})</h2>
           </div>
           
           <div className="overflow-x-auto">
@@ -194,7 +230,7 @@ const TrackingManager = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <tr key={order._id} className="hover:bg-gray-800">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-mono text-white">

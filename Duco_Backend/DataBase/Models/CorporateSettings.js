@@ -35,6 +35,14 @@ const CorporateSettingsSchema = new mongoose.Schema({
     type: [String],
     default: ['online', 'netbanking', '50%', 'manual_payment'],
     enum: ['online', 'netbanking', '50%', 'manual_payment', 'COD', 'store_pickup']
+  },
+  // ✅ Default estimated delivery days for new orders
+  estimatedDeliveryDays: {
+    type: Number,
+    default: 7,
+    min: 1,
+    max: 365,
+    description: 'Number of days for estimated delivery from order creation'
   }
 }, {
   timestamps: true

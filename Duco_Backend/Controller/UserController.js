@@ -35,10 +35,31 @@ const addAddressToUser = async (req, res) => {
   try {
     const { userId, newAddress } = req.body;
 
+    console.log('📍 Adding address - userId:', userId, 'newAddress:', newAddress);
+
     if (!userId || !newAddress) {
       return res
         .status(400)
         .json({ ok: false, message: "userId and newAddress are required." });
+    }
+
+    // First try to find user by ID
+    let userExists = await User.findById(userId);
+    console.log('👤 User exists check by ID:', !!userExists, 'userId:', userId);
+    
+    // If not found by ID, the user ID might be stale - this is a data consistency issue
+    if (!userExists) {
+      console.log('❌ User not found by ID:', userId);
+      console.log('⚠️ User ID does not exist in database. This may indicate:');
+      console.log('   1. User was deleted from database');
+      console.log('   2. User ID in localStorage is from a different database');
+      console.log('   3. Database was reset but localStorage was not cleared');
+      
+      return res.status(404).json({ 
+        ok: false, 
+        message: "User not found. Please log in again.",
+        hint: "Your session may have expired. Please refresh and log in again."
+      });
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -51,6 +72,7 @@ const addAddressToUser = async (req, res) => {
       return res.status(404).json({ ok: false, message: "User not found." });
     }
 
+    console.log('✅ Address added successfully for user:', userId);
     return res.status(200).json({
       ok: true,
       message: "Address added successfully.",

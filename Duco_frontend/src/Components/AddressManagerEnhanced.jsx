@@ -43,6 +43,13 @@ const AddressManagerEnhanced = ({
 
   const handleAddAddress = async () => {
     setError('');
+    
+    // Check if user exists and has ID
+    if (!user || !user._id) {
+      setError('User not logged in. Please log in first.');
+      return;
+    }
+
     const requiredFields = ['fullName', 'mobileNumber', 'houseNumber', 'street', 'city', 'state', 'pincode', 'country'];
     for (let field of requiredFields) {
       if (!address[field]) {
@@ -59,6 +66,7 @@ const AddressManagerEnhanced = ({
 
     try {
       setLoading(true);
+      console.log('📍 Sending address for user:', user._id);
       const response = await addAddressToUser({
         userId: user._id,
         address
@@ -83,9 +91,20 @@ const AddressManagerEnhanced = ({
       });
       
       setActiveTab('saved');
-      toast.success('Address added successfully!');
+      setError('');
+      // Note: toast is not imported, so we'll skip it for now
+      alert('Address added successfully!');
     } catch (err) {
-      setError(err.message || 'Failed to add address');
+      console.error('❌ Error adding address:', err);
+      
+      // If user not found, clear localStorage and ask to log in again
+      if (err.message && err.message.includes('User not found')) {
+        localStorage.removeItem('user');
+        setUser(null);
+        setError('Your session has expired. Please log in again.');
+      } else {
+        setError(err.message || 'Failed to add address');
+      }
     } finally {
       setLoading(false);
     }

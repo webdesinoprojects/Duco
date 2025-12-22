@@ -48,6 +48,23 @@ function safeNum(v, fb = 0) {
   return Number.isFinite(n) ? n : fb;
 }
 
+// ✅ Helper to get estimated delivery date based on settings
+async function getEstimatedDeliveryDate() {
+  try {
+    const settings = await CorporateSettings.findOne();
+    const deliveryDays = settings?.estimatedDeliveryDays || 7;
+    const date = new Date();
+    date.setDate(date.getDate() + deliveryDays);
+    console.log(`📅 Estimated delivery date set to: ${deliveryDays} days from now`);
+    return date;
+  } catch (err) {
+    console.error('Error fetching delivery days setting, using default 7 days:', err);
+    const date = new Date();
+    date.setDate(date.getDate() + 7);
+    return date;
+  }
+}
+
 function sumQuantity(obj) {
   return Object.values(obj || {}).reduce((acc, q) => acc + safeNum(q, 0), 0);
 }
@@ -504,6 +521,9 @@ const completeOrder = async (req, res) => {
     // ================================================================
     if (paymentmode === 'store_pickup') {
       try {
+        // ✅ Get estimated delivery date from settings
+        const deliveryExpectedDate = await getEstimatedDeliveryDate();
+        
         const orderPayload = {
           products: items,
           price: totalPay, // INR price (for Razorpay)
@@ -518,6 +538,7 @@ const completeOrder = async (req, res) => {
           currency, // ✅ Customer's currency
           displayPrice, // ✅ Price in customer's currency
           conversionRate, // ✅ Conversion rate used
+          deliveryExpectedDate, // ✅ Use setting-based delivery date
         };
         
         // ✅ Add addresses (new format) or address (legacy format)
@@ -532,6 +553,7 @@ const completeOrder = async (req, res) => {
         if (createError.code === 11000) {
           // Duplicate key error - retry with a new orderId
           console.warn('⚠️ Duplicate orderId detected, retrying...');
+          const deliveryExpectedDate = await getEstimatedDeliveryDate();
           order = await Order.create({
             products: items,
             price: totalPay,
@@ -547,6 +569,7 @@ const completeOrder = async (req, res) => {
             currency, // ✅ Customer's currency
             displayPrice, // ✅ Price in customer's currency
             conversionRate, // ✅ Conversion rate used
+            deliveryExpectedDate, // ✅ Use setting-based delivery date
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -580,6 +603,9 @@ const completeOrder = async (req, res) => {
     // CASE 2 – NETBANKING
     // ================================================================
     if (paymentmode === 'netbanking') {
+      // ✅ Get estimated delivery date from settings
+      const deliveryExpectedDate = await getEstimatedDeliveryDate();
+      
       order = await Order.create({
         products: items,
         price: totalPay,
@@ -595,6 +621,7 @@ const completeOrder = async (req, res) => {
         orderType,
         currency, // ✅ Customer's currency
         displayPrice, // ✅ Price in customer's currency
+        deliveryExpectedDate, // ✅ Use setting-based delivery date
         conversionRate, // ✅ Conversion rate used
       });
 
@@ -626,6 +653,9 @@ const completeOrder = async (req, res) => {
       payment = { id: paymentId || 'test_payment_id_001' };
 
       try {
+        // ✅ Get estimated delivery date from settings
+        const deliveryExpectedDate = await getEstimatedDeliveryDate();
+        
         order = await Order.create({
           products: items,
           price: totalPay,
@@ -642,11 +672,13 @@ const completeOrder = async (req, res) => {
           currency, // ✅ Customer's currency
           displayPrice, // ✅ Price in customer's currency
           conversionRate, // ✅ Conversion rate used
+          deliveryExpectedDate, // ✅ Use setting-based delivery date
         });
       } catch (createError) {
         if (createError.code === 11000) {
           // Duplicate key error - retry with a new orderId
           console.warn('⚠️ Duplicate orderId detected, retrying...');
+          const deliveryExpectedDate = await getEstimatedDeliveryDate();
           order = await Order.create({
             products: items,
             price: totalPay,
@@ -663,6 +695,7 @@ const completeOrder = async (req, res) => {
             currency, // ✅ Customer's currency
             displayPrice, // ✅ Price in customer's currency
             conversionRate, // ✅ Conversion rate used
+            deliveryExpectedDate, // ✅ Use setting-based delivery date
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -700,6 +733,9 @@ const completeOrder = async (req, res) => {
       payment = { id: paymentId || 'test_payment_id_50percent' };
 
       try {
+        // ✅ Get estimated delivery date from settings
+        const deliveryExpectedDate = await getEstimatedDeliveryDate();
+        
         order = await Order.create({
           products: items,
           price: totalPay,
@@ -716,11 +752,13 @@ const completeOrder = async (req, res) => {
           currency, // ✅ Customer's currency
           displayPrice, // ✅ Price in customer's currency
           conversionRate, // ✅ Conversion rate used
+          deliveryExpectedDate, // ✅ Use setting-based delivery date
         });
       } catch (createError) {
         if (createError.code === 11000) {
           // Duplicate key error - retry with a new orderId
           console.warn('⚠️ Duplicate orderId detected, retrying...');
+          const deliveryExpectedDate = await getEstimatedDeliveryDate();
           order = await Order.create({
             products: items,
             price: totalPay,
@@ -737,6 +775,7 @@ const completeOrder = async (req, res) => {
             currency, // ✅ Customer's currency
             displayPrice, // ✅ Price in customer's currency
             conversionRate, // ✅ Conversion rate used
+            deliveryExpectedDate, // ✅ Use setting-based delivery date
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId

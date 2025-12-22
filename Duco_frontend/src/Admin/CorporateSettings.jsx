@@ -11,7 +11,8 @@ const CorporateSettings = () => {
     ],
     corporateGstRate: 18,
     enablePrintroveIntegration: false,
-    corporatePaymentMethods: ['online', 'netbanking', '50%', 'manual_payment']
+    corporatePaymentMethods: ['online', 'netbanking', '50%', 'manual_payment'],
+    estimatedDeliveryDays: 7 // ✅ Add estimated delivery days
   });
   
   const [loading, setLoading] = useState(false);
@@ -42,7 +43,8 @@ const CorporateSettings = () => {
             ],
             corporateGstRate: data.corporateGstRate || 18,
             enablePrintroveIntegration: data.enablePrintroveIntegration || false,
-            corporatePaymentMethods: data.corporatePaymentMethods || ['online', 'netbanking', '50%', 'manual_payment']
+            corporatePaymentMethods: data.corporatePaymentMethods || ['online', 'netbanking', '50%', 'manual_payment'],
+            estimatedDeliveryDays: data.estimatedDeliveryDays || 7 // ✅ Load estimated delivery days
           });
         }
       } else if (response.status === 404) {
@@ -81,7 +83,8 @@ const CorporateSettings = () => {
             bulkDiscountTiers: result.data.bulkDiscountTiers || settings.bulkDiscountTiers,
             corporateGstRate: result.data.corporateGstRate || settings.corporateGstRate,
             enablePrintroveIntegration: result.data.enablePrintroveIntegration || settings.enablePrintroveIntegration,
-            corporatePaymentMethods: result.data.corporatePaymentMethods || settings.corporatePaymentMethods
+            corporatePaymentMethods: result.data.corporatePaymentMethods || settings.corporatePaymentMethods,
+            estimatedDeliveryDays: result.data.estimatedDeliveryDays || settings.estimatedDeliveryDays // ✅ Save estimated delivery days
           });
         }
         
@@ -229,6 +232,45 @@ const CorporateSettings = () => {
             <p className="text-xs text-gray-500 mt-1">
               Minimum quantity required for corporate orders
             </p>
+          </div>
+        </div>
+
+        {/* Estimated Delivery Days */}
+        <div className="bg-white p-6 rounded-lg shadow border">
+          <h2 className="text-lg font-semibold mb-4">📅 Estimated Delivery Days</h2>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Default Estimated Delivery Days
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={settings.estimatedDeliveryDays}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (value >= 1 && value <= 365) {
+                    setSettings(prev => ({ 
+                      ...prev, 
+                      estimatedDeliveryDays: value
+                    }));
+                  }
+                }}
+                className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-600">days from order creation</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              This is the default estimated delivery date shown to customers when they track their orders. 
+              You can override this for individual orders from the admin panel.
+            </p>
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-900">
+                <strong>Example:</strong> If set to 5 days, an order placed today will show an estimated delivery date of 5 days from now.
+              </p>
+            </div>
           </div>
         </div>
 

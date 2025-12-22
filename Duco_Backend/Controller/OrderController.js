@@ -321,7 +321,7 @@ exports.getOrderById = async (req, res) => {
 // ================================================================
 exports.updateOrderStatus = async (req, res) => {
   const { id } = req.params;
-  const { status, paymentmode } = req.body || {};
+  const { status, paymentmode, deliveryExpectedDate } = req.body || {};
 
   try {
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -350,6 +350,15 @@ exports.updateOrderStatus = async (req, res) => {
         return res.status(400).json({ error: 'Invalid payment mode' });
       }
       patch.paymentmode = paymentmode;
+    }
+
+    // ✅ Allow updating delivery expected date
+    if (typeof deliveryExpectedDate !== 'undefined' && deliveryExpectedDate) {
+      const deliveryDate = new Date(deliveryExpectedDate);
+      if (isNaN(deliveryDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid delivery date format' });
+      }
+      patch.deliveryExpectedDate = deliveryDate;
     }
 
     if (Object.keys(patch).length === 0) {

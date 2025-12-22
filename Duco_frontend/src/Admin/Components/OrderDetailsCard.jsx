@@ -84,6 +84,24 @@ const OrderDetailsCard = ({ orderId }) => {
     }
   };
 
+  // ✅ Handle delivery date update
+  const handleDeliveryDateChange = async (newDate) => {
+    setOrder((prev) => ({ ...prev, deliveryExpectedDate: newDate }));
+    try {
+      await fetch(
+        `https://duco-67o5.onrender.com/api/order/update/${orderId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deliveryExpectedDate: newDate }),
+        }
+      );
+    } catch (err) {
+      console.error("Failed to update delivery date", err);
+      alert("Failed to update delivery date");
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case "Pending":
@@ -260,27 +278,41 @@ const OrderDetailsCard = ({ orderId }) => {
             </p>
             
             <div className="pt-2 border-t border-gray-200">
-              <p className="text-sm text-gray-600">Expected Delivery:</p>
+              <p className="text-sm text-gray-600 mb-2">Expected Delivery:</p>
               <div className="flex items-center gap-2">
-                <span className="font-medium">
+                <input
+                  type="date"
+                  value={
+                    order.deliveryExpectedDate
+                      ? new Date(order.deliveryExpectedDate).toISOString().split('T')[0]
+                      : ''
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleDeliveryDateChange(new Date(e.target.value).toISOString());
+                    }
+                  }}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium cursor-pointer hover:border-blue-500 focus:outline-none focus:border-blue-500"
+                />
+                <span className="text-sm text-gray-600">
                   {(() => {
-                    const deliveryDate = order.printroveEstimatedDelivery || order.deliveryExpectedDate;
+                    const deliveryDate = order.deliveryExpectedDate;
                     return deliveryDate ? new Date(deliveryDate).toLocaleDateString("en-IN", {
                       day: "2-digit",
-                      month: "long",
+                      month: "short",
                       year: "numeric"
-                    }) : 'To be determined';
+                    }) : 'Select date';
                   })()}
                 </span>
                 {order.printroveEstimatedDelivery && (
                   <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
-                    Duco Art
+                    Printrove
                   </span>
                 )}
               </div>
               {order.printroveOrderId && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Duco Art Order: {order.printroveOrderId}
+                  Printrove Order: {order.printroveOrderId}
                 </p>
               )}
             </div>

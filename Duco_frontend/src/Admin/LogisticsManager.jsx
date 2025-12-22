@@ -228,6 +228,7 @@ export default function LogisticsManager() {
   const [selectedOrderForBrowse, setSelectedOrderForBrowse] = useState("");
   const [logisticsForOrder, setLogisticsForOrder] = useState([]);
   const [browseLoading, setBrowseLoading] = useState(false);
+  const [browseSearchQuery, setBrowseSearchQuery] = useState("");
 
   // Load orders
   useEffect(() => {
@@ -254,13 +255,21 @@ export default function LogisticsManager() {
 
   const orderOptions = useMemo(
     () =>
-      orders.map((o) => ({
-        id: o._id,
-        label:
-          (o?.orderId || o._id) +
-          (o?.address?.fullName ? ` — ${o.address.fullName}` : "") +
-          (o?.status ? ` — ${o.status}` : ""),
-      })),
+      orders.map((o) => {
+        // Handle both old (address) and new (addresses.billing) structures
+        const customerName = 
+          o?.address?.fullName || 
+          o?.addresses?.billing?.fullName || 
+          'Unknown Customer';
+        
+        return {
+          id: o._id,
+          label:
+            (o?.orderId || o._id) +
+            (customerName ? ` — ${customerName}` : "") +
+            (o?.status ? ` — ${o.status}` : ""),
+        };
+      }),
     [orders]
   );
 
@@ -645,6 +654,28 @@ export default function LogisticsManager() {
     }
   };
 
+  // Filter logistics based on search query
+  const filteredLogistics = logisticsForOrder.filter(logistic => {
+    const query = browseSearchQuery.toLowerCase();
+    const trackingNumber = (logistic.trackingNumber || '').toLowerCase();
+    const carrier = (logistic.carrier || '').toLowerCase();
+    const shippingAddress = (logistic.shippingAddress || '').toLowerCase();
+    const orderObj = typeof logistic.orderId === 'object' ? logistic.orderId : null;
+    // Handle both old (address) and new (addresses.billing) structures
+    const customerName = (
+      orderObj?.address?.fullName || 
+      orderObj?.addresses?.billing?.fullName || 
+      ''
+    ).toLowerCase();
+    
+    return (
+      trackingNumber.includes(query) ||
+      carrier.includes(query) ||
+      shippingAddress.includes(query) ||
+      customerName.includes(query)
+    );
+  });
+
   return (
     <div className="mx-auto max-w-7xl p-6">
       <h1 className="text-2xl font-bold tracking-tight">Logistics Manager</h1>
@@ -687,7 +718,7 @@ export default function LogisticsManager() {
               onChange={(id) => setCreateForm((f) => ({ ...f, orderId: id }))}
               options={orderOptions}
               loading={ordersLoading}
-              placeholder="Paste orderId or search…"
+              placeholder="Search by order ID or customer name…"
             />
           </Field>
 
@@ -845,7 +876,7 @@ export default function LogisticsManager() {
                 onChange={(id) => setUpdateForm((f) => ({ ...f, orderId: id }))}
                 options={orderOptions}
                 loading={ordersLoading}
-                placeholder="Paste orderId or search…"
+                placeholder="Search by order ID or customer name…"
               />
             </Field>
 
@@ -985,7 +1016,7 @@ export default function LogisticsManager() {
                 onChange={(id) => setSelectedOrderForBrowse(id)}
                 options={orderOptions}
                 loading={ordersLoading}
-                placeholder="Paste orderId or search…"
+                placeholder="Search by order ID or customer name…"
               />
             </Field>
             <div className="flex items-end">
@@ -994,6 +1025,34 @@ export default function LogisticsManager() {
               </Button>
             </div>
           </div>
+
+          {/* Search Bar for Logistics */}
+          {logisticsForOrder.length > 0 && (
+            <div className="flex gap-3">
+              <Input
+                type="text"
+                placeholder="Search by tracking #, carrier, address, or customer name..."
+                value={browseSearchQuery}
+                onChange={(e) => setBrowseSearchQuery(e.target.value)}
+                className="flex-1"
+              />
+              {browseSearchQuery && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setBrowseSearchQuery('')}
+                  className="shrink-0"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
+          {browseSearchQuery && logisticsForOrder.length > 0 && (
+            <p className="text-sm text-gray-600">
+              Found {filteredLogistics.length} logistics matching "{browseSearchQuery}"
+            </p>
+          )}
 
           <div className="overflow-x-auto rounded-2xl border border-gray-200">
             <table className="min-w-full text-sm">
@@ -1020,7 +1079,14 @@ export default function LogisticsManager() {
                     </td>
                   </tr>
                 )}
-                {logisticsForOrder.map((l) => {
+                {filteredLogistics.length === 0 && logisticsForOrder.length > 0 && (
+                  <tr>
+                    <td colSpan="11" className="px-4 py-6 text-center text-gray-500">
+                      No logistics match your search "{browseSearchQuery}"
+                    </td>
+                  </tr>
+                )}
+                {filteredLogistics.map((l) => {
                   const orderObj = typeof l.orderId === "object" ? l.orderId : null;
                   const orderBadge = orderObj?.status ? (
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeByStatus(orderObj.status)}`}>
