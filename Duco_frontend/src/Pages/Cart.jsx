@@ -284,6 +284,7 @@ const Cart = () => {
   const [loadingRates, setLoadingRates] = useState(false);
   const [billingAddress, setBillingAddress] = useState(null);
   const [shippingAddress, setShippingAddress] = useState(null);
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState(null);
 
   const navigate = useNavigate();
   const invoiceRef = useRef();
@@ -371,9 +372,9 @@ const Cart = () => {
     }
   }, [currency, toConvert]);
 
-  /* ---------- Fetch Minimum Order Quantity ---------- */
+  /* ---------- Fetch Minimum Order Quantity and Estimated Delivery Days ---------- */
   useEffect(() => {
-    const fetchMinOrderQty = async () => {
+    const fetchSettings = async () => {
       try {
         const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
         const response = await fetch(`${API_BASE}/api/corporate-settings`);
@@ -382,15 +383,29 @@ const Cart = () => {
           const result = await response.json();
           const settings = result.data || result;
           const minQty = settings.minOrderQuantity || 100;
+          const deliveryDays = settings.estimatedDeliveryDays || 7;
+          
           setMinOrderQty(minQty);
           console.log('✅ Loaded minimum order quantity:', minQty);
+          
+          // Calculate estimated delivery date
+          const today = new Date();
+          const deliveryDate = new Date(today);
+          deliveryDate.setDate(deliveryDate.getDate() + deliveryDays);
+          setEstimatedDeliveryDate(deliveryDate);
+          console.log('📅 Loaded estimated delivery days:', deliveryDays, 'Delivery date:', deliveryDate.toLocaleDateString());
         }
       } catch (error) {
-        console.warn('⚠️ Could not fetch minimum order quantity, using default (100)');
+        console.warn('⚠️ Could not fetch settings, using defaults');
+        // Set default delivery date (7 days from now)
+        const today = new Date();
+        const deliveryDate = new Date(today);
+        deliveryDate.setDate(deliveryDate.getDate() + 7);
+        setEstimatedDeliveryDate(deliveryDate);
       }
     };
     
-    fetchMinOrderQty();
+    fetchSettings();
   }, []);
 
   /* ---------- Products ---------- */
@@ -978,6 +993,34 @@ const Cart = () => {
               <span className="font-bold">Grand Total</span>
               <span className="font-bold">{formatCurrency(Math.ceil(grandTotal))}</span>
             </div>
+
+            {/* Estimated Delivery Date */}
+            {estimatedDeliveryDate && (
+              <div className="mb-6 p-4 bg-blue-900/30 border border-blue-500 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📅</span>
+                    <div>
+                      <p className="text-sm text-gray-400">Estimated Delivery</p>
+                      <p className="text-lg font-semibold text-blue-300">
+                        {estimatedDeliveryDate.toLocaleDateString('en-US', { 
+                          weekday: 'short', 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-gray-400">
+                    <p>Delivery in</p>
+                    <p className="text-sm font-semibold text-blue-300">
+                      {Math.ceil((estimatedDeliveryDate - new Date()) / (1000 * 60 * 60 * 24))} days
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* GST/Tax Code Input (Optional) */}
             <div className="mb-6">

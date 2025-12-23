@@ -275,6 +275,20 @@ const TshirtDesigner = () => {
     }
   }, []); // Run only once when component mounts
 
+  // ✅ Load design from location.state if editing an existing design
+  useEffect(() => {
+    if (location.state?.design) {
+      console.log("📝 Loading existing design for editing:", location.state.design);
+      setAllDesigns(prev => ({
+        ...prev,
+        front: location.state.design.front || prev.front,
+        back: location.state.design.back || prev.back,
+        left: location.state.design.left || prev.left,
+        right: location.state.design.right || prev.right,
+      }));
+    }
+  }, [location.state?.design]);
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 1024);
@@ -402,6 +416,9 @@ const TshirtDesigner = () => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
+      console.log(`📸 Image upload started for ${side} side`);
+      console.log(`📸 Current allDesigns before image upload:`, allDesigns);
+      
       setAllDesigns((prev) => {
         const centerPos = { x: 45, y: 55 }; // Center position on chest
         const imageId = `uploaded-image-${side}`;
@@ -418,6 +435,14 @@ const TshirtDesigner = () => {
             }
           },
         };
+
+        console.log(`✅ Image uploaded for ${side} side`);
+        console.log(`📋 All designs after image upload:`, {
+          front: { hasUploadedImage: !!result.front?.uploadedImage, hasCustomText: !!result.front?.customText },
+          back: { hasUploadedImage: !!result.back?.uploadedImage, hasCustomText: !!result.back?.customText },
+          left: { hasUploadedImage: !!result.left?.uploadedImage, hasCustomText: !!result.left?.customText },
+          right: { hasUploadedImage: !!result.right?.uploadedImage, hasCustomText: !!result.right?.customText },
+        });
 
         // Show center guide briefly when image is uploaded
         setShowCenterGuide(true);
@@ -439,6 +464,9 @@ const TshirtDesigner = () => {
   };
 
   const updateCurrentDesign = (property, value) => {
+    console.log(`📝 updateCurrentDesign called: side=${side}, property=${property}, value=`, value);
+    console.log(`📝 Current allDesigns state before update:`, allDesigns);
+    
     setAllDesigns((prev) => {
       const centerPos = { x: 50, y: 45 }; // Center position on T-shirt chest
       const textId = `custom-text-${side}`;
@@ -460,7 +488,8 @@ const TshirtDesigner = () => {
         [textId]: centerPos,
       } : { ...prev[side].positions }; // Create new object to avoid reference issues
 
-      return {
+      // ✅ Ensure all sides are preserved when updating current side
+      const updatedDesign = {
         ...prev,
         [side]: {
           ...prev[side],
@@ -468,6 +497,16 @@ const TshirtDesigner = () => {
           positions: newPositions,
         },
       };
+
+      console.log(`✅ Updated ${side} design - property: ${property}, value:`, value);
+      console.log(`📋 All designs after update:`, {
+        front: { hasUploadedImage: !!updatedDesign.front?.uploadedImage, hasCustomText: !!updatedDesign.front?.customText },
+        back: { hasUploadedImage: !!updatedDesign.back?.uploadedImage, hasCustomText: !!updatedDesign.back?.customText },
+        left: { hasUploadedImage: !!updatedDesign.left?.uploadedImage, hasCustomText: !!updatedDesign.left?.customText },
+        right: { hasUploadedImage: !!updatedDesign.right?.uploadedImage, hasCustomText: !!updatedDesign.right?.customText },
+      });
+
+      return updatedDesign;
     });
   };
 
@@ -498,12 +537,37 @@ const TshirtDesigner = () => {
   // ======================== HELPER: WAIT FOR IMAGES ========================
   const waitForImages = (container) => {
     const images = container.querySelectorAll("img");
+    console.log(`⏳ Waiting for ${images.length} images in ${container.className}...`);
+    
     return Promise.all(
       Array.from(images).map(
-        (img) =>
+        (img, index) =>
           new Promise((resolve) => {
-            if (img.complete) resolve();
-            else img.onload = img.onerror = resolve;
+            console.log(`⏳ Image ${index + 1}/${images.length}:`, {
+              src: img.src.substring(0, 100),
+              complete: img.complete,
+              naturalWidth: img.naturalWidth,
+              naturalHeight: img.naturalHeight,
+            });
+            
+            if (img.complete && img.naturalWidth > 0) {
+              console.log(`✅ Image ${index + 1} already loaded`);
+              resolve();
+            } else {
+              img.onload = () => {
+                console.log(`✅ Image ${index + 1} loaded`);
+                resolve();
+              };
+              img.onerror = () => {
+                console.warn(`⚠️ Image ${index + 1} failed to load, continuing anyway`);
+                resolve();
+              };
+              // Timeout after 5 seconds
+              setTimeout(() => {
+                console.warn(`⏱️ Image ${index + 1} timeout, continuing anyway`);
+                resolve();
+              }, 5000);
+            }
           })
       )
     );
@@ -752,26 +816,137 @@ const TshirtDesigner = () => {
       setIsSaving(true);
       const images = {};
 
+      // ✅ Temporarily show all views for capturing
+      const designAreaContainers = document.querySelectorAll('.design-area-container');
+      const originalStyles = [];
+      
+      designAreaContainers.forEach((container) => {
+        originalStyles.push({
+          element: container,
+          opacity: container.style.opacity,
+          pointerEvents: container.style.pointerEvents,
+          display: container.style.display,
+          visibility: container.style.visibility,
+          className: container.className,
+          styleAttribute: container.getAttribute('style'), // Store original style attribute
+        });
+        // Make all views visible for capturing - use setAttribute to bypass Tailwind
+        container.setAttribute('style', `
+          opacity: 1 !important;
+          pointer-events: auto !important;
+          display: block !important;
+          visibility: visible !important;
+        `);
+        // Remove opacity-0 and pointer-events-none classes
+        container.classList.remove('opacity-0', 'pointer-events-none');
+        container.classList.add('opacity-100', 'pointer-events-auto');
+      });
+
+      // ✅ Force reflow and wait for DOM to fully update after visibility changes
+      designAreaContainers.forEach((container) => {
+        // Force reflow by accessing offsetHeight
+        const _ = container.offsetHeight;
+      });
+      
+      // Wait longer to ensure all CSS is applied and rendered
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       for (let view of views) {
         const node = designRefs[view]?.current;
-        if (!node) continue;
+        if (!node) {
+          console.warn(`⚠️ No design ref found for ${view}`);
+          continue;
+        }
 
         await waitForImages(node);
 
-        const dataUrl = await toPng(node, {
-          cacheBust: true,
-          pixelRatio: 2,
-          backgroundColor: "#fff",
-          skipFonts: true, // avoid Google Fonts cssRules CORS noise
-        });
+        try {
+          // ✅ Log the node being captured
+          const computedStyle = window.getComputedStyle(node);
+          console.log(`📸 Capturing ${view} view:`, {
+            nodeVisible: node.offsetHeight > 0 && node.offsetWidth > 0,
+            nodeHeight: node.offsetHeight,
+            nodeWidth: node.offsetWidth,
+            nodeOpacity: computedStyle.opacity,
+            nodeDisplay: computedStyle.display,
+            nodeClasses: node.className,
+            hasChildren: node.children.length,
+            designData: {
+              hasUploadedImage: !!allDesigns[view]?.uploadedImage,
+              hasCustomText: !!allDesigns[view]?.customText,
+            },
+            childrenInfo: Array.from(node.children).map(child => ({
+              tag: child.tagName,
+              classes: child.className,
+              visible: child.offsetHeight > 0 && child.offsetWidth > 0,
+              src: child.src ? child.src.substring(0, 50) : 'N/A',
+            }))
+          });
 
-        images[view] = dataUrl;
+          const dataUrl = await toPng(node, {
+            cacheBust: true,
+            pixelRatio: 2,
+            backgroundColor: "#fff",
+            skipFonts: true, // avoid Google Fonts cssRules CORS noise
+          });
+
+          images[view] = dataUrl;
+          console.log(`✅ Captured preview image for ${view}:`, {
+            dataUrlLength: dataUrl.length,
+            isBlank: dataUrl.length < 5000,
+            preview: dataUrl.substring(0, 100) + '...'
+          });
+        } catch (error) {
+          console.error(`❌ Failed to capture ${view} preview:`, error);
+          // Set a blank image if capture fails
+          images[view] = null;
+        }
       }
+
+      // ✅ Restore original styles
+      originalStyles.forEach(({ element, opacity, pointerEvents, display, visibility, className, styleAttribute }) => {
+        // Restore original style attribute
+        if (styleAttribute) {
+          element.setAttribute('style', styleAttribute);
+        } else {
+          element.removeAttribute('style');
+        }
+        // Restore original classes
+        element.className = className;
+      });
 
       // Identify user
       const userData = JSON.parse(localStorage.getItem("user")) || {};
       const userId =
         userData?._id || userData?.id || "66bff9df5e3a9d0d8d70b5f2"; // fallback test id
+
+      // ✅ Log all designs before capturing to verify they're all present
+      console.log("🔍 ALL DESIGNS STATE BEFORE CAPTURE:", {
+        front: {
+          hasUploadedImage: !!allDesigns.front?.uploadedImage,
+          hasCustomText: !!allDesigns.front?.customText,
+          customText: allDesigns.front?.customText,
+          uploadedImageLength: allDesigns.front?.uploadedImage?.length,
+        },
+        back: {
+          hasUploadedImage: !!allDesigns.back?.uploadedImage,
+          hasCustomText: !!allDesigns.back?.customText,
+          customText: allDesigns.back?.customText,
+          uploadedImageLength: allDesigns.back?.uploadedImage?.length,
+        },
+        left: {
+          hasUploadedImage: !!allDesigns.left?.uploadedImage,
+          hasCustomText: !!allDesigns.left?.customText,
+          customText: allDesigns.left?.customText,
+          uploadedImageLength: allDesigns.left?.uploadedImage?.length,
+        },
+        right: {
+          hasUploadedImage: !!allDesigns.right?.uploadedImage,
+          hasCustomText: !!allDesigns.right?.customText,
+          customText: allDesigns.right?.customText,
+          uploadedImageLength: allDesigns.right?.uploadedImage?.length,
+        },
+      });
 
       // Assemble design doc
       const designPayload = {
@@ -942,6 +1117,38 @@ const TshirtDesigner = () => {
         additionalFilesMeta: additionalFiles.map((f) => ({ name: f.name })),
       };
 
+      // ✅ Log the design object being added to cart
+      console.log("🧾 DESIGN OBJECT IN CART PRODUCT:", {
+        design: {
+          front: {
+            hasUploadedImage: !!customProduct.design.front?.uploadedImage,
+            hasCustomText: !!customProduct.design.front?.customText,
+            customText: customProduct.design.front?.customText,
+          },
+          back: {
+            hasUploadedImage: !!customProduct.design.back?.uploadedImage,
+            hasCustomText: !!customProduct.design.back?.customText,
+            customText: customProduct.design.back?.customText,
+          },
+          left: {
+            hasUploadedImage: !!customProduct.design.left?.uploadedImage,
+            hasCustomText: !!customProduct.design.left?.customText,
+            customText: customProduct.design.left?.customText,
+          },
+          right: {
+            hasUploadedImage: !!customProduct.design.right?.uploadedImage,
+            hasCustomText: !!customProduct.design.right?.customText,
+            customText: customProduct.design.right?.customText,
+          },
+        },
+        previewImages: {
+          front: customProduct.previewImages?.front ? `${customProduct.previewImages.front.substring(0, 50)}... (${customProduct.previewImages.front.length} chars)` : 'MISSING',
+          back: customProduct.previewImages?.back ? `${customProduct.previewImages.back.substring(0, 50)}... (${customProduct.previewImages.back.length} chars)` : 'MISSING',
+          left: customProduct.previewImages?.left ? `${customProduct.previewImages.left.substring(0, 50)}... (${customProduct.previewImages.left.length} chars)` : 'MISSING',
+          right: customProduct.previewImages?.right ? `${customProduct.previewImages.right.substring(0, 50)}... (${customProduct.previewImages.right.length} chars)` : 'MISSING',
+        }
+      });
+
       // ✅ Log pricing calculation details
       const basePrice = productDetails?.pricing?.[0]?.price_per || 499;
       const finalPrice = customProduct.price;
@@ -975,6 +1182,12 @@ const TshirtDesigner = () => {
           finalPrice,
           location: resolvedLocation,
           currency
+        },
+        previewImages: {
+          front: customProduct.previewImages?.front ? `${customProduct.previewImages.front.substring(0, 50)}... (${customProduct.previewImages.front.length} chars)` : 'MISSING',
+          back: customProduct.previewImages?.back ? `${customProduct.previewImages.back.substring(0, 50)}... (${customProduct.previewImages.back.length} chars)` : 'MISSING',
+          left: customProduct.previewImages?.left ? `${customProduct.previewImages.left.substring(0, 50)}... (${customProduct.previewImages.left.length} chars)` : 'MISSING',
+          right: customProduct.previewImages?.right ? `${customProduct.previewImages.right.substring(0, 50)}... (${customProduct.previewImages.right.length} chars)` : 'MISSING',
         }
       });
 
@@ -1340,7 +1553,16 @@ const TshirtDesigner = () => {
             {views.map((view) => (
               <button
                 key={view}
-                onClick={() => setSide(view)}
+                onClick={() => {
+                  console.log(`🔄 Switching from ${side} to ${view}`);
+                  console.log(`📋 Current allDesigns state:`, {
+                    front: { hasUploadedImage: !!allDesigns.front?.uploadedImage, hasCustomText: !!allDesigns.front?.customText },
+                    back: { hasUploadedImage: !!allDesigns.back?.uploadedImage, hasCustomText: !!allDesigns.back?.customText },
+                    left: { hasUploadedImage: !!allDesigns.left?.uploadedImage, hasCustomText: !!allDesigns.left?.customText },
+                    right: { hasUploadedImage: !!allDesigns.right?.uploadedImage, hasCustomText: !!allDesigns.right?.customText },
+                  });
+                  setSide(view);
+                }}
                 className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium transition-all rounded ${side === view
                     ? "bg-yellow-500 text-black"
                     : "bg-gray-700 text-white hover:bg-gray-600"

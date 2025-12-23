@@ -5,6 +5,9 @@ export const CartContext = createContext();
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [hydrated, setHydrated] = useState(false);
+  
+  // ✅ Store preview images in memory (not in localStorage due to size)
+  const previewImagesRef = React.useRef({});
 
   // ✅ Load from localStorage on mount
   useEffect(() => {
@@ -24,8 +27,33 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     if (!hydrated) return;
     console.log("🛒 Cart updated:", cart); // ✅ log full cart every time it changes
-    localStorage.setItem("cart", JSON.stringify(cart));
-    console.log("🛒 Cart updated:", cart);
+    
+    // ✅ Strip preview images before storing in localStorage (they're too large)
+    const cartForStorage = cart.map(item => {
+      const { previewImages, ...itemWithoutPreview } = item;
+      return itemWithoutPreview;
+    });
+    
+    try {
+      localStorage.setItem("cart", JSON.stringify(cartForStorage));
+      console.log("🛒 Cart saved to localStorage (preview images excluded)");
+    } catch (err) {
+      console.error("❌ Failed to save cart to localStorage:", err);
+      // If still too large, try removing design data too
+      if (err.name === 'QuotaExceededError') {
+        console.warn("⚠️ Cart too large even without preview images, removing design data...");
+        const minimalCart = cartForStorage.map(item => {
+          const { design, ...itemWithoutDesign } = item;
+          return itemWithoutDesign;
+        });
+        try {
+          localStorage.setItem("cart", JSON.stringify(minimalCart));
+          console.log("🛒 Cart saved with minimal data");
+        } catch (err2) {
+          console.error("❌ Failed to save even minimal cart:", err2);
+        }
+      }
+    }
   }, [cart, hydrated]);
 
   // ✅ Merge size quantities safely
@@ -40,6 +68,12 @@ export const CartProvider = ({ children }) => {
   // ✅ Add product (preserves all fields)
   const addToCart = (product) => {
     if (!product) return console.error("❌ Invalid product to add:", product);
+
+    // ✅ Store preview images in memory before adding to cart
+    if (product.previewImages) {
+      previewImagesRef.current[product.id] = product.previewImages;
+      console.log("💾 Preview images stored in memory for:", product.id);
+    }
 
     const exists = cart.find(
       (item) =>
@@ -97,10 +131,13 @@ export const CartProvider = ({ children }) => {
 
   const removeFromCart = (id) => {
     setCart((prev) => prev.filter((item) => item.id !== id));
+    // ✅ Also remove preview images from memory
+    delete previewImagesRef.current[id];
   };
 
   const clearCart = () => {
     setCart([]);
+    previewImagesRef.current = {};
     localStorage.removeItem("cart");
   };
 
@@ -114,6 +151,11 @@ export const CartProvider = ({ children }) => {
     );
   };
 
+  // ✅ Get preview images from memory
+  const getPreviewImages = (itemId) => {
+    return previewImagesRef.current[itemId] || null;
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -124,6 +166,7 @@ export const CartProvider = ({ children }) => {
         removeFromCart,
         clearCart,
         updateQuantity,
+        getPreviewImages,
       }}
     >
       {children}

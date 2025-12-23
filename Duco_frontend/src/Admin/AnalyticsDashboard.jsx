@@ -880,6 +880,7 @@ export default function AnalyticsDashboard() {
                   <th className="px-4 py-3">Customer Info</th>
                   <th className="px-4 py-3">Address</th>
                   <th className="px-4 py-3">Price</th>
+                  <th className="px-4 py-3">Payment Info</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Razorpay</th>
                   <th className="px-4 py-3">Actions</th>
@@ -964,6 +965,33 @@ export default function AnalyticsDashboard() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
+                          {/* Payment Info Column - Show 50% payment for B2B orders */}
+                          {o?.orderType === 'B2B' && o?.paymentmode === '50%' ? (
+                            <div className="space-y-2">
+                              <div className="inline-block px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded text-xs font-semibold">
+                                💰 50% Advance
+                              </div>
+                              <div className="text-xs space-y-1">
+                                <div className="text-gray-300">
+                                  Total: {formatPrice(o?.displayPrice || o?.price, o?.currency)}
+                                </div>
+                                <div className="text-green-400">
+                                  Paid: {formatPrice((o?.displayPrice || o?.price) / 2, o?.currency)}
+                                </div>
+                                <div className="text-orange-400">
+                                  Due: {formatPrice((o?.displayPrice || o?.price) / 2, o?.currency)}
+                                </div>
+                              </div>
+                            </div>
+                          ) : o?.orderType === 'B2B' ? (
+                            <div className="inline-block px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs font-semibold">
+                              🏢 Full Payment
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">B2C Order</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
                           <span
                             className={`px-2 py-1 rounded text-xs ${o?.status === "Delivered"
                               ? "bg-emerald-500/20 text-emerald-300"
@@ -1018,7 +1046,7 @@ export default function AnalyticsDashboard() {
                 ) : (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-4 py-6 text-center text-gray-400"
                     >
                       No orders for selected filters.

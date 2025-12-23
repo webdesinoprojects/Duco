@@ -1,22 +1,25 @@
 import QuantityControlss from "./QuantityControlss";
 import PriceDisplay from "./PriceDisplay";
 import { RiEyeFill } from "react-icons/ri";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import { CartContext } from "../ContextAPI/CartContext";
 import menstshirt from "../assets/men_s_white_polo_shirt_mockup-removebg-preview.png";
 
 const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [displayImage, setDisplayImage] = useState(null);
   const { toConvert, priceIncrease } = usePriceContext();
+  const { getPreviewImages } = useContext(CartContext);
 
   // ✅ Check if image is blank/empty by checking if it's a data URL with minimal content
   const isBlankImage = (src) => {
     if (!src) return true;
     // Check if it's a data URL that's too small (likely blank)
     if (src.startsWith('data:image')) {
-      // A blank white image is typically very small
-      return src.length < 500;
+      // A blank white image is typically very small (< 1KB)
+      // A real design image should be at least 5KB
+      return src.length < 5000;
     }
     return false;
   };
@@ -25,22 +28,35 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   useEffect(() => {
     let imageToDisplay = null;
 
+    console.log('🖼️ CartItem - Determining display image:', {
+      itemName: item.products_name || item.name,
+      hasPreviewImages: !!item.previewImages,
+      previewImagesFront: item.previewImages?.front ? `${item.previewImages.front.substring(0, 50)}...` : null,
+      previewImagesFrontLength: item.previewImages?.front?.length,
+      isBlankFront: item.previewImages?.front ? isBlankImage(item.previewImages.front) : null,
+      hasImageUrl: !!item.image_url?.[0]?.url?.[0],
+    });
+
     // Try preview images first (from custom T-shirt designer)
     if (item.previewImages?.front && !isBlankImage(item.previewImages.front)) {
       imageToDisplay = item.previewImages.front;
+      console.log('✅ Using preview image (front)');
     }
     // Fallback to product image
     else if (item.image_url?.[0]?.url?.[0]) {
       imageToDisplay = item.image_url[0].url[0];
+      console.log('✅ Using product image');
     }
     // Fallback to base T-shirt mockup
     else if (item.previewImages?.front) {
       // Even if blank, use it but with fallback styling
       imageToDisplay = item.previewImages.front;
+      console.log('⚠️ Using blank preview image (fallback)');
     }
     // Final fallback to default T-shirt
     else {
       imageToDisplay = menstshirt;
+      console.log('⚠️ Using default T-shirt mockup');
     }
 
     setDisplayImage(imageToDisplay);
@@ -204,15 +220,29 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
             {(item.design || item.previewImages) && (
               <button
                 onClick={() => {
+                  // ✅ Get preview images from memory (CartContext)
+                  const previewImages = getPreviewImages(item.id);
+                  
+                  console.log('🖼️ Preview button clicked - getting images from memory:', {
+                    itemId: item.id,
+                    hasPreviewImages: !!previewImages,
+                    front: previewImages?.front ? `${previewImages.front.substring(0, 50)}... (${previewImages.front.length} chars)` : 'MISSING',
+                    back: previewImages?.back ? `${previewImages.back.substring(0, 50)}... (${previewImages.back.length} chars)` : 'MISSING',
+                    left: previewImages?.left ? `${previewImages.left.substring(0, 50)}... (${previewImages.left.length} chars)` : 'MISSING',
+                    right: previewImages?.right ? `${previewImages.right.substring(0, 50)}... (${previewImages.right.length} chars)` : 'MISSING',
+                  });
+                  
                   // Check for different design data structures
-                  if (item.previewImages) {
+                  if (previewImages) {
                     // New structure from TShirtDesigner
                     const previews = [
-                      item.previewImages.front && { url: item.previewImages.front, view: 'Front' },
-                      item.previewImages.back && { url: item.previewImages.back, view: 'Back' },
-                      item.previewImages.left && { url: item.previewImages.left, view: 'Left' },
-                      item.previewImages.right && { url: item.previewImages.right, view: 'Right' },
+                      previewImages.front && { url: previewImages.front, view: 'Front' },
+                      previewImages.back && { url: previewImages.back, view: 'Back' },
+                      previewImages.left && { url: previewImages.left, view: 'Left' },
+                      previewImages.right && { url: previewImages.right, view: 'Right' },
                     ].filter(Boolean);
+                    
+                    console.log('🖼️ Previews array after filter:', previews.map(p => ({ view: p.view, urlLength: p.url.length })));
                     setPreviewImage(previews.length > 0 ? previews : null);
                   } else if (Array.isArray(item.design)) {
                     // Array format
