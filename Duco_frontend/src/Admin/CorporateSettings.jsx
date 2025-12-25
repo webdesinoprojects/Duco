@@ -245,20 +245,21 @@ const CorporateSettings = () => {
             </label>
             <div className="flex items-center gap-3">
               <input
-                type="number"
-                min="1"
-                max="365"
-                value={settings.estimatedDeliveryDays}
+                type="text"
+                value={settings.estimatedDeliveryDays === 0 ? '' : settings.estimatedDeliveryDays}
                 onChange={(e) => {
-                  const value = Number(e.target.value);
-                  if (value >= 1 && value <= 365) {
+                  const value = e.target.value;
+                  // Only allow digits or empty string
+                  if (value === '' || /^\d+$/.test(value)) {
+                    const numValue = value === '' ? 0 : Number(value);
                     setSettings(prev => ({ 
                       ...prev, 
-                      estimatedDeliveryDays: value
+                      estimatedDeliveryDays: numValue
                     }));
                   }
                 }}
                 className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter days"
               />
               <span className="text-sm text-gray-600">days from order creation</span>
             </div>

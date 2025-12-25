@@ -45,7 +45,6 @@ useEffect(() => {
         
         // Build dynamic menu items from categories
         const homeItem = { name: "Home", link: "/" ,isbold:false};
-        const blogItem = { name: "Blog", link: "/blog", isbold:false };
         
         const dynamicDesktopItems = cats
           .filter(cat => cat.category && cat.category.trim() !== '') // Filter out empty categories
@@ -67,8 +66,8 @@ useEffect(() => {
             megaCategory: cat.category // Keep original for API calls
           }));
         
-        setMenuItems([homeItem, blogItem, ...dynamicDesktopItems]);
-        setMenuItemss([{ name: "Home", link: "/" }, { name: "Blog", link: "/blog" }, ...dynamicMobileItems]);
+        setMenuItems([homeItem, ...dynamicDesktopItems]);
+        setMenuItemss([{ name: "Home", link: "/" }, ...dynamicMobileItems]);
         
         console.log('✅ Dynamic menu items created:', dynamicDesktopItems.length, 'categories');
       }

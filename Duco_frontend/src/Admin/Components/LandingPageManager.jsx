@@ -215,8 +215,18 @@ export default function LandingPageManager() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card 1 */}
             <div className="border border-slate-200 rounded-lg p-4">
-              <h3 className="font-semibold text-slate-800 mb-3">Card 1: Naturally Styled</h3>
+              <h3 className="font-semibold text-slate-800 mb-3">Card 1</h3>
               <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Title</label>
+                  <textarea
+                    value={landingData.sideCards.card1.title}
+                    onChange={(e) => updateField("sideCards.card1.title", e.target.value)}
+                    placeholder="Naturally\nStyled"
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="2"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Image</label>
                   <input
@@ -244,13 +254,43 @@ export default function LandingPageManager() {
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">BG Color</label>
+                    <input
+                      type="color"
+                      value={landingData.sideCards.card1.bgColor}
+                      onChange={(e) => updateField("sideCards.card1.bgColor", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 h-8 cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Text Color</label>
+                    <input
+                      type="color"
+                      value={landingData.sideCards.card1.textColor}
+                      onChange={(e) => updateField("sideCards.card1.textColor", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 h-8 cursor-pointer"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Card 2 */}
             <div className="border border-slate-200 rounded-lg p-4">
-              <h3 className="font-semibold text-slate-800 mb-3">Card 2: Casual Comfort</h3>
+              <h3 className="font-semibold text-slate-800 mb-3">Card 2</h3>
               <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Title</label>
+                  <textarea
+                    value={landingData.sideCards.card2.title}
+                    onChange={(e) => updateField("sideCards.card2.title", e.target.value)}
+                    placeholder="Casual\nComfort"
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="2"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Image</label>
                   <input
@@ -278,13 +318,43 @@ export default function LandingPageManager() {
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">BG Color</label>
+                    <input
+                      type="color"
+                      value={landingData.sideCards.card2.bgColor}
+                      onChange={(e) => updateField("sideCards.card2.bgColor", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 h-8 cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Text Color</label>
+                    <input
+                      type="color"
+                      value={landingData.sideCards.card2.textColor}
+                      onChange={(e) => updateField("sideCards.card2.textColor", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 h-8 cursor-pointer"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Card 3 */}
             <div className="border border-slate-200 rounded-lg p-4">
-              <h3 className="font-semibold text-slate-800 mb-3">Card 3: Single T-shirt</h3>
+              <h3 className="font-semibold text-slate-800 mb-3">Card 3</h3>
               <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Title</label>
+                  <textarea
+                    value={landingData.sideCards.card3.title}
+                    onChange={(e) => updateField("sideCards.card3.title", e.target.value)}
+                    placeholder="Get\nSingle T-shirt"
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="2"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Image</label>
                   <input
@@ -311,6 +381,26 @@ export default function LandingPageManager() {
                     placeholder="/products"
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">BG Color</label>
+                    <input
+                      type="color"
+                      value={landingData.sideCards.card3.bgColor}
+                      onChange={(e) => updateField("sideCards.card3.bgColor", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 h-8 cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Text Color</label>
+                    <input
+                      type="color"
+                      value={landingData.sideCards.card3.textColor}
+                      onChange={(e) => updateField("sideCards.card3.textColor", e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 h-8 cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

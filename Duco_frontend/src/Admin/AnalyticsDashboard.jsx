@@ -233,7 +233,12 @@ export default function AnalyticsDashboard() {
         "Pincode",
         "Country",
         "Phone",
-        "Price", 
+        "OrderType",
+        "PaymentMode",
+        "PaymentStatus",
+        "TotalAmount",
+        "AmountPaid",
+        "AmountDue",
         "Status", 
         "RazorpayPaymentId"
       ],
@@ -246,6 +251,12 @@ export default function AnalyticsDashboard() {
         const billingAddr = o?.addresses?.billing || o?.address;
         const shippingAddr = o?.addresses?.shipping || o?.address;
         const displayAddr = shippingAddr || billingAddr;
+        
+        // ✅ Calculate 50% payment amounts
+        const totalAmount = Number(o?.totalPay || o?.price || 0);
+        const paymentMode = o?.paymentmode || 'online';
+        const amountPaid = paymentMode === '50%' ? totalAmount / 2 : totalAmount;
+        const amountDue = paymentMode === '50%' ? totalAmount / 2 : 0;
         
         return [
           o?._id || "",
@@ -264,7 +275,12 @@ export default function AnalyticsDashboard() {
           displayAddr?.pincode || "",
           displayAddr?.country || "",
           displayAddr?.phone || "",
-          Number(o?.price || 0),
+          o?.orderType || "B2C",
+          paymentMode,
+          o?.paymentStatus || "Pending",
+          totalAmount,
+          amountPaid,
+          amountDue,
           o?.status || "",
           o?.razorpayPaymentId || "",
         ];
@@ -629,6 +645,32 @@ export default function AnalyticsDashboard() {
     </div>
   </div>
 </div>
+
+          <!-- ✅ 50% ADVANCE PAYMENT SECTION -->
+          ${invoice.paymentmode === '50%' ? `
+            <div style="margin-top: 12px; border: 2px solid #FF9800; padding: 10px; background-color: #FFF3E0;">
+              <div style="font-weight: bold; color: #FF6F00; margin-bottom: 8px; font-size: 12px;">💰 50% ADVANCE PAYMENT</div>
+              <div style="display: flex; justify-content: space-around; font-size: 11px;">
+                <div style="text-align: center;">
+                  <div style="color: #666; margin-bottom: 4px;">Amount Paid</div>
+                  <div style="font-weight: bold; color: #2E7D32; font-size: 13px;">₹${(Math.ceil(total) / 2).toFixed(2)}</div>
+                </div>
+                <div style="border-left: 1px solid #FF9800;"></div>
+                <div style="text-align: center;">
+                  <div style="color: #666; margin-bottom: 4px;">Amount Due</div>
+                  <div style="font-weight: bold; color: #D32F2F; font-size: 13px;">₹${(Math.ceil(total) / 2).toFixed(2)}</div>
+                </div>
+                <div style="border-left: 1px solid #FF9800;"></div>
+                <div style="text-align: center;">
+                  <div style="color: #666; margin-bottom: 4px;">Payment Status</div>
+                  <div style="font-weight: bold; color: #1976D2; font-size: 13px;">${invoice.paymentStatus || 'Pending'}</div>
+                </div>
+              </div>
+              <div style="margin-top: 8px; font-size: 10px; color: #666; text-align: center;">
+                Remaining 50% payment due before delivery
+              </div>
+            </div>
+          ` : ''}
 
           <!-- AMOUNT IN WORDS -->
           <div style="margin-top: 10px; font-size: 11px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 10px;">

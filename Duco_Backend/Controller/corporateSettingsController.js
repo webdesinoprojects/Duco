@@ -27,7 +27,8 @@ exports.updateCorporateSettings = async (req, res) => {
       bulkDiscountTiers,
       corporateGstRate,
       enablePrintroveIntegration,
-      corporatePaymentMethods
+      corporatePaymentMethods,
+      estimatedDeliveryDays
     } = req.body;
 
     // Validate minimum order quantity
@@ -35,6 +36,14 @@ exports.updateCorporateSettings = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Minimum order quantity must be a positive integer'
+      });
+    }
+
+    // Validate estimated delivery days
+    if (estimatedDeliveryDays !== undefined && (estimatedDeliveryDays < 1 || estimatedDeliveryDays > 365 || !Number.isInteger(estimatedDeliveryDays))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Estimated delivery days must be an integer between 1 and 365'
       });
     }
 
@@ -85,6 +94,7 @@ exports.updateCorporateSettings = async (req, res) => {
     if (corporateGstRate !== undefined) settings.corporateGstRate = corporateGstRate;
     if (enablePrintroveIntegration !== undefined) settings.enablePrintroveIntegration = enablePrintroveIntegration;
     if (corporatePaymentMethods !== undefined) settings.corporatePaymentMethods = corporatePaymentMethods;
+    if (estimatedDeliveryDays !== undefined) settings.estimatedDeliveryDays = estimatedDeliveryDays;
 
     await settings.save();
     
