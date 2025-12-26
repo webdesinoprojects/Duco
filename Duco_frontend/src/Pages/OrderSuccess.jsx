@@ -266,13 +266,11 @@ const InvoiceDucoTailwind = ({ data }) => {
             <tbody>
               <tr>
                 <td style={{ padding: "4px", width: "40%" }}></td>
-                <td style={{ padding: "4px", textAlign: "center", width: "30%", fontWeight: "bold" }}>Total Tax</td>
-                <td style={{ padding: "4px", textAlign: "right", width: "30%", fontWeight: "bold" }}>Total Amount</td>
+                <td style={{ padding: "4px", textAlign: "center", width: "60%", fontWeight: "bold" }}>Total Tax</td>
               </tr>
               <tr>
                 <td style={{ padding: "4px" }}>Sub Total</td>
                 <td style={{ padding: "4px", textAlign: "center" }}>-</td>
-                <td style={{ padding: "4px", textAlign: "right", fontWeight: "bold" }}>{subtotal.toFixed(2)}</td>
               </tr>
               
               {/* ✅ P&F Charges Row - Show only if charges exist */}
@@ -280,7 +278,6 @@ const InvoiceDucoTailwind = ({ data }) => {
                 <tr>
                   <td style={{ padding: "4px" }}>P&F Charges</td>
                   <td style={{ padding: "4px", textAlign: "center" }}>-</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>{( (charges?.pf || 0)).toFixed(2)}</td>
                 </tr>
               )}
               
@@ -289,7 +286,6 @@ const InvoiceDucoTailwind = ({ data }) => {
                 <tr>
                   <td style={{ padding: "4px" }}>Printing</td>
                   <td style={{ padding: "4px", textAlign: "center" }}>-</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0)).toFixed(2)}</td>
                 </tr>
               )}
               
@@ -298,7 +294,6 @@ const InvoiceDucoTailwind = ({ data }) => {
                 <tr>
                   <td style={{ padding: "4px" }}>Add : IGST</td>
                   <td style={{ padding: "4px", textAlign: "center" }}>{tax.igstAmount.toFixed(2)}</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.igstAmount).toFixed(2)}</td>
                 </tr>
               )}
               
@@ -308,17 +303,14 @@ const InvoiceDucoTailwind = ({ data }) => {
                   <tr>
                     <td style={{ padding: "4px" }}>Add : CGST</td>
                     <td style={{ padding: "4px", textAlign: "center" }}>{tax.cgstAmount.toFixed(2)}</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : SGST</td>
                     <td style={{ padding: "4px", textAlign: "center" }}>{tax.sgstAmount.toFixed(2)}</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : IGST</td>
                     <td style={{ padding: "4px", textAlign: "center" }}>{tax.igstAmount.toFixed(2)}</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount + tax.igstAmount).toFixed(2)}</td>
                   </tr>
                 </>
               )}
@@ -329,12 +321,10 @@ const InvoiceDucoTailwind = ({ data }) => {
                   <tr>
                     <td style={{ padding: "4px" }}>Add : CGST</td>
                     <td style={{ padding: "4px", textAlign: "center" }}>{tax.cgstAmount.toFixed(2)}</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "4px" }}>Add : SGST</td>
                     <td style={{ padding: "4px", textAlign: "center" }}>{tax.sgstAmount.toFixed(2)}</td>
-                    <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount + tax.sgstAmount).toFixed(2)}</td>
                   </tr>
                 </>
               )}
@@ -344,7 +334,6 @@ const InvoiceDucoTailwind = ({ data }) => {
                 <tr>
                   <td style={{ padding: "4px" }}>Add : TAX</td>
                   <td style={{ padding: "4px", textAlign: "center" }}>{tax.taxAmount.toFixed(2)}</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.taxAmount).toFixed(2)}</td>
                 </tr>
               )}
               
@@ -355,21 +344,18 @@ const InvoiceDucoTailwind = ({ data }) => {
                     <tr>
                       <td style={{ padding: "4px" }}>Add : CGST</td>
                       <td style={{ padding: "4px", textAlign: "center" }}>{tax.cgstAmount.toFixed(2)}</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + tax.cgstAmount).toFixed(2)}</td>
                     </tr>
                   )}
                   {tax.sgstRate > 0 && (
                     <tr>
                       <td style={{ padding: "4px" }}>Add : SGST</td>
                       <td style={{ padding: "4px", textAlign: "center" }}>{tax.sgstAmount.toFixed(2)}</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + tax.sgstAmount).toFixed(2)}</td>
                     </tr>
                   )}
                   {tax.igstRate > 0 && (
                     <tr>
                       <td style={{ padding: "4px" }}>Add : IGST</td>
                       <td style={{ padding: "4px", textAlign: "center" }}>{tax.igstAmount.toFixed(2)}</td>
-                      <td style={{ padding: "4px", textAlign: "right" }}>{(subtotal + (charges?.pf || 0) + (charges?.printing || 0) + (tax.cgstAmount || 0) + (tax.sgstAmount || 0) + tax.igstAmount).toFixed(2)}</td>
                     </tr>
                   )}
                 </>
@@ -738,16 +724,19 @@ export default function OrderSuccess() {
           orderPrinting: inv.order?.printing,
           calculatedFromItems: printing > 0
         });
+
+        // ✅ CRITICAL FIX: Use backend total directly instead of recalculating
+        // The backend has already calculated the correct total with proper tax logic
+        const total = Number(inv.total ?? inv.totalPay) || 0;
+        
+        // ✅ Extract tax information from backend (already calculated correctly)
         const gstRate = inv.tax?.igstRate ?? inv.tax?.gstRate ?? inv.gstRate ?? 5;
-        const gstTotal =
-          inv.tax?.igstAmount ??
-          inv.gstTotal ??
-          ((subtotal + pf + printing) * gstRate) / 100;
+        const gstTotal = inv.tax?.igstAmount ?? inv.tax?.totalTax ?? inv.gstTotal ?? 0;
 
         const cgstRate = inv.tax?.cgstRate ?? gstRate / 2;
         const sgstRate = inv.tax?.sgstRate ?? gstRate / 2;
-        const cgstAmount = inv.tax?.cgstAmount ?? gstTotal / 2;
-        const sgstAmount = inv.tax?.sgstAmount ?? gstTotal / 2;
+        const cgstAmount = inv.tax?.cgstAmount ?? 0;
+        const sgstAmount = inv.tax?.sgstAmount ?? 0;
 
         // ✅ Add location-based adjustment
         const locationTax = inv.locationTax || paymentMeta.locationTax || null;
@@ -755,10 +744,6 @@ export default function OrderSuccess() {
           locationTax?.percentage
             ? ((subtotal + pf + printing) * locationTax.percentage) / 100
             : 0;
-
-        const total =
-          Number(inv.total ?? inv.totalPay) ||
-          subtotal + pf + printing + gstTotal + locationAdj;
 
         const formatted = {
           ...inv,

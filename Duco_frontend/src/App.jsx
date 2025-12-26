@@ -66,6 +66,7 @@ import CategoryPage from "./Pages/CategoryPage.jsx";
 import Blog from "./Pages/Blog.jsx";
 import BlogPost from "./Pages/BlogPost.jsx";
 import BlogManager from "./Admin/BlogManager.jsx";
+import PrivateRoute from "./Components/PrivateRoute.jsx";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {

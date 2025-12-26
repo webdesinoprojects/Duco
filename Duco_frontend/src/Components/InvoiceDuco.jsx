@@ -281,29 +281,29 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-100">
-                <th className="border p-1 text-left w-[40%]">Description</th>
+                <th className="border p-1 text-left w-[70%]">Description</th>
                 <th className="border p-1 text-center w-[30%]">Total Tax</th>
-                <th className="border p-1 text-right w-[30%]">Total Amount</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td className="border p-1">Sub Total</td>
                 <td className="border p-1 text-center">-</td>
-                <td className="border p-1 text-right">{fmtINR(calc.sub)}</td>
               </tr>
-              <tr>
-                <td className="border p-1">P&F Charges</td>
-                <td className="border p-1 text-center">-</td>
-                <td className="border p-1 text-right">{fmtINR(calc.sub + calc.pf)}</td>
-              </tr>
-              <tr>
-                <td className="border p-1">Printing</td>
-                <td className="border p-1 text-center">-</td>
-                <td className="border p-1 text-right">
-                  {fmtINR(calc.sub + calc.pf + calc.printing)}
-                </td>
-              </tr>
+              {/* ✅ P&F Charges - Show only for B2B */}
+              {calc.isB2B && calc.pf > 0 && (
+                <tr>
+                  <td className="border p-1">P&F Charges</td>
+                  <td className="border p-1 text-center">-</td>
+                </tr>
+              )}
+              {/* ✅ Printing - Show only for B2B */}
+              {calc.isB2B && calc.printing > 0 && (
+                <tr>
+                  <td className="border p-1">Printing</td>
+                  <td className="border p-1 text-center">-</td>
+                </tr>
+              )}
 
               {/* ✅ Only show tax for B2B orders */}
               {calc.isB2B && (
@@ -316,9 +316,6 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
                       <td className="border p-1 text-center">
                         {fmtINR(calc.cgst)}
                       </td>
-                      <td className="border p-1 text-right">
-                        {fmtINR(calc.taxable + calc.cgst)}
-                      </td>
                     </tr>
                     <tr>
                       <td className="border p-1">
@@ -326,9 +323,6 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
                       </td>
                       <td className="border p-1 text-center">
                         {fmtINR(calc.sgst)}
-                      </td>
-                      <td className="border p-1 text-right">
-                        {fmtINR(calc.taxable + calc.cgst + calc.sgst)}
                       </td>
                     </tr>
                   </>
@@ -340,9 +334,6 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
                     <td className="border p-1 text-center">
                       {fmtINR(calc.igst)}
                     </td>
-                    <td className="border p-1 text-right">
-                      {fmtINR(calc.taxable + calc.igst)}
-                    </td>
                   </tr>
                 )
               )}
@@ -350,9 +341,6 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
               <tr className="font-bold bg-gray-100">
                 <td className="border p-1">Grand Total</td>
                 <td className="border p-1 text-center">
-                  {calc.totalQty} Pcs.
-                </td>
-                <td className="border p-1 text-right">
                   {fmtINR(calc.grand)}
                 </td>
               </tr>

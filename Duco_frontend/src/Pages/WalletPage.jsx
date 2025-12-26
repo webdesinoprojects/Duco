@@ -1,7 +1,8 @@
 // src/pages/WalletPage.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getWallet } from "../Service/APIservice";
+import { UserContext } from "../ContextAPI/UserContext.jsx";
 
 const ACCENT = "#E5C870";
 const BG = "#0A0A0A";
@@ -53,14 +54,25 @@ const SkeletonRow = () => (
 );
 
 export default function WalletPage({ userFromContext }) {
-  // You can use either :userId from route OR userFromContext?._id
+  // Get user from context
+  const { user: contextUser } = useContext(UserContext);
   const params = useParams();
   const navigate = useNavigate();
-  const userId = params.userId || userFromContext?._id;
+  
+  // Use context user first, then fallback to route param
+  const userId = contextUser?._id || params.userId;
 
   const [data, setData] = useState(null); // wallet
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+
+  // Check if user is logged in
+  useEffect(() => {
+    if (!contextUser || !contextUser._id) {
+      setLoading(false);
+      setErr("Please log in to view your wallet");
+    }
+  }, [contextUser]);
 
   const balance = useMemo(() => {
     // Prefer explicit balance if present; otherwise compute credits - debits
@@ -75,12 +87,20 @@ export default function WalletPage({ userFromContext }) {
     let mounted = true;
     (async () => {
       try {
-        if (!userId) throw new Error("User not found");
+        if (!userId) return; // Don't fetch if no userId
         setLoading(true);
-        const wallet = await getWallet(userId);
-        if (mounted) setData(wallet);
+        setErr(""); // Clear previous errors
+        const response = await getWallet(userId);
+        if (mounted) {
+          // Handle both old format (direct wallet) and new format (with success flag)
+          const walletData = response.data || response;
+          setData(walletData);
+        }
       } catch (e) {
-        if (mounted) setErr(e?.response?.data?.message || e?.message || "Failed to load wallet");
+        if (mounted) {
+          const errorMsg = e?.response?.data?.message || e?.message || "Failed to load wallet";
+          setErr(errorMsg);
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -113,8 +133,16 @@ export default function WalletPage({ userFromContext }) {
 
       {/* Errors */}
       {err && (
-        <div className="mb-6 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-          {err}
+        <div className="mb-6 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 flex items-center justify-between">
+          <span>{err}</span>
+          {err.includes("log in") && (
+            <button
+              onClick={() => navigate("/")}
+              className="ml-4 px-4 py-2 bg-rose-600 hover:bg-rose-700 rounded-lg font-medium text-white whitespace-nowrap"
+            >
+              Go to Login
+            </button>
+          )}
         </div>
       )}
 

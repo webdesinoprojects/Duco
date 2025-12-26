@@ -688,7 +688,14 @@ const Cart = () => {
   }, [totalQuantity, actualData.length]);
 
   const printingCost = useMemo(() => {
-    // ✅ Calculate printing cost ONLY if there are printed sides
+    // ✅ B2C Orders: Printing charges are 0
+    const isBulkOrder = actualData.some(item => item.isCorporate === true);
+    if (!isBulkOrder) {
+      console.log(`🖨️ B2C Order - Printing Cost: 0 (No printing charges for B2C)`);
+      return 0;
+    }
+    
+    // ✅ B2B Orders: Calculate printing cost ONLY if there are printed sides
     const isINR = currencySymbol === '₹' || !currencySymbol;
     
     const cost = actualData.reduce((total, item) => {
@@ -724,7 +731,14 @@ const Cart = () => {
   }, [actualData, printPerUnit, currencySymbol, priceIncrease, conversionRate]);
 
   const pfCost = useMemo(() => {
-    // ✅ Calculate P&F charge using charge plan per-unit rate
+    // ✅ B2C Orders: P&F charges are 0
+    const isBulkOrder = actualData.some(item => item.isCorporate === true);
+    if (!isBulkOrder) {
+      console.log(`📦 B2C Order - P&F Cost: 0 (No P&F charges for B2C)`);
+      return 0;
+    }
+    
+    // ✅ B2B Orders: Calculate P&F charge using charge plan per-unit rate
     const isINR = currencySymbol === '₹' || !currencySymbol;
     const totalQty = totalQuantity || 1;
     let cost = safeNum(pfPerUnit, 0) * totalQty;
@@ -734,9 +748,9 @@ const Cart = () => {
       cost = applyLocationPricing(cost, priceIncrease, conversionRate);
     }
     
-    console.log(`📦 P&F Cost: ${currencySymbol}${cost} (${pfPerUnit} per unit × ${totalQty} units, isINR: ${isINR})`);
+    console.log(`📦 B2B Order - P&F Cost: ${currencySymbol}${cost} (${pfPerUnit} per unit × ${totalQty} units, isINR: ${isINR})`);
     return cost;
-  }, [pfPerUnit, totalQuantity, currencySymbol, priceIncrease, conversionRate]);
+  }, [pfPerUnit, totalQuantity, currencySymbol, priceIncrease, conversionRate, actualData]);
 
   const taxableAmount = useMemo(() => {
     return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);

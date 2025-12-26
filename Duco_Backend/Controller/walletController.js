@@ -4,6 +4,23 @@ const Wallet = require("../DataBase/Models/Wallet");
 const getWallet = async (req, res) => {
   try {
     const userId = req.params.userId;
+    
+    // Validate userId is provided
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false,
+        message: "User ID is required. Please log in to view your wallet." 
+      });
+    }
+    
+    // Validate userId format (basic check for MongoDB ObjectId)
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Please log in to view your wallet." 
+      });
+    }
+    
     let wallet = await Wallet.findOne({ user: userId }).populate("transactions.order");
     
     // If wallet doesn't exist, create an empty one
@@ -17,9 +34,13 @@ const getWallet = async (req, res) => {
       console.log(`✅ Created new wallet for user ${userId}`);
     }
     
-    res.json(wallet);
+    res.json({ success: true, data: wallet });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("❌ Wallet error:", err.message);
+    res.status(500).json({ 
+      success: false,
+      message: "Please log in to view your wallet" 
+    });
   }
 };
 
