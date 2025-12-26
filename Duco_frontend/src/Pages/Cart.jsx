@@ -208,12 +208,12 @@ const InvoiceDucoTailwind = ({ data }) => {
             <tr>
               <td style={{ padding: "6px" }}>P&F Charges</td>
               <td style={{ textAlign: "center", padding: "6px" }}>-</td>
-              <td style={{ textAlign: "right", padding: "6px" }}>{data.formatCurrency(data.subtotal + (data.pfCost || 0))}</td>
+              <td style={{ textAlign: "right", padding: "6px" }}>{data.formatCurrency(data.pfCost || 0)}</td>
             </tr>
             <tr>
               <td style={{ padding: "6px" }}>Printing Charges</td>
               <td style={{ textAlign: "center", padding: "6px" }}>-</td>
-              <td style={{ textAlign: "right", padding: "6px" }}>{data.formatCurrency(data.subtotal + (data.pfCost || 0) + (data.printingCost || 0))}</td>
+              <td style={{ textAlign: "right", padding: "6px" }}>{data.formatCurrency(data.printingCost || 0)}</td>
             </tr>
             
             {data.locationTax?.percentage > 0 && (
@@ -223,7 +223,7 @@ const InvoiceDucoTailwind = ({ data }) => {
                   {data.formatCurrency((data.subtotal + (data.printingCost || 0) + (data.pfCost || 0)) * (data.locationTax.percentage / 100))}
                 </td>
                 <td style={{ textAlign: "right", padding: "6px" }}>
-                  {data.formatCurrency(data.subtotal + (data.pfCost || 0) + (data.printingCost || 0) + ((data.subtotal + (data.printingCost || 0) + (data.pfCost || 0)) * (data.locationTax.percentage / 100)))}
+                  {data.formatCurrency((data.subtotal + (data.printingCost || 0) + (data.pfCost || 0)) * (data.locationTax.percentage / 100))}
                 </td>
               </tr>
             )}

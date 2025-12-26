@@ -134,6 +134,24 @@ async function createInvoice(data) {
   if (!data.orderType) {
     data.orderType = 'B2C';
   }
+  
+  // ✅ CRITICAL: Recalculate total based on tax info
+  // The frontend sends totalAmount (subtotal + charges), but we need to add tax
+  const taxableValue = subtotal + chargesTotal;
+  let totalTaxAmt;
+  if (taxInfo.type === 'INTERNATIONAL') {
+    totalTaxAmt = taxInfo.taxAmount;
+  } else if (taxInfo.type === 'INTRASTATE_IGST') {
+    totalTaxAmt = taxInfo.igstAmount;
+  } else if (taxInfo.type === 'B2C_NO_TAX') {
+    totalTaxAmt = 0;
+  } else {
+    totalTaxAmt = taxInfo.cgstAmount + taxInfo.sgstAmount + taxInfo.igstAmount;
+  }
+  const calculatedTotal = taxableValue + totalTaxAmt;
+  
+  // ✅ Override the total with the correctly calculated value
+  data.total = calculatedTotal;
   // --------------------------------------
 
   const invoice = await Invoice.create(data);

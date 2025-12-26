@@ -229,6 +229,7 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
     orderType: orderType, // ✅ Pass order type to invoice
     paymentmode: paymentmode, // ✅ Add payment mode
     amountPaid: amountPaid, // ✅ Add amount paid (for 50% payments)
+    total: totalAmount, // ✅ Add total amount to invoice
   };
   
   // ✅ Add shipTo only if different from billing

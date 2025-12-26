@@ -140,37 +140,14 @@ function calculateTax(amount, customerState = '', customerCountry = '', isB2B = 
   const isSameState = custState === COMPANY_STATE;
   
   if (isSameState) {
-    // Same state (Chhattisgarh): 2.5% CGST + 2.5% SGST = 5%
-    const cgstAmount = (taxableAmount * 2.5) / 100;
-    const sgstAmount = (taxableAmount * 2.5) / 100;
-    const igstAmount = 0;
-    const totalTax = cgstAmount + sgstAmount;
-    
-    return {
-      type: 'INTRASTATE', // ✅ CGST + SGST for same state
-      taxRate: 5,
-      cgstRate: 2.5,
-      sgstRate: 2.5,
-      igstRate: 0,
-      taxAmount: 0,
-      cgstAmount: cgstAmount,
-      sgstAmount: sgstAmount,
-      igstAmount: igstAmount,
-      totalTax: totalTax,
-      label: 'GST (5%)',
-      isSameState: true,
-      isIndia: true,
-      isB2B: true
-    };
-  } else {
-    // Different state in India: 5% IGST only
+    // Same state (Chhattisgarh): 5% IGST only
     const cgstAmount = 0;
     const sgstAmount = 0;
     const igstAmount = (taxableAmount * 5) / 100;
     const totalTax = igstAmount;
     
     return {
-      type: 'INTERSTATE_IGST', // ✅ IGST for other states
+      type: 'INTRASTATE_IGST', // ✅ IGST only for same state (Chhattisgarh)
       taxRate: 5,
       cgstRate: 0,
       sgstRate: 0,
@@ -181,6 +158,29 @@ function calculateTax(amount, customerState = '', customerCountry = '', isB2B = 
       igstAmount: igstAmount,
       totalTax: totalTax,
       label: 'IGST (5%)',
+      isSameState: true,
+      isIndia: true,
+      isB2B: true
+    };
+  } else {
+    // Different state in India: 2.5% CGST + 2.5% SGST = 5% total
+    const cgstAmount = (taxableAmount * 2.5) / 100;
+    const sgstAmount = (taxableAmount * 2.5) / 100;
+    const igstAmount = 0;
+    const totalTax = cgstAmount + sgstAmount;
+    
+    return {
+      type: 'INTERSTATE', // ✅ CGST + SGST for different states
+      taxRate: 5,
+      cgstRate: 2.5,
+      sgstRate: 2.5,
+      igstRate: 0,
+      taxAmount: 0,
+      cgstAmount: cgstAmount,
+      sgstAmount: sgstAmount,
+      igstAmount: igstAmount,
+      totalTax: totalTax,
+      label: 'GST (5%)',
       isSameState: false,
       isIndia: true,
       isB2B: true

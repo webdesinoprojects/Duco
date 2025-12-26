@@ -74,9 +74,11 @@ const InvoiceDucoTailwind = ({ data }) => {
     paymentmode = "online", // ✅ Get payment mode
     amountPaid = 0, // ✅ Get amount paid (for 50% payments)
   } = data;
-  // ✅ Base amount includes subtotal + P&F + printing charges
-  const baseAmount = subtotal + (charges?.pf || 0) + (charges?.printing || 0);
-
+  // ✅ CRITICAL: Use the backend-calculated total directly
+  // The backend has already calculated the correct total with proper tax logic
+  const displayAmount = paymentmode === '50%' && amountPaid > 0 ? amountPaid : total;
+  
+  // ✅ Calculate total tax amount for display in tax breakdown table
   const totalTaxAmount = (() => {
     if (tax.type === "INTRASTATE") {
       return Number(tax.cgstAmount || 0) + Number(tax.sgstAmount || 0);
@@ -103,14 +105,14 @@ const InvoiceDucoTailwind = ({ data }) => {
       Number(tax.igstAmount || 0)
     );
   })();
-
-  // ✅ Amount including tax = subtotal + P&F + printing + all taxes
-  const amountInclTax = baseAmount + totalTaxAmount;
   
-  // ✅ For 50% payments, show only the amount paid
-  const displayAmount = paymentmode === '50%' && amountPaid > 0 ? amountPaid : amountInclTax;
-  
-  console.log("🧾 Invoice Template - Tax Info:", tax);
+  console.log("🧾 Invoice Template - Using backend total:", {
+    total,
+    amountPaid,
+    paymentmode,
+    displayAmount,
+    tax
+  });
   console.log("💱 Invoice Template - Currency:", currency, currencySymbol);
   console.log("💳 Invoice Template - Payment Mode:", paymentmode, "Amount Paid:", amountPaid);
 
@@ -278,6 +280,7 @@ const InvoiceDucoTailwind = ({ data }) => {
                 <tr>
                   <td style={{ padding: "4px" }}>P&F Charges</td>
                   <td style={{ padding: "4px", textAlign: "center" }}>-</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{(charges?.pf || 0).toFixed(2)}</td>
                 </tr>
               )}
               
@@ -286,6 +289,7 @@ const InvoiceDucoTailwind = ({ data }) => {
                 <tr>
                   <td style={{ padding: "4px" }}>Printing</td>
                   <td style={{ padding: "4px", textAlign: "center" }}>-</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{(charges?.printing || 0).toFixed(2)}</td>
                 </tr>
               )}
               
@@ -369,15 +373,14 @@ const InvoiceDucoTailwind = ({ data }) => {
                   <td style={{ padding: "4px", textAlign: "right" }}>{Math.ceil(adjustedTotal).toFixed(2)}</td>
                 </tr>
               )}
-               <td style={{ padding: "6px" }}>
+              <tr style={{ borderTop: "2px solid #000", fontWeight: "bold", backgroundColor: "#f5f5f5" }}>
+                <td style={{ padding: "6px" }}>
                   {paymentmode === '50%' ? 'Amount Paid (50% Advance)' : 'Grand Total'}
                 </td>
                 <td style={{ padding: "6px", textAlign: "center" }}>
                   {items.reduce((sum, it) => sum + Number(it.qty), 0)} {items[0]?.unit || "Pcs"}.
                 </td>
                 <td style={{ padding: "6px", textAlign: "right" }}>{displayAmount.toFixed(2)}</td>
-              <tr style={{ borderTop: "2px solid #000", fontWeight: "bold", backgroundColor: "#f5f5f5" }}>
-               
               </tr>
               
               {/* ✅ Show remaining amount due for 50% payments */}
@@ -582,7 +585,7 @@ const InvoiceDucoTailwind = ({ data }) => {
           textAlign: "right",
         }}
       >
-        {amountInclTax.toFixed(2)}
+        {total.toFixed(2)}
       </td>
     </tr>
   </tbody>

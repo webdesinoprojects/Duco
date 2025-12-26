@@ -83,16 +83,12 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
   const d = useMemo(() => ({ ...base, ...(data || {}) }), [base, data]);
 
   // local state for charges in edit mode
-  // TODO: Commented out packaging and forwarding for testing - uncomment later
-  // const [pf, setPf] = useState(Number(d.charges?.pf || 0));
-  const [pf, setPf] = useState(0); // Temporarily set to 0 for testing
+  const [pf, setPf] = useState(Number(d.charges?.pf || 0));
   const [printing, setPrinting] = useState(Number(d.charges?.printing || 0));
   const charges = editable
     ? { pf, printing }
     : {
-        // TODO: Commented out packaging and forwarding for testing - uncomment later
-        // pf: Number(d.charges?.pf || 0),
-        pf: 0, // Temporarily set to 0 for testing
+        pf: Number(d.charges?.pf || 0),
         printing: Number(d.charges?.printing || 0),
       };
 
