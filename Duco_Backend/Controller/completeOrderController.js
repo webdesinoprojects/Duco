@@ -5,36 +5,8 @@ const CorporateSettings = require('../DataBase/Models/CorporateSettings');
 const { createInvoice } = require('./invoiceService');
 const { getOrCreateSingleton } = require('../Router/DataRoutes');
 const { createTransaction } = require('./walletController');
-const { createPrintroveOrder } = require('./printroveHelper');
 const { calculateOrderTotal } = require('../Service/TaxCalculationService');
 const LZString = require('lz-string'); // ✅ added for decompression
-
-// ✅ Helper function to handle Printrove routing based on order type
-const handlePrintroveRouting = async (order, isCorporateOrder) => {
-  // B2B orders NEVER go to Printrove - managed internally by Duco
-  if (isCorporateOrder) {
-    console.log('🏢 B2B/Corporate Order - Managed by Duco, skipping Printrove');
-    order.printroveStatus = 'Corporate Order - No Printrove';
-    await order.save();
-    return;
-  }
-  
-  // ✅ ALL B2C orders (both regular AND designer) go to Printrove
-  console.log('🛍️ B2C Order - Sending to Printrove');
-  try {
-    const printData = await createPrintroveOrder(order);
-    order.printroveOrderId = printData?.order?.id || printData?.id || null;
-    order.printroveStatus = printData?.order?.status || printData?.status || 'Processing';
-    order.printroveItems = printData?.order?.order_products || printData?.items || [];
-    order.printroveTrackingUrl = printData?.order?.tracking_url || printData?.tracking_url || '';
-    await order.save();
-    console.log('✅ B2C Order sent to Printrove:', order.printroveOrderId);
-  } catch (err) {
-    console.error('❌ Printrove sync failed:', err.message);
-    order.printroveStatus = 'Error';
-    await order.save();
-  }
-};
 
 // --- Razorpay client ---
 const razorpay = new Razorpay({
@@ -498,13 +470,7 @@ const completeOrder = async (req, res) => {
     let finalPfCharge = pfCharge;
     let finalPrintingCharge = printingCharge;
     
-    if (orderType === 'B2C') {
-      console.log('🛍️ B2C Order detected - Setting P&F and Printing charges to 0');
-      finalPfCharge = 0;
-      finalPrintingCharge = 0;
-    } else {
-      console.log('🏢 B2B Order detected - Using P&F and Printing charges:', { pfCharge, printingCharge });
-    }
+    console.log('📦 Order detected - Using P&F and Printing charges:', { pfCharge, printingCharge });
 
     // ================================================================
     // CASE 0 – NORMALIZE PAYMENT MODE DISPLAY
@@ -592,9 +558,6 @@ const completeOrder = async (req, res) => {
         }
       }
 
-      // ✅ Handle Printrove routing based on order type
-      await handlePrintroveRouting(order, isCorporateOrder);
-
       const settings = await getOrCreateSingleton();
       const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode, totalPay);
       try {
@@ -637,9 +600,6 @@ const completeOrder = async (req, res) => {
         deliveryExpectedDate, // ✅ Use setting-based delivery date
         conversionRate, // ✅ Conversion rate used
       });
-
-      // ✅ Handle Printrove routing based on order type
-      await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
       const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode, totalPay);
@@ -719,8 +679,6 @@ const completeOrder = async (req, res) => {
       }
 
       // ✅ Handle Printrove routing based on order type
-      await handlePrintroveRouting(order, isCorporateOrder);
-
       const settings = await getOrCreateSingleton();
       const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode, totalPay);
       try {
@@ -803,9 +761,6 @@ const completeOrder = async (req, res) => {
       } catch (error) {
         console.error('Wallet creation failed (halfpay):', error);
       }
-
-      // ✅ Handle Printrove routing based on order type
-      await handlePrintroveRouting(order, isCorporateOrder);
 
       const settings = await getOrCreateSingleton();
       const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode, totalPay);

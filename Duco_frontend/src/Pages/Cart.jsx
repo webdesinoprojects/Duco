@@ -599,6 +599,31 @@ const Cart = () => {
   const [printPerUnit, setPrintPerUnit] = useState(0);
   const [printingPerSide, setPrintingPerSide] = useState(0);
   const [gstPercent, setGstPercent] = useState(0);
+  const [b2cPrintingChargePerSide, setB2cPrintingChargePerSide] = useState(15); // ✅ B2C printing charge
+  const [b2cPfChargePerUnit, setB2cPfChargePerUnit] = useState(10); // ✅ B2C P&F charge
+
+  // ✅ Load B2C charges from settings
+  useEffect(() => {
+    const loadB2cCharges = async () => {
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+        const response = await fetch(`${API_BASE}/api/corporate-settings`);
+        if (response.ok) {
+          const result = await response.json();
+          const settings = result.data || result;
+          setB2cPrintingChargePerSide(settings.b2cPrintingChargePerSide || 15);
+          setB2cPfChargePerUnit(settings.b2cPfChargePerUnit || 10);
+          console.log('✅ Loaded B2C charges:', { 
+            printing: settings.b2cPrintingChargePerSide, 
+            pf: settings.b2cPfChargePerUnit 
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not fetch B2C charges, using defaults');
+      }
+    };
+    loadB2cCharges();
+  }, []);
 
   useEffect(() => {
     const fetchRates = async () => {
@@ -688,14 +713,9 @@ const Cart = () => {
   }, [totalQuantity, actualData.length]);
 
   const printingCost = useMemo(() => {
-    // ✅ B2C Orders: Printing charges are 0
+    // ✅ B2C Orders: Apply B2C printing charges per side
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
-    if (!isBulkOrder) {
-      console.log(`🖨️ B2C Order - Printing Cost: 0 (No printing charges for B2C)`);
-      return 0;
-    }
     
-    // ✅ B2B Orders: Calculate printing cost ONLY if there are printed sides
     const isINR = currencySymbol === '₹' || !currencySymbol;
     
     const cost = actualData.reduce((total, item) => {
@@ -708,49 +728,66 @@ const Cart = () => {
         return total;
       }
       
-      // ✅ Use printPerUnit from charge plan (per unit, not per side)
-      let itemCost = qty * safeNum(printPerUnit, 0);
+      let itemCost = 0;
+      
+      if (isBulkOrder) {
+        // ✅ B2B Orders: Use printPerUnit from charge plan (per unit, not per side)
+        itemCost = qty * safeNum(printPerUnit, 0);
+        console.log(`🖨️ B2B Printing cost for ${item.products_name || item.name}:`, {
+          qty,
+          sides,
+          printPerUnit,
+          itemCost,
+        });
+      } else {
+        // ✅ B2C Orders: Use printing charge per side from settings
+        itemCost = qty * sides * safeNum(printingPerSide, 0);
+        console.log(`🖨️ B2C Printing cost for ${item.products_name || item.name}:`, {
+          qty,
+          sides,
+          printingPerSide,
+          itemCost,
+        });
+      }
       
       // ✅ Apply conversion for non-INR currencies
       if (!isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
         itemCost = applyLocationPricing(itemCost, priceIncrease, conversionRate);
       }
       
-      console.log(`🖨️ Printing cost for ${item.products_name || item.name}:`, {
-        qty,
-        sides,
-        printPerUnit,
-        itemCost,
-        isINR,
-        conversionApplied: !isINR
-      });
       return total + itemCost;
     }, 0);
     console.log(`🖨️ Total printing cost: ${currencySymbol}${cost} (isINR: ${isINR})`);
     return cost;
-  }, [actualData, printPerUnit, currencySymbol, priceIncrease, conversionRate]);
+  }, [actualData, printPerUnit, printingPerSide, currencySymbol, priceIncrease, conversionRate]);
 
   const pfCost = useMemo(() => {
-    // ✅ B2C Orders: P&F charges are 0
+    // ✅ Apply P&F charges for both B2B and B2C orders
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
-    if (!isBulkOrder) {
-      console.log(`📦 B2C Order - P&F Cost: 0 (No P&F charges for B2C)`);
-      return 0;
-    }
     
-    // ✅ B2B Orders: Calculate P&F charge using charge plan per-unit rate
     const isINR = currencySymbol === '₹' || !currencySymbol;
     const totalQty = totalQuantity || 1;
-    let cost = safeNum(pfPerUnit, 0) * totalQty;
+    
+    let cost = 0;
+    
+    if (isBulkOrder) {
+      // ✅ B2B Orders: Use charge plan per-unit rate
+      cost = safeNum(pfPerUnit, 0) * totalQty;
+      console.log(`📦 B2B Order - P&F Cost: ${currencySymbol}${cost} (${pfPerUnit} per unit × ${totalQty} units)`);
+    } else {
+      // ✅ B2C Orders: Use B2C P&F charge per unit
+      cost = safeNum(b2cPfChargePerUnit, 0) * totalQty;
+      console.log(`📦 B2C Order - P&F Cost: ${currencySymbol}${cost} (${b2cPfChargePerUnit} per unit × ${totalQty} units)`);
+    }
     
     // ✅ Apply conversion for non-INR currencies
     if (!isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
       cost = applyLocationPricing(cost, priceIncrease, conversionRate);
     }
     
-    console.log(`📦 B2B Order - P&F Cost: ${currencySymbol}${cost} (${pfPerUnit} per unit × ${totalQty} units, isINR: ${isINR})`);
+    console.log(`📦 P&F Cost: ${currencySymbol}${cost} (isINR: ${isINR}, isBulkOrder: ${isBulkOrder})`);
     return cost;
-  }, [pfPerUnit, totalQuantity, currencySymbol, priceIncrease, conversionRate, actualData]);
+  }, [pfPerUnit, b2cPfChargePerUnit, totalQuantity, currencySymbol, priceIncrease, conversionRate, actualData]);
 
   const taxableAmount = useMemo(() => {
     return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);

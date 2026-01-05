@@ -12,7 +12,9 @@ const CorporateSettings = () => {
     corporateGstRate: 18,
     enablePrintroveIntegration: false,
     corporatePaymentMethods: ['online', 'netbanking', '50%', 'manual_payment'],
-    estimatedDeliveryDays: 7 // ✅ Add estimated delivery days
+    estimatedDeliveryDays: 7, // ✅ Add estimated delivery days
+    b2cPrintingChargePerSide: 15, // ✅ B2C printing charge per side
+    b2cPfChargePerUnit: 10, // ✅ B2C P&F charge per unit
   });
   
   const [loading, setLoading] = useState(false);
@@ -44,7 +46,9 @@ const CorporateSettings = () => {
             corporateGstRate: data.corporateGstRate || 18,
             enablePrintroveIntegration: data.enablePrintroveIntegration || false,
             corporatePaymentMethods: data.corporatePaymentMethods || ['online', 'netbanking', '50%', 'manual_payment'],
-            estimatedDeliveryDays: data.estimatedDeliveryDays || 7 // ✅ Load estimated delivery days
+            estimatedDeliveryDays: data.estimatedDeliveryDays || 7, // ✅ Load estimated delivery days
+            b2cPrintingChargePerSide: data.b2cPrintingChargePerSide || 15, // ✅ Load B2C printing charge
+            b2cPfChargePerUnit: data.b2cPfChargePerUnit || 10, // ✅ Load B2C P&F charge
           });
         }
       } else if (response.status === 404) {
@@ -84,7 +88,9 @@ const CorporateSettings = () => {
             corporateGstRate: result.data.corporateGstRate || settings.corporateGstRate,
             enablePrintroveIntegration: result.data.enablePrintroveIntegration || settings.enablePrintroveIntegration,
             corporatePaymentMethods: result.data.corporatePaymentMethods || settings.corporatePaymentMethods,
-            estimatedDeliveryDays: result.data.estimatedDeliveryDays || settings.estimatedDeliveryDays // ✅ Save estimated delivery days
+            estimatedDeliveryDays: result.data.estimatedDeliveryDays || settings.estimatedDeliveryDays, // ✅ Save estimated delivery days
+            b2cPrintingChargePerSide: result.data.b2cPrintingChargePerSide || settings.b2cPrintingChargePerSide, // ✅ Save B2C printing charge
+            b2cPfChargePerUnit: result.data.b2cPfChargePerUnit || settings.b2cPfChargePerUnit, // ✅ Save B2C P&F charge
           });
         }
         
@@ -373,6 +379,79 @@ const CorporateSettings = () => {
           )}
         </div>
 
+
+        {/* B2C Charges Settings */}
+        <div className="bg-white p-6 rounded-lg shadow border">
+          <h2 className="text-lg font-semibold mb-4">💳 B2C Order Charges</h2>
+          <p className="text-sm text-gray-600 mb-4">Configure charges for B2C (retail) orders</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* B2C Printing Charge Per Side */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Printing Charge Per Side (₹)
+              </label>
+              <input
+                type="text"
+                value={settings.b2cPrintingChargePerSide === 0 ? '' : settings.b2cPrintingChargePerSide}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '' || /^\d+$/.test(value)) {
+                    const numValue = value === '' ? 0 : Number(value);
+                    setSettings(prev => ({ 
+                      ...prev, 
+                      b2cPrintingChargePerSide: numValue
+                    }));
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 15"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Charge per printed side (e.g., ₹15 per side)
+              </p>
+            </div>
+
+            {/* B2C P&F Charge Per Unit */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                P&F Charge Per Unit (₹)
+              </label>
+              <input
+                type="text"
+                value={settings.b2cPfChargePerUnit === 0 ? '' : settings.b2cPfChargePerUnit}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '' || /^\d+$/.test(value)) {
+                    const numValue = value === '' ? 0 : Number(value);
+                    setSettings(prev => ({ 
+                      ...prev, 
+                      b2cPfChargePerUnit: numValue
+                    }));
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 10"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Packaging & Forwarding charge per unit (e.g., ₹10 per shirt)
+              </p>
+            </div>
+          </div>
+
+          {/* Example Calculation */}
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-semibold text-blue-900 mb-2">📊 Example Calculation</h3>
+            <p className="text-sm text-blue-900">
+              For a B2C order with 2 shirts, 1 side printed:
+            </p>
+            <ul className="text-sm text-blue-900 mt-2 ml-4 list-disc">
+              <li>Printing: 1 side × ₹{settings.b2cPrintingChargePerSide} = ₹{settings.b2cPrintingChargePerSide}</li>
+              <li>P&F: 2 units × ₹{settings.b2cPfChargePerUnit} = ₹{2 * settings.b2cPfChargePerUnit}</li>
+              <li>Total Charges: ₹{settings.b2cPrintingChargePerSide + (2 * settings.b2cPfChargePerUnit)}</li>
+            </ul>
+          </div>
+        </div>
 
         {/* Payment Methods */}
         <div className="bg-white p-6 rounded-lg shadow border">

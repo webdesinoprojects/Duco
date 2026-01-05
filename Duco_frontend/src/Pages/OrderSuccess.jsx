@@ -83,9 +83,6 @@ const InvoiceDucoTailwind = ({ data }) => {
     if (tax.type === "INTRASTATE") {
       return Number(tax.cgstAmount || 0) + Number(tax.sgstAmount || 0);
     }
-    if (tax.type === "INTERSTATE_IGST") {
-      return Number(tax.igstAmount || 0);
-    }
     if (tax.type === "INTRASTATE_IGST") {
       return Number(tax.igstAmount || 0);
     }
@@ -279,7 +276,6 @@ const InvoiceDucoTailwind = ({ data }) => {
               {(charges?.pf || 0) > 0 && (
                 <tr>
                   <td style={{ padding: "4px" }}>P&F Charges</td>
-                  <td style={{ padding: "4px", textAlign: "center" }}>-</td>
                   <td style={{ padding: "4px", textAlign: "right" }}>{(charges?.pf || 0).toFixed(2)}</td>
                 </tr>
               )}
@@ -288,7 +284,6 @@ const InvoiceDucoTailwind = ({ data }) => {
               {(charges?.printing || 0) > 0 && (
                 <tr>
                   <td style={{ padding: "4px" }}>Printing</td>
-                  <td style={{ padding: "4px", textAlign: "center" }}>-</td>
                   <td style={{ padding: "4px", textAlign: "right" }}>{(charges?.printing || 0).toFixed(2)}</td>
                 </tr>
               )}

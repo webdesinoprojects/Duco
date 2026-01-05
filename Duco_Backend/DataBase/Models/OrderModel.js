@@ -110,36 +110,6 @@ const OrderSchema = new Schema(
       default: 'online',
     },
 
-    // ------------------ 🔹 Printrove Integration Fields ------------------
-    printroveOrderId: { type: String, default: null }, // ID returned by Printrove
-    printroveStatus: {
-      type: String,
-      enum: [
-        'Pending',
-        'Processing',
-        'Received',
-        'Dispatched',
-        'Delivered',
-        'Cancelled',
-        'Error',
-        'success', // added lowercase success (API response)
-        'Corporate Order - No Printrove', // ✅ B2B/Corporate orders managed by Duco internally
-        'N/A', // for orders that don't use Printrove
-      ],
-      default: 'Pending',
-    },
-
-    printroveItems: { type: Array, default: [] }, // store Printrove line-items
-    printroveTrackingUrl: { type: String, default: '' }, // tracking link if available
-    
-    // ✅ Enhanced Printrove tracking fields
-    printroveReceivedDate: { type: Date, default: null }, // when Printrove received the order
-    printroveDispatchDate: { type: Date, default: null }, // when order was dispatched
-    printroveShippedDate: { type: Date, default: null }, // when order was shipped
-    printroveDeliveredDate: { type: Date, default: null }, // when order was delivered
-    printroveEstimatedDelivery: { type: Date, default: null }, // Printrove's delivery estimate
-    // ----------------------------------------------------
-
     pf: { type: Number, default: 0 },
     gst: { type: Number, default: 0 }, // Keep for backward compatibility
     cgst: { type: Number, default: 0 },

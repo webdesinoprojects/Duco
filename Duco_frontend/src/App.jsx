@@ -67,6 +67,7 @@ import Blog from "./Pages/Blog.jsx";
 import BlogPost from "./Pages/BlogPost.jsx";
 import BlogManager from "./Admin/BlogManager.jsx";
 import PrivateRoute from "./Components/PrivateRoute.jsx";
+import About from "./Pages/About.jsx";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -153,6 +154,7 @@ const App = () => {
           <Route path="/bulkorder" element={<Prodcuts />} />
           
           <Route path="/contact" element={<Contact />} />
+          <Route path="/about" element={<About />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/products/:id" element={<ProductRouter />} />
           <Route path="/getbulk" element={<GetBulk />} />

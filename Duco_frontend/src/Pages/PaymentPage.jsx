@@ -238,12 +238,77 @@ const PaymentPage = () => {
   const placeOrder = async (mode, successMsg, extraMeta = {}) => {
     try {
       const paymentMeta = { mode, ...extraMeta };
-      const payloadToSend = {
+      
+      // ✅ Normalize address structure for backend
+      // Backend expects either orderData.address (legacy) or orderData.addresses (new)
+      let normalizedPayload = {
         ...orderpayload,
         paymentMeta,
       };
+      
+      // ✅ If we have addresses object, ensure it has the right structure
+      if (orderpayload?.addresses) {
+        normalizedPayload.addresses = {
+          billing: {
+            fullName: orderpayload.addresses.billing?.fullName || orderpayload.user?.name || '',
+            houseNumber: orderpayload.addresses.billing?.houseNumber || '',
+            street: orderpayload.addresses.billing?.street || '',
+            landmark: orderpayload.addresses.billing?.landmark || '',
+            city: orderpayload.addresses.billing?.city || '',
+            state: orderpayload.addresses.billing?.state || '',
+            pincode: orderpayload.addresses.billing?.pincode || '',
+            country: orderpayload.addresses.billing?.country || 'India',
+            email: orderpayload.addresses.billing?.email || orderpayload.user?.email || 'not_provided@duco.com',
+            phone: orderpayload.addresses.billing?.phone || orderpayload.user?.phone || '',
+            gstNumber: orderpayload.gstNumber || orderpayload.addresses.billing?.gstNumber || '',
+          },
+          shipping: {
+            fullName: orderpayload.addresses.shipping?.fullName || orderpayload.user?.name || '',
+            houseNumber: orderpayload.addresses.shipping?.houseNumber || '',
+            street: orderpayload.addresses.shipping?.street || '',
+            landmark: orderpayload.addresses.shipping?.landmark || '',
+            city: orderpayload.addresses.shipping?.city || '',
+            state: orderpayload.addresses.shipping?.state || '',
+            pincode: orderpayload.addresses.shipping?.pincode || '',
+            country: orderpayload.addresses.shipping?.country || 'India',
+            email: orderpayload.addresses.shipping?.email || orderpayload.user?.email || 'not_provided@duco.com',
+            phone: orderpayload.addresses.shipping?.phone || orderpayload.user?.phone || '',
+          },
+          sameAsBilling: orderpayload.addresses.sameAsBilling !== false
+        };
+      } else if (orderpayload?.address) {
+        // Legacy format - ensure it has all required fields
+        normalizedPayload.address = {
+          fullName: orderpayload.address.fullName || orderpayload.user?.name || '',
+          houseNumber: orderpayload.address.houseNumber || '',
+          street: orderpayload.address.street || '',
+          landmark: orderpayload.address.landmark || '',
+          city: orderpayload.address.city || '',
+          state: orderpayload.address.state || '',
+          pincode: orderpayload.address.pincode || '',
+          country: orderpayload.address.country || 'India',
+          email: orderpayload.address.email || orderpayload.user?.email || 'not_provided@duco.com',
+          phone: orderpayload.address.phone || orderpayload.user?.phone || '',
+          gstNumber: orderpayload.gstNumber || orderpayload.address.gstNumber || '',
+        };
+      }
+      
+      // ✅ Ensure user object has required fields
+      if (normalizedPayload.user && typeof normalizedPayload.user === 'object') {
+        normalizedPayload.user = {
+          _id: normalizedPayload.user._id || normalizedPayload.user.id || '',
+          name: normalizedPayload.user.name || '',
+          email: normalizedPayload.user.email || '',
+          phone: normalizedPayload.user.phone || '',
+        };
+      }
+      
+      // ✅ Ensure items array exists
+      if (!normalizedPayload.items || !Array.isArray(normalizedPayload.items)) {
+        normalizedPayload.items = cart || [];
+      }
 
-      const res = await completeOrder("manual_payment", mode, payloadToSend);
+      const res = await completeOrder("manual_payment", mode, normalizedPayload);
 
       const order = res?.order || res?.data?.order || {};
       const orderId = order?._id || "";

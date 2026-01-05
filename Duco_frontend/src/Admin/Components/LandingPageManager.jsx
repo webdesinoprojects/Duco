@@ -155,6 +155,13 @@ export default function LandingPageManager() {
         {/* Hero Section */}
         <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900 mb-4">🎨 Hero Section (Main Banner)</h2>
+          
+          {/* Ratio Info */}
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-900 font-medium">📐 Recommended Ratio: <strong>16:9</strong> (1920x1080px or larger)</p>
+            <p className="text-xs text-amber-700 mt-1">💡 This is the main hero banner displayed at the top of the landing page</p>
+          </div>
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Main Image URL</label>
@@ -162,7 +169,7 @@ export default function LandingPageManager() {
                 type="text"
                 value={landingData.heroSection.mainImage}
                 onChange={(e) => updateField("heroSection.mainImage", e.target.value)}
-                placeholder="https://..."
+                placeholder="https://... (16:9 ratio)"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <ImageKitUpload
@@ -212,6 +219,13 @@ export default function LandingPageManager() {
         {/* Side Cards */}
         <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900 mb-4">📦 Side Cards (Hero Section)</h2>
+          
+          {/* Ratio Info */}
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-900 font-medium">📐 Recommended Ratio: <strong>1:1</strong> (Square - 500x500px or larger)</p>
+            <p className="text-xs text-amber-700 mt-1">💡 These are 3 side cards displayed next to the hero banner</p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card 1 */}
             <div className="border border-slate-200 rounded-lg p-4">
@@ -233,7 +247,7 @@ export default function LandingPageManager() {
                     type="text"
                     value={landingData.sideCards.card1.image}
                     onChange={(e) => updateField("sideCards.card1.image", e.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://... (1:1 ratio)"
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <ImageKitUpload
@@ -297,7 +311,7 @@ export default function LandingPageManager() {
                     type="text"
                     value={landingData.sideCards.card2.image}
                     onChange={(e) => updateField("sideCards.card2.image", e.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://... (1:1 ratio)"
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <ImageKitUpload
@@ -361,7 +375,7 @@ export default function LandingPageManager() {
                     type="text"
                     value={landingData.sideCards.card3.image}
                     onChange={(e) => updateField("sideCards.card3.image", e.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://... (1:1 ratio)"
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <ImageKitUpload
@@ -410,13 +424,20 @@ export default function LandingPageManager() {
         {/* Middle Banner */}
         <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900 mb-4">🖼️ Middle Banner</h2>
+          
+          {/* Ratio Info */}
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-900 font-medium">📐 Recommended Ratio: <strong>16:9</strong> (1920x1080px or larger)</p>
+            <p className="text-xs text-amber-700 mt-1">💡 This banner is displayed in the middle section of the landing page</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Banner Image URL</label>
             <input
               type="text"
               value={landingData.middleBanner.image}
               onChange={(e) => updateField("middleBanner.image", e.target.value)}
-              placeholder="https://..."
+              placeholder="https://... (16:9 ratio)"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <ImageKitUpload
@@ -432,6 +453,13 @@ export default function LandingPageManager() {
         {/* Promo Cards */}
         <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900 mb-4">🎁 Promo Cards (Sale & Bulk)</h2>
+          
+          {/* Ratio Info */}
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-900 font-medium">📐 Recommended Ratio: <strong>1:1</strong> (Square - 500x500px or larger)</p>
+            <p className="text-xs text-amber-700 mt-1">💡 These are 2 promo cards (Sale & Bulk) displayed side by side</p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Sale Card */}
             <div className="border border-slate-200 rounded-lg p-4">
@@ -443,7 +471,7 @@ export default function LandingPageManager() {
                     type="text"
                     value={landingData.promoCards.sale.image}
                     onChange={(e) => updateField("promoCards.sale.image", e.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://... (1:1 ratio)"
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <ImageKitUpload
@@ -477,7 +505,7 @@ export default function LandingPageManager() {
                     type="text"
                     value={landingData.promoCards.bulk.image}
                     onChange={(e) => updateField("promoCards.bulk.image", e.target.value)}
-                    placeholder="https://..."
+                    placeholder="https://... (1:1 ratio)"
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <ImageKitUpload
@@ -507,6 +535,12 @@ export default function LandingPageManager() {
         <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900 mb-4">🎬 Video Carousel</h2>
           <p className="text-sm text-slate-600 mb-4">Manage videos in the "Here are our products' live reviews" section</p>
+          
+          {/* Ratio Info */}
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-900 font-medium">📐 Recommended Ratio: <strong>9:16</strong> (Vertical - 1080x1920px or larger)</p>
+            <p className="text-xs text-amber-700 mt-1">💡 Videos are displayed in a carousel format. Vertical videos work best for mobile viewing</p>
+          </div>
           
           {/* Supported formats info */}
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -545,7 +579,7 @@ export default function LandingPageManager() {
                       newVideos[idx] = e.target.value;
                       updateField("videoCarousel.videos", newVideos);
                     }}
-                    placeholder="https://youtube.com/watch?v=... or /icons/vid1.mp4"
+                    placeholder="https://youtube.com/watch?v=... or /icons/vid1.mp4 (9:16 ratio)"
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                   <p className="text-xs text-slate-500 mt-2">

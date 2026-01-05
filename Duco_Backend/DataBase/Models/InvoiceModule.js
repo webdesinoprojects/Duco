@@ -55,7 +55,7 @@ const TaxSchema = new Schema({
   igstAmount: { type: Number, default: 0 },
   taxAmount: { type: Number, default: 0 },
   totalTax: { type: Number, default: 0 },
-  type: { type: String, enum: ['INTRASTATE', 'INTRASTATE_IGST', 'INTERSTATE', 'INTERSTATE_IGST', 'INTERNATIONAL', 'B2C_NO_TAX', ''], default: '' },
+  type: { type: String, enum: ['INTRASTATE', 'INTRASTATE_IGST', 'INTERSTATE', 'INTERNATIONAL', 'B2C_NO_TAX', ''], default: '' },
   label: { type: String, default: '' },
 }, { _id: false });
 

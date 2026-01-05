@@ -11,6 +11,26 @@ const AdminLayout = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  const navItems = [
+    { label: "Inventory", path: "/admin" },
+    { label: "Products", path: "products" },
+    { label: "Category", path: "category" },
+    { label: "Set Money", path: "moneyset" },
+    { label: "B2C Order", path: "order" },
+    { label: "Bulk Order", path: "bulkorder" },
+    { label: "B2B Logistics", path: "logistic" },
+    { label: "Charges Plan", path: "charges" },
+    { label: "Bank Details", path: "bankdetails" },
+    { label: "Employees Management", path: "employees" },
+    { label: "Corporate Settings", path: "corporate-settings" },
+    { label: "Invoice", path: "invoice" },
+    { label: "Users", path: "users" },
+    { label: "Sales Analysis", path: "sales" },
+    { label: "Banner", path: "bannersetup" },
+    { label: "Landing Page", path: "landing-page" },
+    { label: "Blog", path: "blog" },
+  ];
+
   const handleLogout = async () => {
     clearAdmin();
     localStorage.removeItem("user");
@@ -79,59 +99,17 @@ const AdminLayout = () => {
         <h2 className="text-2xl font-bold mb-6">Admin Panel</h2>
 
         <nav className="space-y-2 flex-1 overflow-y-auto">
-          <Link to="/admin" className="block hover:text-blue-300">
-            Inventory
-          </Link>
-          <Link to="products" className="block hover:text-blue-300">
-            Products
-          </Link>
-          <Link to="category" className="block hover:text-blue-300">
-            Category
-          </Link>
-          <Link to="moneyset" className="block hover:text-blue-300">
-            Set Money
-          </Link>
-          <Link to="order" className="block hover:text-blue-300">
-            B2C Order
-          </Link>
-          <Link to="bulkorder" className="block hover:text-blue-300">
-            Bulk Order
-          </Link>
-          <Link to="logistic" className="block hover:text-blue-300">
-            B2B Logistics
-          </Link>
-          <Link to="charges" className="block hover:text-blue-300">
-            Charges Plan
-          </Link>
-          <Link to="bankdetails" className="block hover:text-blue-300">
-            Bank Details
-          </Link>
-          <Link to="employees" className="block hover:text-blue-300">
-            Employees Management
-          </Link>
-          <Link to="corporate-settings" className="block hover:text-blue-300">
-            Corporate Settings
-          </Link>
-          <Link to="invoice" className="block hover:text-blue-300">
-            Invoice
-          </Link>
-          <Link to="users" className="block hover:text-blue-300">
-            Users
-          </Link>
-          <Link to="sales" className="block hover:text-blue-300">
-            Analysis
-          </Link>
-          <Link to="bannersetup" className="block hover:text-blue-300">
-            Banner
-          </Link>
-          <Link to="landing-page" className="block hover:text-blue-300">
-            Landing Page
-          </Link>
-          <Link to="blog" className="block hover:text-blue-300">
-            Blog
-          </Link>
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className="block hover:text-blue-300 hover:bg-gray-700 px-2 py-1 rounded transition"
+            >
+              {item.label}
+            </Link>
+          ))}
 
-          {/* 🌟 NEW: Printrove Integration */}
+          {/* ✅ Printrove Button - Always visible */}
           <button
             onClick={() => setShowPrintroveModal(true)}
             className="block w-full text-left bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 transition mt-3"

@@ -221,36 +221,81 @@ export default function AnalyticsDashboard() {
   function exportCSV() {
     const rows = [
       [
+        // Order Information
         "OrderID", 
-        "Date(IST)", 
-        "Customer Name", 
-        "Email", 
-        "UserId", 
-        "Address Name",
-        "Address Line",
-        "City",
-        "State",
-        "Pincode",
-        "Country",
-        "Phone",
-        "OrderType",
-        "PaymentMode",
-        "PaymentStatus",
-        "TotalAmount",
-        "AmountPaid",
-        "AmountDue",
-        "Status", 
-        "RazorpayPaymentId"
+        "Order Date (IST)", 
+        "Order Status",
+        "Order Type",
+        "Payment Mode",
+        "Payment Status",
+        
+        // Amount Information
+        "Total Amount (₹)",
+        "Amount Paid (₹)",
+        "Amount Due (₹)",
+        "Currency",
+        "Conversion Rate",
+        
+        // Customer Information
+        "Customer Name",
+        "Customer Email",
+        "Customer Phone",
+        "Customer ID",
+        "Account Created Date",
+        "Account Verified",
+        
+        // Billing Address
+        "Billing - Full Name",
+        "Billing - House Number",
+        "Billing - Street",
+        "Billing - City",
+        "Billing - State",
+        "Billing - Pincode",
+        "Billing - Country",
+        "Billing - Landmark",
+        "Billing - Address Type",
+        "Billing - Email",
+        "Billing - Mobile",
+        
+        // Shipping Address
+        "Shipping - Full Name",
+        "Shipping - House Number",
+        "Shipping - Street",
+        "Shipping - City",
+        "Shipping - State",
+        "Shipping - Pincode",
+        "Shipping - Country",
+        "Shipping - Landmark",
+        "Shipping - Address Type",
+        "Shipping - Email",
+        "Shipping - Mobile",
+        
+        // Charges
+        "P&F Charges (₹)",
+        "Printing Charges (₹)",
+        "CGST (₹)",
+        "SGST (₹)",
+        "IGST (₹)",
+        "GST (₹)",
+        
+        // Payment Details
+        "Razorpay Payment ID",
+        "Expected Delivery Date",
+        
+        // Product Count
+        "Number of Products",
       ],
       ...data.orders.map((o) => {
         const userObj = typeof o?.user === "object" ? o.user : null;
         const userName = userObj?.name || userObj?.fullName || "";
         const userEmail = userObj?.email || "";
+        const userPhone = userObj?.number || "";
         const userId = userObj?._id || String(o?.user || "");
+        const userCreatedAt = userObj?.createdAt ? new Date(userObj.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "";
+        const userVerified = userObj?.isVerified ? "Yes" : "No";
         
         const billingAddr = o?.addresses?.billing || o?.address;
         const shippingAddr = o?.addresses?.shipping || o?.address;
-        const displayAddr = shippingAddr || billingAddr;
         
         // ✅ Calculate 50% payment amounts
         const totalAmount = Number(o?.totalPay || o?.price || 0);
@@ -258,31 +303,80 @@ export default function AnalyticsDashboard() {
         const amountPaid = paymentMode === '50%' ? totalAmount / 2 : totalAmount;
         const amountDue = paymentMode === '50%' ? totalAmount / 2 : 0;
         
+        const orderDate = o?.createdAt
+          ? new Date(o.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+          : "";
+        
+        const expectedDeliveryDate = o?.deliveryExpectedDate
+          ? new Date(o.deliveryExpectedDate).toLocaleDateString("en-IN")
+          : "";
+        
+        const productCount = Array.isArray(o?.products) ? o.products.length : 0;
+        
         return [
+          // Order Information
           o?._id || "",
-          o?.createdAt
-            ? new Date(o.createdAt).toLocaleString("en-IN", {
-              timeZone: "Asia/Kolkata",
-            })
-            : "",
-          userName,
-          userEmail,
-          userId,
-          displayAddr?.fullName || displayAddr?.name || "",
-          displayAddr?.address || "",
-          displayAddr?.city || "",
-          displayAddr?.state || "",
-          displayAddr?.pincode || "",
-          displayAddr?.country || "",
-          displayAddr?.phone || "",
+          orderDate,
+          o?.status || "",
           o?.orderType || "B2C",
           paymentMode,
           o?.paymentStatus || "Pending",
+          
+          // Amount Information
           totalAmount,
           amountPaid,
           amountDue,
-          o?.status || "",
+          o?.currency || "INR",
+          o?.conversionRate || 1,
+          
+          // Customer Information
+          userName,
+          userEmail,
+          userPhone,
+          userId,
+          userCreatedAt,
+          userVerified,
+          
+          // Billing Address
+          billingAddr?.fullName || "",
+          billingAddr?.houseNumber || "",
+          billingAddr?.street || "",
+          billingAddr?.city || "",
+          billingAddr?.state || "",
+          billingAddr?.pincode || "",
+          billingAddr?.country || "",
+          billingAddr?.landmark || "",
+          billingAddr?.addressType || "",
+          billingAddr?.email || "",
+          billingAddr?.mobileNumber || "",
+          
+          // Shipping Address
+          shippingAddr?.fullName || "",
+          shippingAddr?.houseNumber || "",
+          shippingAddr?.street || "",
+          shippingAddr?.city || "",
+          shippingAddr?.state || "",
+          shippingAddr?.pincode || "",
+          shippingAddr?.country || "",
+          shippingAddr?.landmark || "",
+          shippingAddr?.addressType || "",
+          shippingAddr?.email || "",
+          shippingAddr?.mobileNumber || "",
+          
+          // Charges
+          o?.pf || 0,
+          o?.printing || 0,
+          o?.cgst || 0,
+          o?.sgst || 0,
+          o?.igst || 0,
+          o?.gst || 0,
+          
+          // Payment Details
           o?.razorpayPaymentId || "",
+          expectedDeliveryDate,
+          
+          // Product Count
+          productCount,
         ];
       }),
     ];
@@ -1164,7 +1258,7 @@ export default function AnalyticsDashboard() {
                     </div>
                     <div>
                       <span className="text-gray-400">Order Type:</span>
-                      <p className="text-white">{selectedOrder.orderType || 'B2C'}</p>
+                      <p className="text-white">{selectedOrder.orderType || 'B2B'}</p>
                     </div>
                     <div>
                       <span className="text-gray-400">Razorpay Payment ID:</span>

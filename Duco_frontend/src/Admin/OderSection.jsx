@@ -228,7 +228,7 @@ const generateInvoiceHTML = (invoice, totals) => {
               
               ${tax.type === 'INTRASTATE' && tax.cgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : CGST (${tax.cgstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td></tr>` : ''}
               ${tax.type === 'INTRASTATE' && tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST (${tax.sgstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td></tr>` : ''}
-              ${tax.type === 'INTERSTATE_IGST' && tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST (${tax.igstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td></tr>` : ''}
+              ${tax.type === 'INTRASTATE_IGST' && tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST (${tax.igstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td></tr>` : ''}
               ${tax.type === 'INTERNATIONAL' && tax.taxRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : TAX (${tax.taxRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.taxAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.taxAmount || 0).toFixed(2)}</td></tr>` : ''}
               
               ${Math.abs(Math.ceil(total) - total) > 0.01 && paymentmode !== '50%' ? `<tr><td style="padding: 4px; border: none;">Round Off</td><td style="padding: 4px; text-align: center; border: none;">+${(Math.ceil(total) - total).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td></tr>` : ''}
@@ -408,11 +408,16 @@ const OderSection = () => {
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [toast, setToast] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const itemsPerPage = 10;
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (page = 1) => {
     try {
+      setLoading(true);
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
-      const res = await fetch(`${API_BASE}/api/order?page=1&limit=50&orderType=B2C`);
+      const res = await fetch(`${API_BASE}/api/order?page=${page}&limit=${itemsPerPage}&orderType=B2C`);
       
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -422,28 +427,52 @@ const OderSection = () => {
 
       if (Array.isArray(data)) {
         setOrders(data);
+        setTotalOrders(data.length);
+        setTotalPages(Math.ceil(data.length / itemsPerPage));
       } else if (Array.isArray(data.orders)) {
         setOrders(data.orders);
+        setTotalOrders(data.total || data.orders.length);
+        setTotalPages(data.pages || Math.ceil((data.total || data.orders.length) / itemsPerPage));
       } else {
         setOrders([]);
+        setTotalOrders(0);
+        setTotalPages(1);
       }
+      setCurrentPage(page);
     } catch (err) {
       console.error("❌ Failed to fetch B2C orders", err);
       setOrders([]);
+      setTotalOrders(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(1);
   }, []);
 
   if (loading) return <div className="text-center p-4">Loading orders...</div>;
 
   const handleRefresh = () => {
-    setLoading(true);
-    fetchOrders();
+    fetchOrders(currentPage);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      fetchOrders(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      fetchOrders(currentPage + 1);
+    }
+  };
+
+  const handlePageClick = (page) => {
+    fetchOrders(page);
   };
 
   const toggleOrderSelection = (orderId) => {
@@ -539,16 +568,17 @@ const OderSection = () => {
       {orders.length === 0 ? (
         <p>No orders found.</p>
       ) : (
-        <div className="space-y-4">
-          {orders.map((order) => {
-            const first = order?.products?.[0] || order?.items?.[0] || {};
-            const email = order?.address?.email || order?.user?.email || "N/A";
+        <>
+          <div className="space-y-4">
+            {orders.map((order) => {
+              const first = order?.products?.[0] || order?.items?.[0] || {};
+              const email = order?.address?.email || order?.user?.email || "N/A";
 
-            return (
-              <div
-                key={order._id}
-                className="bg-white rounded-lg p-4 shadow"
-              >
+              return (
+                <div
+                  key={order._id}
+                  className="bg-white rounded-lg p-4 shadow"
+                >
                 {/* Header Row */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                   <div className="flex items-start gap-3">
@@ -712,7 +742,50 @@ const OderSection = () => {
               </div>
             );
           })}
-        </div>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="mt-6 flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Showing page <span className="font-semibold">{currentPage}</span> of <span className="font-semibold">{totalPages}</span> ({totalOrders} total orders)
+            </div>
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1 || loading}
+                className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Previous
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageClick(page)}
+                    disabled={loading}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition ${
+                      currentPage === page
+                        ? "bg-blue-600 text-white"
+                        : "border border-gray-300 hover:bg-gray-50"
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages || loading}
+                className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {selectedOrderId && (

@@ -163,7 +163,15 @@ export const fetchOrdersByUser = async (userId) => {
  * ✅ Create a completed order — triggers backend order creation + Printrove sync
  */
 export async function completeOrder(paymentId, paymentmode, orderData) {
-  if (!orderData || !orderData.items || !orderData.user || !orderData.address) {
+  // ✅ Validate required fields - accept either address (legacy) or addresses (new format)
+  if (!orderData || !orderData.items || !orderData.user || (!orderData.address && !orderData.addresses)) {
+    console.error("❌ Invalid orderData payload:", {
+      hasOrderData: !!orderData,
+      hasItems: !!orderData?.items,
+      hasUser: !!orderData?.user,
+      hasAddress: !!orderData?.address,
+      hasAddresses: !!orderData?.addresses,
+    });
     throw new Error("Invalid orderData payload");
   }
 

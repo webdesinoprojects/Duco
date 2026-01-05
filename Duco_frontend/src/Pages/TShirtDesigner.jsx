@@ -457,10 +457,24 @@ const TshirtDesigner = () => {
   const handleAdditionalFilesUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
-    setAdditionalFiles((prevFiles) => [
-      ...prevFiles,
-      ...files.map((file) => ({ name: file.name, file })),
-    ]);
+    
+    // ✅ Read files as data URLs so they can be stored and displayed
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAdditionalFiles((prevFiles) => [
+          ...prevFiles,
+          {
+            name: file.name,
+            file,
+            dataUrl: reader.result, // ✅ Store the file as data URL
+            type: file.type,
+            size: file.size,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const updateCurrentDesign = (property, value) => {
@@ -1114,7 +1128,12 @@ const TshirtDesigner = () => {
           conversionRate
         ),
         quantity: finalQuantities,
-        additionalFilesMeta: additionalFiles.map((f) => ({ name: f.name })),
+        additionalFilesMeta: additionalFiles.map((f) => ({
+          name: f.name,
+          dataUrl: f.dataUrl, // ✅ Include the actual file data
+          type: f.type,
+          size: f.size,
+        })),
       };
 
       // ✅ Log the design object being added to cart
@@ -1260,6 +1279,7 @@ const TshirtDesigner = () => {
           <input
             type="file"
             multiple
+            accept=".cdr,.pdf"
             onChange={handleAdditionalFilesUpload}
             className="hidden"
           />
@@ -1649,7 +1669,7 @@ const TshirtDesigner = () => {
                     <h3 className="text-sm font-semibold text-gray-800">Upload Files</h3>
                     <label className="flex flex-col items-center px-3 py-2 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 hover:bg-gray-100 cursor-pointer transition-all">
                       <span className="text-xs text-gray-600">Click to select files</span>
-                      <input type="file" multiple onChange={handleAdditionalFilesUpload} className="hidden" />
+                      <input type="file" multiple accept=".cdr,.pdf" onChange={handleAdditionalFilesUpload} className="hidden" />
                     </label>
                   </>
                 )}
