@@ -88,26 +88,45 @@ const ProductPage = () => {
   const [videoThumbnail, setVideoThumbnail] = useState(null);
   const videoRef = useRef(null);
 
+  // ✅ Check if image is blank (data URL < 5KB)
+  const isBlankImage = (src) => {
+    if (!src) return true;
+    if (typeof src !== 'string') return true;
+    if (src.startsWith('data:') && src.length < 5000) return true;
+    return false;
+  };
+
   // ✅ Generate video thumbnail
   const generateVideoThumbnail = (videoUrl) => {
     return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.src = videoUrl;
-      video.crossOrigin = 'anonymous';
-      video.currentTime = 1; // Get frame at 1 second
-      
-      video.onloadedmetadata = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0);
-        resolve(canvas.toDataURL('image/jpeg'));
-      };
-      
-      video.onerror = () => {
+      try {
+        const video = document.createElement('video');
+        video.src = videoUrl;
+        video.crossOrigin = 'anonymous';
+        video.currentTime = 1; // Get frame at 1 second
+        
+        video.onloadedmetadata = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            resolve(canvas.toDataURL('image/jpeg'));
+          } catch (err) {
+            console.error('Error generating video thumbnail:', err);
+            resolve(null);
+          }
+        };
+        
+        video.onerror = () => {
+          console.error('Error loading video for thumbnail:', videoUrl);
+          resolve(null);
+        };
+      } catch (err) {
+        console.error('Error in generateVideoThumbnail:', err);
         resolve(null);
-      };
+      }
     });
   };
 
@@ -121,7 +140,15 @@ const ProductPage = () => {
       if (data) {
         const p = Array.isArray(data) ? data[0] : data;
         console.log('📦 Product loaded:', p);
-        console.log('🎥 Video link:', p.image_url?.[0]?.videolink);
+        console.log('🖼️ Image URL structure:', p.image_url);
+        
+        // ✅ Validate image_url structure
+        if (!p.image_url || p.image_url.length === 0) {
+          console.warn('⚠️ No images found for product');
+        } else if (!p.image_url[0].url || p.image_url[0].url.length === 0) {
+          console.warn('⚠️ First color group has no images');
+        }
+        
         setProduct(p);
         setDefaultColorGroup(p.image_url?.[0]);
         setSelectedColorCode(p.image_url?.[0]?.colorcode || "#ffffff");
@@ -132,6 +159,7 @@ const ProductPage = () => {
         
         // Generate video thumbnail if video exists
         if (p.image_url?.[0]?.videolink) {
+          console.log('🎥 Video link found:', p.image_url[0].videolink);
           generateVideoThumbnail(p.image_url[0].videolink).then(thumb => {
             setVideoThumbnail(thumb);
           });
@@ -249,6 +277,10 @@ const ProductPage = () => {
                 loop
                 muted
                 key={defaultColorGroup.videolink}
+                onError={(e) => {
+                  console.error('❌ Video failed to load:', defaultColorGroup.videolink);
+                  setIscount(0);
+                }}
               >
                 <source src={defaultColorGroup.videolink} type="video/mp4" />
                 <source src={defaultColorGroup.videolink} type="video/webm" />
@@ -261,6 +293,10 @@ const ProductPage = () => {
                 className="bg-white w-full sm:h-[600px] max-w-[500px] md:max-w-full object-contain shadow-md overflow-hidden rounded-2xl"
                 src={defaultColorGroup?.url?.[iscount] ?? ""}
                 alt="Product"
+                onError={(e) => {
+                  console.error('❌ Image failed to load:', defaultColorGroup?.url?.[iscount]);
+                  e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect fill='%23f0f0f0' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='16' fill='%23999' text-anchor='middle' dy='.3em'%3EImage not available%3C/text%3E%3C/svg%3E";
+                }}
               />
             </Zoom>
           )}
@@ -274,6 +310,10 @@ const ProductPage = () => {
                 className={`w-16 h-16 object-cover rounded-md flex-shrink-0 cursor-pointer ${
                   iscount === i ? "border-3 border-[#E5C870] scale-1.5" : ""
                 }`}
+                onError={(e) => {
+                  console.error('❌ Thumbnail failed to load:', img);
+                  e.target.style.display = 'none';
+                }}
               />
             ))}
             {defaultColorGroup?.videolink && (
@@ -435,11 +475,16 @@ const ProductPage = () => {
                     onClick={() => setSelectedDesign(d)}
                     className="cursor-pointer group flex items-center gap-4 border border-gray-700 rounded-xl p-4 bg-white/10 backdrop-blur-md hover:bg-white/20 hover:scale-[1.02] hover:shadow-lg transition-all duration-300 ease-out"
                   >
-                    {d.design?.[0]?.url && (
+                    {/* ✅ Use previewImages.front for thumbnail, fallback to design[0].url */}
+                    {(d.previewImages?.front || d.design?.[0]?.url) && (
                       <img
-                        src={d.design[0].url}
+                        src={d.previewImages?.front || d.design[0].url}
                         alt="Design preview"
                         className="w-12 h-12 object-contain rounded-md border border-gray-600 group-hover:border-[#E5C870] transition"
+                        onError={(e) => {
+                          console.error('❌ Design thumbnail failed to load');
+                          e.target.style.display = 'none';
+                        }}
                       />
                     )}
                     <div className="flex flex-col flex-1">

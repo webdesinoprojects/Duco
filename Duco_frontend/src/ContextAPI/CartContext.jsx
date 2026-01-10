@@ -13,8 +13,27 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     try {
       const savedCart = JSON.parse(localStorage.getItem("cart")) || [];
+      
+      // ✅ CRITICAL: Restore preview images from localStorage
+      // They ARE saved in localStorage, so restore them to memory reference
+      savedCart.forEach(item => {
+        if (item.previewImages) {
+          previewImagesRef.current[item.id] = item.previewImages;
+        }
+      });
+      
       setCart(savedCart);
-      console.log("🧩 Cart loaded from localStorage:", savedCart);
+      
+      console.log("🧩 Cart loaded from localStorage:", {
+        itemCount: savedCart.length,
+        itemsWithPreviewImages: savedCart.filter(i => !!i.previewImages).length,
+        items: savedCart.map(i => ({
+          id: i.id,
+          name: i.name,
+          hasPreviewImages: !!i.previewImages,
+          hasFiles: !!i.additionalFilesMeta?.length
+        }))
+      });
     } catch (err) {
       console.warn("⚠️ Failed to parse localStorage cart:", err);
       localStorage.removeItem("cart");
@@ -26,29 +45,44 @@ export const CartProvider = ({ children }) => {
   // ✅ Save to localStorage only after hydration
   useEffect(() => {
     if (!hydrated) return;
-    console.log("🛒 Cart updated:", cart); // ✅ log full cart every time it changes
     
-    // ✅ Strip preview images before storing in localStorage (they're too large)
+    // ✅ CRITICAL: Store preview images in memory reference for all items
+    cart.forEach(item => {
+      if (item.previewImages) {
+        previewImagesRef.current[item.id] = item.previewImages;
+      }
+    });
+    
+    // ✅ Strip large data from localStorage to save space
     const cartForStorage = cart.map(item => {
-      const { previewImages, ...itemWithoutPreview } = item;
-      return itemWithoutPreview;
+      const { design, ...itemWithoutDesign } = item;
+      return itemWithoutDesign;
     });
     
     try {
       localStorage.setItem("cart", JSON.stringify(cartForStorage));
-      console.log("🛒 Cart saved to localStorage (preview images excluded)");
+      console.log("🛒 Cart saved to localStorage:", {
+        itemCount: cartForStorage.length,
+        itemsWithPreviewImages: cart.filter(i => !!i.previewImages).length,
+        itemsWithData: cartForStorage.map(i => ({
+          id: i.id,
+          name: i.name,
+          hasPreviewImages: !!i.previewImages,
+          hasFiles: !!i.additionalFilesMeta?.length
+        }))
+      });
     } catch (err) {
       console.error("❌ Failed to save cart to localStorage:", err);
-      // If still too large, try removing design data too
+      // If still too large, try removing preview images too
       if (err.name === 'QuotaExceededError') {
-        console.warn("⚠️ Cart too large even without preview images, removing design data...");
+        console.warn("⚠️ Cart too large, removing preview images from storage...");
         const minimalCart = cartForStorage.map(item => {
-          const { design, ...itemWithoutDesign } = item;
-          return itemWithoutDesign;
+          const { previewImages, ...itemWithoutImages } = item;
+          return itemWithoutImages;
         });
         try {
           localStorage.setItem("cart", JSON.stringify(minimalCart));
-          console.log("🛒 Cart saved with minimal data");
+          console.log("🛒 Cart saved with minimal data (preview images in memory)");
         } catch (err2) {
           console.error("❌ Failed to save even minimal cart:", err2);
         }
@@ -72,7 +106,12 @@ export const CartProvider = ({ children }) => {
     // ✅ Store preview images in memory before adding to cart
     if (product.previewImages) {
       previewImagesRef.current[product.id] = product.previewImages;
-      console.log("💾 Preview images stored in memory for:", product.id);
+      console.log("💾 Preview images stored in memory for:", product.id, {
+        front: product.previewImages.front ? `${product.previewImages.front.substring(0, 50)}... (${product.previewImages.front.length} chars)` : 'MISSING',
+        back: product.previewImages.back ? `${product.previewImages.back.substring(0, 50)}... (${product.previewImages.back.length} chars)` : 'MISSING',
+        left: product.previewImages.left ? `${product.previewImages.left.substring(0, 50)}... (${product.previewImages.left.length} chars)` : 'MISSING',
+        right: product.previewImages.right ? `${product.previewImages.right.substring(0, 50)}... (${product.previewImages.right.length} chars)` : 'MISSING',
+      });
     }
 
     const exists = cart.find(
@@ -97,15 +136,23 @@ export const CartProvider = ({ children }) => {
     } else {
       const finalData = {
         ...product,
+        // ✅ CRITICAL: Include preview images and files in the cart item
+        previewImages: product.previewImages || null,
+        additionalFilesMeta: product.additionalFilesMeta || [],
         printroveProductId: product.printroveProductId || null,
         printroveVariantId: product.printroveVariantId || null,
       };
 
-      console.log("🧾 Added to cart:", finalData);
-      console.log("✅ Check IDs →", {
-            printroveProductId: finalData.printroveProductId,
-            printroveVariantId: finalData.printroveVariantId,
-});
+      console.log("🧾 Added to cart:", {
+        id: finalData.id,
+        name: finalData.name,
+        hasPreviewImages: !!finalData.previewImages,
+        previewImagesFront: finalData.previewImages?.front ? `${finalData.previewImages.front.substring(0, 50)}... (${finalData.previewImages.front.length} chars)` : 'MISSING',
+        hasAdditionalFiles: finalData.additionalFilesMeta?.length > 0,
+        filesCount: finalData.additionalFilesMeta?.length || 0,
+        printroveProductId: finalData.printroveProductId,
+        printroveVariantId: finalData.printroveVariantId,
+      });
 
       // ✅ Check Printrove mapping status
       const hasPrintroveProductId = !!finalData.printroveProductId;

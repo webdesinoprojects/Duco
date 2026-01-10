@@ -458,6 +458,32 @@ const TshirtDesigner = () => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
     
+    // ✅ Validate files before uploading
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB per file
+    const MAX_FILES = 5;
+    const ALLOWED_TYPES = ['application/pdf', 'application/x-cdr', 'image/x-cdr'];
+    
+    // Check file count
+    if (additionalFiles.length + files.length > MAX_FILES) {
+      toast.error(`❌ Maximum ${MAX_FILES} files allowed. You have ${additionalFiles.length} files already.`);
+      return;
+    }
+    
+    // Validate each file
+    for (const file of files) {
+      // Check file type
+      if (!ALLOWED_TYPES.includes(file.type) && !file.name.toLowerCase().endsWith('.cdr') && !file.name.toLowerCase().endsWith('.pdf')) {
+        toast.error(`❌ Invalid file type: ${file.name}. Only CDR and PDF files are allowed.`);
+        return;
+      }
+      
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`❌ File too large: ${file.name}. Maximum size is 50MB.`);
+        return;
+      }
+    }
+    
     // ✅ Read files as data URLs so they can be stored and displayed
     files.forEach((file) => {
       const reader = new FileReader();
@@ -472,9 +498,25 @@ const TshirtDesigner = () => {
             size: file.size,
           },
         ]);
+        toast.success(`✅ File uploaded: ${file.name}`);
+      };
+      reader.onerror = () => {
+        toast.error(`❌ Failed to read file: ${file.name}`);
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  // ✅ Remove a file from the list
+  const removeAdditionalFile = (index) => {
+    setAdditionalFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+    toast.info(`📎 File removed`);
+  };
+
+  // ✅ Clear all files
+  const clearAllFiles = () => {
+    setAdditionalFiles([]);
+    toast.info(`📎 All files cleared`);
   };
 
   const updateCurrentDesign = (property, value) => {
@@ -553,6 +595,11 @@ const TshirtDesigner = () => {
     const images = container.querySelectorAll("img");
     console.log(`⏳ Waiting for ${images.length} images in ${container.className}...`);
     
+    if (images.length === 0) {
+      console.log("✅ No images to wait for");
+      return Promise.resolve();
+    }
+    
     return Promise.all(
       Array.from(images).map(
         (img, index) =>
@@ -564,23 +611,49 @@ const TshirtDesigner = () => {
               naturalHeight: img.naturalHeight,
             });
             
-            if (img.complete && img.naturalWidth > 0) {
-              console.log(`✅ Image ${index + 1} already loaded`);
+            if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+              console.log(`✅ Image ${index + 1} already loaded (${img.naturalWidth}x${img.naturalHeight})`);
               resolve();
             } else {
+              let resolved = false;
+              
               img.onload = () => {
-                console.log(`✅ Image ${index + 1} loaded`);
-                resolve();
+                if (!resolved) {
+                  resolved = true;
+                  console.log(`✅ Image ${index + 1} loaded (${img.naturalWidth}x${img.naturalHeight})`);
+                  resolve();
+                }
               };
+              
               img.onerror = () => {
-                console.warn(`⚠️ Image ${index + 1} failed to load, continuing anyway`);
-                resolve();
+                if (!resolved) {
+                  resolved = true;
+                  console.warn(`⚠️ Image ${index + 1} failed to load: ${img.src}`);
+                  resolve();
+                }
               };
-              // Timeout after 5 seconds
-              setTimeout(() => {
-                console.warn(`⏱️ Image ${index + 1} timeout, continuing anyway`);
-                resolve();
-              }, 5000);
+              
+              // Timeout after 8 seconds (increased from 5)
+              const timeoutId = setTimeout(() => {
+                if (!resolved) {
+                  resolved = true;
+                  console.warn(`⏱️ Image ${index + 1} timeout after 8s, continuing anyway`);
+                  resolve();
+                }
+              }, 8000);
+              
+              // Clear timeout if image loads before timeout
+              img.onload = (() => {
+                const originalOnload = img.onload;
+                return () => {
+                  clearTimeout(timeoutId);
+                  if (!resolved) {
+                    resolved = true;
+                    console.log(`✅ Image ${index + 1} loaded (${img.naturalWidth}x${img.naturalHeight})`);
+                    resolve();
+                  }
+                };
+              })();
             }
           })
       )
@@ -875,6 +948,9 @@ const TshirtDesigner = () => {
         await waitForImages(node);
 
         try {
+          // ✅ Add extra wait time for DOM to fully render after images load
+          await new Promise(resolve => setTimeout(resolve, 800));
+
           // ✅ Log the node being captured
           const computedStyle = window.getComputedStyle(node);
           console.log(`📸 Capturing ${view} view:`, {
@@ -903,6 +979,13 @@ const TshirtDesigner = () => {
             backgroundColor: "#fff",
             skipFonts: true, // avoid Google Fonts cssRules CORS noise
           });
+
+          // ✅ Validate captured image is not blank
+          if (dataUrl.length < 5000) {
+            console.warn(`⚠️ CAPTURED IMAGE IS BLANK for ${view}: only ${dataUrl.length} bytes (expected > 5000)`);
+            console.warn(`⚠️ This might indicate the design elements weren't rendered properly`);
+            // Still save it, but log the warning
+          }
 
           images[view] = dataUrl;
           console.log(`✅ Captured preview image for ${view}:`, {
@@ -1221,6 +1304,13 @@ const TshirtDesigner = () => {
         console.warn("⚠️ Product added to cart WITHOUT Printrove mappings - backend will handle fallback");
       }
 
+      // ✅ VALIDATE FILES ARE UPLOADED (CRITICAL)
+      if (additionalFiles.length === 0) {
+        toast.error("❌ Please upload at least one CDR or PDF file for your design!");
+        console.warn("⚠️ User tried to add to cart without uploading files");
+        return;
+      }
+
       // ✅ Clear existing cart items before adding new design
       console.log("🧹 Clearing cart before adding new design...");
       clearCart();
@@ -1270,11 +1360,14 @@ const TshirtDesigner = () => {
       {/* Additional Files */}
       <div>
         <h3 className="text-sm font-semibold text-gray-800 mb-2">
-          Upload Additional CDR & PDF  Files
+          📎 Upload Additional CDR & PDF Files <span className="text-red-600">*REQUIRED</span>
         </h3>
+        <p className="text-xs text-gray-600 mb-2">
+          ⚠️ You must upload at least one CDR or PDF file to proceed with your order
+        </p>
         <label className="flex flex-col items-center px-4 py-3 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 hover:bg-gray-100 cursor-pointer transition-all">
           <span className="text-xs text-gray-600">
-            Click to select CDR & PDF files
+            Click to select CDR & PDF files (Max 5 files, 50MB each)
           </span>
           <input
             type="file"
@@ -1284,13 +1377,55 @@ const TshirtDesigner = () => {
             className="hidden"
           />
         </label>
-        <ul className="mt-2 max-h-24 overflow-auto text-xs text-gray-600">
-          {additionalFiles.map((fileObj, i) => (
-            <li key={i} className="truncate" title={fileObj.name}>
-              {fileObj.name}
-            </li>
-          ))}
-        </ul>
+        
+        {/* File List with Remove Buttons */}
+        {additionalFiles.length > 0 && (
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm font-semibold text-blue-900">
+                📁 Files Uploaded: {additionalFiles.length}/5
+              </p>
+              {additionalFiles.length > 0 && (
+                <button
+                  onClick={clearAllFiles}
+                  className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+            <ul className="space-y-2">
+              {additionalFiles.map((fileObj, i) => (
+                <li key={i} className="flex justify-between items-center p-2 bg-white rounded border border-blue-200">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-800 truncate" title={fileObj.name}>
+                      📄 {fileObj.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {(fileObj.size / 1024).toFixed(2)} KB
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeAdditionalFile(i)}
+                    className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition"
+                    title="Remove this file"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {/* Warning if no files */}
+        {additionalFiles.length === 0 && (
+          <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
+            <p className="text-xs text-red-700 font-semibold">
+              ⚠️ No files uploaded yet. You must upload at least one file to add to cart.
+            </p>
+          </div>
+        )}
       </div>
 
       {allDesigns[side].uploadedImage && (

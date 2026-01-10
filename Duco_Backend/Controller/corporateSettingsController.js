@@ -28,7 +28,9 @@ exports.updateCorporateSettings = async (req, res) => {
       corporateGstRate,
       enablePrintroveIntegration,
       corporatePaymentMethods,
-      estimatedDeliveryDays
+      estimatedDeliveryDays,
+      b2cPrintingChargePerSide,
+      b2cPfChargePerUnit
     } = req.body;
 
     // Validate minimum order quantity
@@ -44,6 +46,22 @@ exports.updateCorporateSettings = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Estimated delivery days must be an integer between 1 and 365'
+      });
+    }
+
+    // ✅ Validate B2C printing charge
+    if (b2cPrintingChargePerSide !== undefined && (b2cPrintingChargePerSide < 0 || !Number.isFinite(b2cPrintingChargePerSide))) {
+      return res.status(400).json({
+        success: false,
+        error: 'B2C printing charge must be a non-negative number'
+      });
+    }
+
+    // ✅ Validate B2C P&F charge
+    if (b2cPfChargePerUnit !== undefined && (b2cPfChargePerUnit < 0 || !Number.isFinite(b2cPfChargePerUnit))) {
+      return res.status(400).json({
+        success: false,
+        error: 'B2C P&F charge must be a non-negative number'
       });
     }
 
@@ -85,7 +103,9 @@ exports.updateCorporateSettings = async (req, res) => {
     
     console.log('📦 Current settings before update:', {
       minOrderQuantity: settings.minOrderQuantity,
-      corporateGstRate: settings.corporateGstRate
+      corporateGstRate: settings.corporateGstRate,
+      b2cPrintingChargePerSide: settings.b2cPrintingChargePerSide,
+      b2cPfChargePerUnit: settings.b2cPfChargePerUnit
     });
     
     // Update fields if provided
@@ -95,12 +115,17 @@ exports.updateCorporateSettings = async (req, res) => {
     if (enablePrintroveIntegration !== undefined) settings.enablePrintroveIntegration = enablePrintroveIntegration;
     if (corporatePaymentMethods !== undefined) settings.corporatePaymentMethods = corporatePaymentMethods;
     if (estimatedDeliveryDays !== undefined) settings.estimatedDeliveryDays = estimatedDeliveryDays;
+    // ✅ Save B2C charges
+    if (b2cPrintingChargePerSide !== undefined) settings.b2cPrintingChargePerSide = b2cPrintingChargePerSide;
+    if (b2cPfChargePerUnit !== undefined) settings.b2cPfChargePerUnit = b2cPfChargePerUnit;
 
     await settings.save();
     
     console.log('✅ Settings saved successfully:', {
       minOrderQuantity: settings.minOrderQuantity,
-      corporateGstRate: settings.corporateGstRate
+      corporateGstRate: settings.corporateGstRate,
+      b2cPrintingChargePerSide: settings.b2cPrintingChargePerSide,
+      b2cPfChargePerUnit: settings.b2cPfChargePerUnit
     });
 
     res.json({

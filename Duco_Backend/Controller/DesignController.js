@@ -4,14 +4,62 @@ const Design = require('../DataBase/Models/DesignModel');
 // 👉 Create Design
 const createDesign = async (req, res) => {
   try {
-    const { user, products ,cutomerprodcuts, design } = req.body;
+    const { user, products, cutomerprodcuts, design } = req.body;
 
-    if (!user  || !design) {
+    if (!user || !design) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    const newDesign = new Design({ user, products, design ,cutomerprodcuts });
+    // ✅ Extract preview images and files from design array
+    let previewImages = {};
+    let additionalFilesMeta = [];
+
+    if (Array.isArray(design) && design.length > 0) {
+      const firstDesign = design[0];
+      
+      // Extract preview images
+      if (firstDesign.previewImages && typeof firstDesign.previewImages === 'object') {
+        previewImages = {
+          front: firstDesign.previewImages.front || null,
+          back: firstDesign.previewImages.back || null,
+          left: firstDesign.previewImages.left || null,
+          right: firstDesign.previewImages.right || null
+        };
+        console.log('✅ Preview images extracted:', {
+          front: !!previewImages.front,
+          back: !!previewImages.back,
+          left: !!previewImages.left,
+          right: !!previewImages.right
+        });
+      }
+
+      // Extract additional files metadata
+      if (Array.isArray(firstDesign.additionalFilesMeta)) {
+        additionalFilesMeta = firstDesign.additionalFilesMeta.map(f => ({
+          name: f.name,
+          size: f.size,
+          type: f.type
+        }));
+        console.log('✅ Additional files extracted:', additionalFilesMeta.length);
+      }
+    }
+
+    const newDesign = new Design({
+      user,
+      products,
+      cutomerprodcuts,
+      design,
+      previewImages,
+      additionalFilesMeta
+    });
+
     const saved = await newDesign.save();
+    
+    console.log('✅ Design saved with:', {
+      hasPreviewImages: !!saved.previewImages,
+      hasFiles: saved.additionalFilesMeta?.length > 0
+    });
+
     res.status(201).json(saved);
   } catch (error) {
     console.error('Error creating design:', error);
@@ -47,6 +95,17 @@ const getDesignsByUser = async (req, res) => {
 
     const designs = await Design.find(query).sort({ createdAt: -1 });
 
+    // ✅ Log what's being returned
+    console.log('📦 Returning designs:', {
+      count: designs.length,
+      designs: designs.map(d => ({
+        _id: d._id,
+        hasPreviewImages: !!d.previewImages,
+        hasFiles: d.additionalFilesMeta?.length > 0,
+        previewImagesKeys: d.previewImages ? Object.keys(d.previewImages) : []
+      }))
+    });
+
     res.json(designs);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -54,4 +113,4 @@ const getDesignsByUser = async (req, res) => {
 };
 
 
-module.exports = { createDesign, deleteDesign  ,getDesignsByUser};
+module.exports = { createDesign, deleteDesign, getDesignsByUser };

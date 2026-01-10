@@ -132,12 +132,23 @@ export const PriceProvider = ({ children }) => {
         console.log("📦 Fetching price data for:", location);
         const data = await getUpdatePricesByLocation(location);
 
+        // ✅ Check if request was successful
+        if (data && data.success === false) {
+          console.warn("⚠️ Location not found in database:", location);
+          // ✅ Default to INR with no conversion if location not found
+          setPriceIncrease(0);
+          setToConvert(1);
+          setCurrency('INR');
+          setResolvedLocation(location);
+          return;
+        }
+
         // Backend returns { percentage, currency } directly (no success field)
         if (data && data.percentage !== undefined) {
           console.log("✅ Price data received:", data);
           setPriceIncrease(data.percentage);
-          setToConvert(data.currency?.toconvert || null);
-          setCurrency(data.currency?.country || null);
+          setToConvert(data.currency?.toconvert || 1);
+          setCurrency(data.currency?.country || 'INR');
           setResolvedLocation(location);
           
           // ✅ Cache in localStorage for Cart.jsx fallback
@@ -156,7 +167,7 @@ export const PriceProvider = ({ children }) => {
             console.warn("⚠️ Could not cache location pricing:", e);
           }
         } else {
-          console.warn("⚠ No price data for location:", location);
+          console.warn("⚠️ No price data for location:", location);
           // ✅ Default to INR with no conversion if location not found
           setPriceIncrease(0);
           setToConvert(1);
@@ -169,6 +180,7 @@ export const PriceProvider = ({ children }) => {
         setPriceIncrease(0);
         setToConvert(1);
         setCurrency('INR');
+        setResolvedLocation(location);
       }
     };
 

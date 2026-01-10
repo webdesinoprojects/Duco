@@ -110,12 +110,7 @@ const AdminLayout = () => {
           ))}
 
           {/* ✅ Printrove Button - Always visible */}
-          <button
-            onClick={() => setShowPrintroveModal(true)}
-            className="block w-full text-left bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 transition mt-3"
-          >
-            🖨️ Printrove Dashboard
-          </button>
+          
         </nav>
       </aside>
 

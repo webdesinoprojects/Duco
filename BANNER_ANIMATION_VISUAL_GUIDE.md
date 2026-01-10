@@ -1,308 +1,101 @@
-# Banner Animation - Visual Guide
+text
+# Complete Git Commands Reference Guide
 
-## Animation Timeline
+## 📋 Essential Git Workflow Commands
 
-```
-CYCLE TIME: 4.5 SECONDS
+### 1. Repository Setup & Cloning
+```bash
+git clone <repository-url>          # Clone repository to local
+git clone <repository-url> .        # Clone into current directory
+git clone -b <branch> <url>         # Clone specific branch
+2. Checking Status & History
+bash
+git status                           # Current working directory status
+git log                              # Full commit history
+git log --oneline                    # One-line commit history
+git log --graph --oneline --all      # Visual branch graph
+git diff                             # See unstaged changes
+git diff --staged                    # See staged changes
+3. Staging & Committing
+bash
+git add <file>                       # Stage specific file
+git add .                            # Stage all changes
+git add -A                           # Stage all changes (including deletions)
+git commit -m "Your commit message"  # Commit with message
+git commit -am "message"             # Stage & commit tracked files
+4. Branch Management
+bash
+git branch                           # List branches
+git branch -a                        # List all branches (local+remote)
+git checkout <branch>                # Switch to branch
+git checkout -b <branch>             # Create & switch to new branch
+git branch -d <branch>               # Delete local branch
+git push origin --delete <branch>    # Delete remote branch
+5. Remote & Sync Operations
+bash
+git pull                             # Fetch & merge from remote
+git pull origin main                 # Pull specific branch
+git push origin main                 # Push to remote main branch
+git push -u origin main              # Push & set upstream
+git fetch                            # Fetch remote changes only
+git remote -v                        # View remote URLs
+🔄 Team Collaboration Workflow
+text
+Team Lead Setup:
+1. git clone <classroom-repo-link> .
+2. Work on project
+3. git pull
+4. git add .
+5. git commit -m "Initial project setup"
+6. git push origin main
 
-0ms ─────────────────────────────────────────────────────────────────
-    │ Banner 1 at 100% opacity
-    │ [Image + Text + Button]
-    │
-3500ms ──────────────────────────────────────────────────────────────
-    │ Fade Out Starts
-    │ Opacity: 100% → 30%
-    │
-4000ms ──────────────────────────────────────────────────────────────
-    │ Content Updates
-    │ New Banner Loaded
-    │ Fade In Starts
-    │ Opacity: 30% → 100%
-    │
-4500ms ──────────────────────────────────────────────────────────────
-    │ Banner 2 at 100% opacity
-    │ [New Image + New Text + New Button]
-    │
-    └─ CYCLE REPEATS
-```
+Team Members:
+1. git clone <team-repo-link> .
+2. git pull origin main
+3. Make changes
+4. git pull origin main      # Always sync first
+5. git add .
+6. git commit -m "Your feature"
+7. git push origin main
+⚠️ Troubleshooting Commands
+Merge Conflicts
+bash
+git pull origin main                 # Get latest changes
+# Edit conflicted files manually
+git add <resolved-files>
+git commit -m "Resolve merge conflicts"
+git push origin main
+Reset & Undo
+bash
+git checkout -- <file>               # Discard changes to file
+git reset HEAD <file>                # Unstage file
+git reset --hard HEAD                # Discard all local changes
+git revert <commit-hash>             # Undo commit safely
+Stash Changes (Temporary Save)
+bash
+git stash                            # Save uncommitted changes
+git stash pop                        # Restore stashed changes
+git stash list                       # List stashes
+🎯 Pro Tips & Best Practices
+Always git pull before pushing to avoid conflicts
 
----
+Use descriptive commit messages: "Fix login bug" ✓ vs "fixed" ✗
 
-## Opacity Transition
+Branch naming: feature/login, bugfix/payment, hotfix/crash
 
-```
-FADE OUT (0-500ms)          FADE IN (500-1000ms)
-100% ┐                      30% ┐
-     │                          │
-     │ ╲                        │ ╱
-     │  ╲                       │╱
-     │   ╲                      │
-     │    ╲                     │
-     │     ╲                    │
-     │      ╲                   │
-     │       ╲                  │
-     │        ╲                 │
-     │         ╲                │
-     │          ╲               │
-     │           ╲              │
-     │            ╲             │
-     │             ╲            │
-     │              ╲           │
-     │               ╲          │
-     │                ╲         │
-     │                 ╲        │
-     │                  ╲       │
-     │                   ╲      │
-     │                    ╲     │
-     │                     ╲    │
-     │                      ╲   │
-     │                       ╲  │
-     │                        ╲ │
-30%  └────────────────────────  └─ 100%
-```
+Commit often, small changes (5-10 files max per commit)
 
----
+📱 Quick Copy-Paste Commands
+Daily Workflow:
 
-## Animation Sequence
+bash
+git pull origin main
+# Make changes...
+git add .
+git commit -m "Your descriptive message"
+git push origin main
+Emergency Reset:
 
-### Phase 1: Display (0-3500ms)
-```
-┌─────────────────────────────────────┐
-│                                     │
-│  ╔═══════════════════════════════╗  │
-│  ║  BANNER 1                     ║  │
-│  ║  [Image]                      ║  │
-│  ║  Hero Text                    ║  │
-│  ║  [Button]                     ║  │
-│  ╚═══════════════════════════════╝  │
-│                                     │
-│  Opacity: 100%                      │
-│  Duration: 3.5 seconds              │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-### Phase 2: Fade Out (3500-4000ms)
-```
-┌─────────────────────────────────────┐
-│                                     │
-│  ╔═══════════════════════════════╗  │
-│  ║  BANNER 1 (fading)            ║  │
-│  ║  [Image]                      ║  │
-│  ║  Hero Text                    ║  │
-│  ║  [Button]                     ║  │
-│  ╚═══════════════════════════════╝  │
-│                                     │
-│  Opacity: 100% → 30%                │
-│  Duration: 0.5 seconds              │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-### Phase 3: Update (4000ms)
-```
-┌─────────────────────────────────────┐
-│                                     │
-│  ╔═══════════════════════════════╗  │
-│  ║  BANNER 2 (loading)           ║  │
-│  ║  [New Image]                  ║  │
-│  ║  New Hero Text                ║  │
-│  ║  [New Button]                 ║  │
-│  ╚═══════════════════════════════╝  │
-│                                     │
-│  Opacity: 30% (updating)            │
-│  Duration: Instant                  │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-### Phase 4: Fade In (4000-4500ms)
-```
-┌─────────────────────────────────────┐
-│                                     │
-│  ╔═══════════════════════════════╗  │
-│  ║  BANNER 2 (fading in)         ║  │
-│  ║  [New Image]                  ║  │
-│  ║  New Hero Text                ║  │
-│  ║  [New Button]                 ║  │
-│  ╚═══════════════════════════════╝  │
-│                                     │
-│  Opacity: 30% → 100%                │
-│  Duration: 0.5 seconds              │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-### Phase 5: Display (4500-8000ms)
-```
-┌─────────────────────────────────────┐
-│                                     │
-│  ╔═══════════════════════════════╗  │
-│  ║  BANNER 2                     ║  │
-│  ║  [New Image]                  ║  │
-│  ║  New Hero Text                ║  │
-│  ║  [New Button]                 ║  │
-│  ╚═══════════════════════════════╝  │
-│                                     │
-│  Opacity: 100%                      │
-│  Duration: 3.5 seconds              │
-│                                     │
-└─────────────────────────────────────┘
-```
-
----
-
-## Opacity Levels
-
-```
-100% ████████████████████████████████ Full Opacity (Visible)
- 90% ███████████████████████████████░ 
- 80% ██████████████████████████████░░ 
- 70% █████████████████████████████░░░ 
- 60% ████████████████████████████░░░░ 
- 50% ███████████████████████████░░░░░ 
- 40% ██████████████████████████░░░░░░ 
- 30% █████████████████████████░░░░░░░ Fade Point (Updating)
- 20% ████████████████████████░░░░░░░░ 
- 10% ███████████████████████░░░░░░░░░ 
-  0% ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ Invisible
-```
-
----
-
-## Animation Curve
-
-```
-Opacity
-  │
-100├─────────────────────────────────────────────
-  │                                    ╱
-  │                                  ╱
-  │                                ╱
-  │                              ╱
-  │                            ╱
-  │                          ╱
-  │                        ╱
-  │                      ╱
-  │                    ╱
-  │                  ╱
-  │                ╱
-  │              ╱
-  │            ╱
-  │          ╱
-  │        ╱
-  │      ╱
-  │    ╱
-  │  ╱
-  │╱
- 30├─────────────────────────────────────────────
-  │
-  └─────────────────────────────────────────────
-    0    500   1000  1500  2000  2500  3000  3500  4000  4500
-    ├─────────────────────────────────────────────────────┤
-    │ Display (3.5s) │ Fade Out (0.5s) │ Fade In (0.5s) │
-```
-
----
-
-## Banner Rotation Pattern
-
-```
-Time    Banner          Opacity    State
-────────────────────────────────────────────────
-0s      Banner 1        100%       Display
-1s      Banner 1        100%       Display
-2s      Banner 1        100%       Display
-3s      Banner 1        100%       Display
-3.5s    Banner 1        100%→30%   Fade Out
-4s      Banner 2        30%→100%   Fade In
-4.5s    Banner 2        100%       Display
-5s      Banner 2        100%       Display
-6s      Banner 2        100%       Display
-7s      Banner 2        100%       Display
-7.5s    Banner 2        100%→30%   Fade Out
-8s      Banner 3        30%→100%   Fade In
-8.5s    Banner 3        100%       Display
-...
-```
-
----
-
-## CSS Animation Classes
-
-```css
-/* Transition property */
-transition-opacity
-
-/* Duration options */
-duration-300  /* 300ms */
-duration-500  /* 500ms (current) */
-duration-700  /* 700ms */
-
-/* Opacity states */
-opacity-0     /* 0% */
-opacity-10    /* 10% */
-opacity-30    /* 30% (fade point) */
-opacity-50    /* 50% */
-opacity-100   /* 100% */
-```
-
----
-
-## Performance Impact
-
-```
-CPU Usage:
-  ├─ Opacity Change: ████░░░░░░ 40% (GPU accelerated)
-  ├─ Content Update: ██░░░░░░░░ 20%
-  └─ Other: ██░░░░░░░░ 40%
-
-Memory Usage:
-  ├─ Animation State: █░░░░░░░░░ 10%
-  ├─ Banner Data: ███░░░░░░░ 30%
-  └─ Other: ██████░░░░ 60%
-
-Battery Impact:
-  ├─ Animation: ██░░░░░░░░ 20%
-  ├─ Rendering: ██░░░░░░░░ 20%
-  └─ Other: ████░░░░░░ 40%
-```
-
----
-
-## Browser Support
-
-```
-Chrome/Edge:    ████████████████████ 100% ✅
-Firefox:        ████████████████████ 100% ✅
-Safari:         ████████████████████ 100% ✅
-Mobile Chrome:  ████████████████████ 100% ✅
-Mobile Safari:  ████████████████████ 100% ✅
-```
-
----
-
-## Animation Comparison
-
-```
-Animation Type    Speed    Smoothness    CPU Usage
-─────────────────────────────────────────────────
-Fade (Current)    500ms    ████████████ 40%
-Slide             500ms    ████████████ 60%
-Zoom              500ms    ████████████ 70%
-Rotate            500ms    ████████████ 80%
-```
-
----
-
-## Summary
-
-The banner animation provides:
-- ✅ Smooth fade transitions
-- ✅ Professional appearance
-- ✅ Minimal performance impact
-- ✅ 4.5 second rotation cycle
-- ✅ All banners visible over time
-- ✅ GPU accelerated rendering
-
-**Status**: ✅ PRODUCTION-READY
+bash
+git reset --hard origin/main
+git pull

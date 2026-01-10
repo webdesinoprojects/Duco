@@ -19,7 +19,8 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
     if (src.startsWith('data:image')) {
       // A blank white image is typically very small (< 1KB)
       // A real design image should be at least 5KB
-      return src.length < 5000;
+      // But some compressed images might be smaller, so be more lenient
+      return src.length < 2000; // Changed from 5000 to 2000 to be more lenient
     }
     return false;
   };
@@ -30,11 +31,15 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
 
     console.log('🖼️ CartItem - Determining display image:', {
       itemName: item.products_name || item.name,
+      itemId: item.id,
       hasPreviewImages: !!item.previewImages,
-      previewImagesFront: item.previewImages?.front ? `${item.previewImages.front.substring(0, 50)}...` : null,
-      previewImagesFrontLength: item.previewImages?.front?.length,
+      previewImagesType: typeof item.previewImages,
+      previewImagesKeys: item.previewImages ? Object.keys(item.previewImages) : [],
+      previewImagesFront: item.previewImages?.front ? `✅ ${item.previewImages.front.length} chars` : '❌ MISSING',
       isBlankFront: item.previewImages?.front ? isBlankImage(item.previewImages.front) : null,
       hasImageUrl: !!item.image_url?.[0]?.url?.[0],
+      hasDesign: !!item.design,
+      designKeys: item.design ? Object.keys(item.design) : [],
     });
 
     // Try preview images first (from custom T-shirt designer)
@@ -83,14 +88,17 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   // ✅ Calculate total price with location pricing applied
   const totalPrice = Object.entries(item.quantity || {}).reduce(
     (acc, [size, qty]) => {
+      // Check if item is a loaded design (already has location pricing applied)
+      const isLoadedDesign = item.isLoadedDesign === true;
       // Check if item is from TShirtDesigner (custom item with already applied pricing)
       const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
       
       let basePrice = 0;
       
-      if (isCustomItem) {
-        // Custom items: use item.price as it's already converted
+      if (isLoadedDesign || isCustomItem) {
+        // Loaded designs and custom items: use item.price as it's already converted
         basePrice = Number(item.price) || 0;
+        console.log(`💰 CartItem (${isLoadedDesign ? 'Loaded' : 'Custom'}): ${item.products_name || item.name} - Pre-converted: ${basePrice}, Qty: ${qty}`);
       } else {
         // Regular products: use pricing array for base INR price
         if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
@@ -98,20 +106,13 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         } else if (item.price) {
           basePrice = Number(item.price) || 0;
         }
+        
+        // Apply location pricing to base INR price
+        basePrice = applyLocationPricing(basePrice, priceIncrease, toConvert);
+        console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Final: ${basePrice}, Qty: ${qty}`);
       }
       
-      let itemPrice;
-      if (isCustomItem) {
-        // Custom items already have location pricing applied
-        itemPrice = basePrice;
-        console.log(`💰 CartItem (Custom): ${item.products_name || item.name} - Pre-converted: ${itemPrice}, Qty: ${qty}`);
-      } else {
-        // Regular products - apply location pricing to base INR price
-        itemPrice = applyLocationPricing(basePrice, priceIncrease, toConvert);
-        console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Base INR: ${basePrice}, Final: ${itemPrice}, Qty: ${qty}`);
-      }
-      
-      return acc + qty * itemPrice;
+      return acc + qty * basePrice;
     },
     0
   );
@@ -220,26 +221,26 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
             {(item.design || item.previewImages) && (
               <button
                 onClick={() => {
-                  // ✅ Get preview images from memory (CartContext)
-                  const previewImages = getPreviewImages(item.id);
-                  
-                  console.log('🖼️ Preview button clicked - getting images from memory:', {
+                  console.log('🖼️ Preview button clicked - item data:', {
                     itemId: item.id,
-                    hasPreviewImages: !!previewImages,
-                    front: previewImages?.front ? `${previewImages.front.substring(0, 50)}... (${previewImages.front.length} chars)` : 'MISSING',
-                    back: previewImages?.back ? `${previewImages.back.substring(0, 50)}... (${previewImages.back.length} chars)` : 'MISSING',
-                    left: previewImages?.left ? `${previewImages.left.substring(0, 50)}... (${previewImages.left.length} chars)` : 'MISSING',
-                    right: previewImages?.right ? `${previewImages.right.substring(0, 50)}... (${previewImages.right.length} chars)` : 'MISSING',
+                    hasPreviewImages: !!item.previewImages,
+                    previewImages: item.previewImages ? {
+                      front: item.previewImages.front ? `${item.previewImages.front.substring(0, 50)}... (${item.previewImages.front.length} chars)` : 'MISSING',
+                      back: item.previewImages.back ? `${item.previewImages.back.substring(0, 50)}... (${item.previewImages.back.length} chars)` : 'MISSING',
+                      left: item.previewImages.left ? `${item.previewImages.left.substring(0, 50)}... (${item.previewImages.left.length} chars)` : 'MISSING',
+                      right: item.previewImages.right ? `${item.previewImages.right.substring(0, 50)}... (${item.previewImages.right.length} chars)` : 'MISSING',
+                    } : 'NO PREVIEW IMAGES',
+                    hasAdditionalFiles: !!item.additionalFilesMeta,
+                    filesCount: item.additionalFilesMeta?.length || 0,
                   });
                   
-                  // Check for different design data structures
-                  if (previewImages) {
-                    // New structure from TShirtDesigner
+                  // ✅ Use preview images directly from item (now stored in cart)
+                  if (item.previewImages) {
                     const previews = [
-                      previewImages.front && { url: previewImages.front, view: 'Front' },
-                      previewImages.back && { url: previewImages.back, view: 'Back' },
-                      previewImages.left && { url: previewImages.left, view: 'Left' },
-                      previewImages.right && { url: previewImages.right, view: 'Right' },
+                      item.previewImages.front ? { url: item.previewImages.front, view: 'Front' } : null,
+                      item.previewImages.back ? { url: item.previewImages.back, view: 'Back' } : null,
+                      item.previewImages.left ? { url: item.previewImages.left, view: 'Left' } : null,
+                      item.previewImages.right ? { url: item.previewImages.right, view: 'Right' } : null,
                     ].filter(Boolean);
                     
                     console.log('🖼️ Previews array after filter:', previews.map(p => ({ view: p.view, urlLength: p.url.length })));

@@ -58,8 +58,10 @@ const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
   }
   
   // Step 2: Apply currency conversion
+  // ✅ CRITICAL FIX: Divide by conversion rate, not multiply
+  // If 1 INR = 0.012 USD, then 100 INR = 100 / 0.012 = 8333 USD (not 100 * 0.012 = 1.2 USD)
   if (conversionRate && conversionRate !== 1) {
-    price *= conversionRate;
+    price = price / conversionRate;
   }
   
   // ✅ Don't round here - keep precision for calculations
@@ -216,17 +218,7 @@ const InvoiceDucoTailwind = ({ data }) => {
               <td style={{ textAlign: "right", padding: "6px" }}>{data.formatCurrency(data.printingCost || 0)}</td>
             </tr>
             
-            {data.locationTax?.percentage > 0 && (
-              <tr>
-                <td style={{ padding: "6px" }}>Location Adjustment ({data.locationTax.country})</td>
-                <td style={{ textAlign: "center", padding: "6px" }}>
-                  {data.formatCurrency((data.subtotal + (data.printingCost || 0) + (data.pfCost || 0)) * (data.locationTax.percentage / 100))}
-                </td>
-                <td style={{ textAlign: "right", padding: "6px" }}>
-                  {data.formatCurrency((data.subtotal + (data.printingCost || 0) + (data.pfCost || 0)) * (data.locationTax.percentage / 100))}
-                </td>
-              </tr>
-            )}
+            {/* ✅ REMOVED: Location adjustment is already applied to item prices, don't show as separate line */}
 
             {/* ✅ GST Breakdown */}
             {(() => {
@@ -556,31 +548,36 @@ const Cart = () => {
         continue;
       }
       
-      // ✅ Get price - Priority: pricing array (actual product price) > item.price (cart price)
-      // The pricing array contains the actual product price from the database
+      // ✅ Get price - Priority: item.price (already has location pricing) > pricing array (base price)
       let basePrice = 0;
+      let isLoadedDesign = item.isLoadedDesign === true;
       
-      // First try to get from pricing array (actual product price)
-      if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
+      // For loaded designs, use item.price which already has location pricing applied
+      if (isLoadedDesign && item.price) {
+        basePrice = safeNum(item.price, 0);
+        console.log(`💰 Loaded design - using item.price with location pricing: ${basePrice}`);
+      }
+      // For new designs, try pricing array first (actual product price)
+      else if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
         basePrice = safeNum(item.pricing[0]?.price_per, 0);
         console.log(`💰 Using pricing array price: ${basePrice}`);
       }
-      
-      // Fallback to item.price if pricing array doesn't have a valid price
-      if (basePrice === 0) {
+      // Fallback to item.price
+      else if (item.price) {
         basePrice = safeNum(item.price, 0);
         console.log(`💰 Using item.price: ${basePrice}`);
       }
       
-      console.log(`💰 Item: ${item.products_name || item.name}, BasePrice(INR): ${basePrice}, Qty: ${qty}, Currency: ${currencySymbol}`);
+      console.log(`💰 Item: ${item.products_name || item.name}, Price: ${basePrice}, Qty: ${qty}, Currency: ${currencySymbol}, IsLoaded: ${isLoadedDesign}`);
       
-      // ✅ For INR (₹), don't apply any conversion - use base price directly
+      // ✅ For loaded designs, price is already converted - use as-is
+      // For new designs, apply location pricing if needed
       const isINR = currencySymbol === '₹' || !currencySymbol;
       const isCustomItem = item.id && String(item.id).startsWith('custom-tshirt-');
       let finalPrice = basePrice;
       
-      // Only apply conversion for non-INR currencies and non-custom items
-      if (!isCustomItem && !isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
+      // Only apply conversion for non-loaded designs and non-INR currencies
+      if (!isLoadedDesign && !isCustomItem && !isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
         finalPrice = applyLocationPricing(basePrice, priceIncrease, conversionRate);
         console.log(`💰 Applied location pricing: ${basePrice} INR → ${finalPrice} ${currencySymbol}`);
       }
@@ -729,24 +726,29 @@ const Cart = () => {
       }
       
       let itemCost = 0;
+      let chargePerUnit = 0;
       
       if (isBulkOrder) {
         // ✅ B2B Orders: Use printPerUnit from charge plan (per unit, not per side)
-        itemCost = qty * safeNum(printPerUnit, 0);
+        chargePerUnit = safeNum(printPerUnit, 0);
+        itemCost = qty * chargePerUnit;
         console.log(`🖨️ B2B Printing cost for ${item.products_name || item.name}:`, {
           qty,
           sides,
-          printPerUnit,
+          chargePerUnit,
           itemCost,
+          source: 'charge_plan'
         });
       } else {
-        // ✅ B2C Orders: Use printing charge per side from settings
-        itemCost = qty * sides * safeNum(printingPerSide, 0);
+        // ✅ B2C Orders: Use B2C printing charge per side from settings (NOT from charge plan)
+        chargePerUnit = safeNum(b2cPrintingChargePerSide, 0);
+        itemCost = qty * sides * chargePerUnit;
         console.log(`🖨️ B2C Printing cost for ${item.products_name || item.name}:`, {
           qty,
           sides,
-          printingPerSide,
+          chargePerUnit,
           itemCost,
+          source: 'b2c_settings'
         });
       }
       
@@ -757,9 +759,9 @@ const Cart = () => {
       
       return total + itemCost;
     }, 0);
-    console.log(`🖨️ Total printing cost: ${currencySymbol}${cost} (isINR: ${isINR})`);
+    console.log(`🖨️ Total printing cost: ${currencySymbol}${cost} (isINR: ${isINR}, isBulkOrder: ${actualData.some(item => item.isCorporate === true)})`);
     return cost;
-  }, [actualData, printPerUnit, printingPerSide, currencySymbol, priceIncrease, conversionRate]);
+  }, [actualData, printPerUnit, b2cPrintingChargePerSide, currencySymbol, priceIncrease, conversionRate]);
 
   const pfCost = useMemo(() => {
     // ✅ Apply P&F charges for both B2B and B2C orders
@@ -814,13 +816,29 @@ const Cart = () => {
     
     let gstRate = 0;
     let adjustedGst = 0;
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+    let taxType = 'NO_TAX';
     
     // ✅ Only apply tax for B2B orders
     if (isBulkOrder) {
       // Determine GST rate based on location (use billing address)
       const customerState = billingAddress?.state || '';
       const customerCountry = billingAddress?.country || '';
-      const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
+      
+      // Normalize state name
+      const normalizeState = (state) => {
+        if (!state) return '';
+        const s = state.toLowerCase().trim();
+        // Handle variations of Chhattisgarh
+        if (s.includes('chhattisgarh') || s.includes('chattisgarh') || s === 'cg' || s === 'c.g' || s === '(22)') {
+          return 'CHHATTISGARH';
+        }
+        return s.toUpperCase();
+      };
+      
+      const normalizedState = normalizeState(customerState);
       const countryLower = customerCountry.toLowerCase().trim();
       
       // Determine if India based on address country field
@@ -838,18 +856,32 @@ const Cart = () => {
         isIndia = !resolvedLocation || resolvedLocation === 'Asia';
       }
       
-      // ✅ B2B Tax Rates (Updated):
+      // ✅ B2B Tax Rates (CORRECTED):
       // - Outside India: 1% TAX
-      // - Chhattisgarh (same state): 5% CGST + SGST
-      // - Other Indian states: 5% IGST
+      // - Chhattisgarh (same state): 5% IGST only
+      // - Other Indian states: 2.5% CGST + 2.5% SGST = 5% total
       if (!isIndia) {
-        gstRate = 1; // TAX 1% for outside India
+        // Outside India: 1% TAX
+        gstRate = 1;
+        adjustedGst = (adjustedTaxable * 1) / 100;
+        taxType = 'INTERNATIONAL_TAX';
+        console.log("🌍 International order: 1% TAX applied");
+      } else if (normalizedState === 'CHHATTISGARH') {
+        // Same state (Chhattisgarh): 5% IGST only
+        igstAmount = (adjustedTaxable * 5) / 100;
+        adjustedGst = igstAmount;
+        gstRate = 5;
+        taxType = 'INTRASTATE_IGST';
+        console.log("🏠 Chhattisgarh order: 5% IGST applied");
       } else {
-        gstRate = 5; // 5% GST for all India (IGST or CGST+SGST)
+        // Different state in India: 2.5% CGST + 2.5% SGST = 5% total
+        cgstAmount = (adjustedTaxable * 2.5) / 100;
+        sgstAmount = (adjustedTaxable * 2.5) / 100;
+        adjustedGst = cgstAmount + sgstAmount;
+        gstRate = 5;
+        taxType = 'INTERSTATE_GST';
+        console.log("🚚 Interstate order: 2.5% CGST + 2.5% SGST applied");
       }
-      
-      // GST on adjusted taxable amount
-      adjustedGst = (adjustedTaxable * gstRate) / 100;
     }
     // ✅ B2C: No tax (gstRate = 0, adjustedGst = 0)
     
@@ -861,10 +893,14 @@ const Cart = () => {
       itemsSubtotal: safeNum(itemsSubtotal),
       printingCost: safeNum(printingCost),
       pfCost: safeNum(pfCost),
-      adjustedTaxable,
       isBulkOrder,
+      taxType,
+      cgstAmount,
+      sgstAmount,
+      igstAmount,
+      totalTax: adjustedGst,
+      adjustedTaxable,
       gstRate,
-      adjustedGst,
       totalBeforeRoundOff: total,
       totalAfterRoundOff: Math.ceil(total),
       currency: currencySymbol,
@@ -959,7 +995,6 @@ const Cart = () => {
                 // ✅ B2B Orders: Show GST breakdown (Updated rates)
                 const taxableAmount = itemsSubtotal + printingCost + pfCost;
                 const customerState = billingAddress?.state || '';
-                const isChhattisgarh = customerState.toLowerCase().includes('chhattisgarh') || customerState.toLowerCase().includes('chattisgarh');
                 
                 // Check if in India
                 const customerCountry = billingAddress?.country || '';
@@ -980,10 +1015,24 @@ const Cart = () => {
                   isIndia = !resolvedLocation || resolvedLocation === 'Asia';
                 }
                 
+                // Normalize state name for comparison
+                const normalizeState = (state) => {
+                  if (!state) return '';
+                  const s = state.toLowerCase().trim();
+                  if (s.includes('chhattisgarh') || s.includes('chattisgarh') || s === 'cg' || s === 'c.g' || s === '(22)') {
+                    return 'CHHATTISGARH';
+                  }
+                  return s.toUpperCase();
+                };
+                
+                const normalizedState = normalizeState(customerState);
+                const isChhattisgarh = normalizedState === 'CHHATTISGARH';
+                
                 console.log('🌍 Tax Calculation Debug (B2B):', {
                   billingAddress,
                   shippingAddress,
                   customerState,
+                  normalizedState,
                   isChhattisgarh,
                   customerCountry,
                   countryLower,
@@ -1004,7 +1053,16 @@ const Cart = () => {
                     </div>
                   );
                 } else if (isChhattisgarh) {
-                  // ✅ Same state (Chhattisgarh): CGST 2.5% + SGST 2.5% = 5%
+                  // ✅ Same state (Chhattisgarh): IGST 5% only
+                  const igstAmount = (taxableAmount * 5) / 100;
+                  return (
+                    <div className="flex justify-between">
+                      <span>IGST (5%)</span>
+                      <span>{formatCurrency(igstAmount)}</span>
+                    </div>
+                  );
+                } else {
+                  // ✅ Different state in India: CGST 2.5% + SGST 2.5% = 5%
                   const cgstAmount = (taxableAmount * 2.5) / 100;
                   const sgstAmount = (taxableAmount * 2.5) / 100;
                   return (
@@ -1018,15 +1076,6 @@ const Cart = () => {
                         <span>{formatCurrency(sgstAmount)}</span>
                       </div>
                     </>
-                  );
-                } else {
-                  // ✅ Different state in India: IGST 5%
-                  const igstAmount = (taxableAmount * 5) / 100;
-                  return (
-                    <div className="flex justify-between">
-                      <span>IGST (5%)</span>
-                      <span>{formatCurrency(igstAmount)}</span>
-                    </div>
                   );
                 }
               })()}

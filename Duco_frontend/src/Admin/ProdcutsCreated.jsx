@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api.js";
 import ImageKitUpload from "../Components/ImageKitUpload";
 
 const ProductsCreated = () => {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [subcategories, setSubcategories] = useState([]);
   const [printroveProducts, setPrintroveProducts] = useState([]);
@@ -171,6 +173,8 @@ const ProductsCreated = () => {
         formData
       );
       alert(res?.data?.message || "Product created successfully");
+      // ✅ Redirect to admin home with refresh flag
+      navigate("/admin", { state: { refreshProducts: true } });
     } catch (error) {
       console.error("Error creating product:", error);
       alert("Something went wrong while creating product");

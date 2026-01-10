@@ -1,24 +1,42 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import AdminCartItem from './Components/AdminCartItem';
 import tshirt from "../assets/gloomy-young-black-model-clean-white-unlabeled-cotton-t-shirt-removebg-preview.png";
 import axios from "axios";
+import { API_BASE_URL } from "../config/api.js";
 
 const Home = () => {
+  const location = useLocation();
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
 
+  // ✅ Fetch products function
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE_URL}/products/get`);
+      setProducts(res.data); // ✅ use res.data
+      console.log("✅ Products fetched:", res.data.length);
+    } catch (err) {
+      console.error("Failed to fetch products:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Fetch on mount and when refreshProducts flag is set
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await axios.get("https://duco-67o5.onrender.com/products/get");
-        setProducts(res.data); // ✅ use res.data
-      } catch (err) {
-        console.error("Failed to fetch products:", err);
-      }
-    };
-
-    fetchData();
+    fetchProducts();
   }, []);
+
+  // ✅ Refresh products if coming from product creation
+  useEffect(() => {
+    if (location.state?.refreshProducts) {
+      console.log("🔄 Refreshing products after creation...");
+      fetchProducts();
+    }
+  }, [location.state?.refreshProducts]);
 
   // Filter products based on search query
   const filteredProducts = products.filter((p) =>
@@ -28,7 +46,7 @@ const Home = () => {
   // Additional state or functions from previous updates can go here
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`https://duco-67o5.onrender.com/products/delete/${id}`);
+      await axios.delete(`${API_BASE_URL}/products/deleted/${id}`);
       setProducts((prev) => prev.filter((p) => p._id !== id));
       console.log("Deleted product:", id);
     } catch (err) {
@@ -57,8 +75,13 @@ const Home = () => {
           )}
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <p className="text-center text-gray-500 py-8">⏳ Loading products...</p>
+        )}
+
         {/* Products List */}
-        {filteredProducts.length > 0 ? (
+        {!loading && filteredProducts.length > 0 ? (
           filteredProducts.map((p, i) => (
             <AdminCartItem
               key={i}
@@ -75,9 +98,11 @@ const Home = () => {
             />
           ))
         ) : (
-          <p className="text-center text-gray-500 py-8">
-            {searchQuery ? `No products found matching "${searchQuery}"` : "No products available"}
-          </p>
+          !loading && (
+            <p className="text-center text-gray-500 py-8">
+              {searchQuery ? `No products found matching "${searchQuery}"` : "No products available"}
+            </p>
+          )
         )}
       </div>
     </>

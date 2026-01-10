@@ -58,13 +58,51 @@ const MoneySet = () => {
       currencyConvert,
     });
 
-    if (
-      !location ||
-      priceIncrease === "" ||
-      !currencyCountry ||
-      !currencyConvert
-    ) {
-      setMessage("Location, Price Increase, and Currency details are required");
+    // ✅ Validation
+    if (!location || location.trim() === "") {
+      setMessage("Location name is required");
+      return;
+    }
+
+    if (priceIncrease === "" || isNaN(priceIncrease) || priceIncrease < 0) {
+      setMessage("Price Increase must be a valid number >= 0");
+      return;
+    }
+
+    if (!currencyCountry || currencyCountry.trim() === "") {
+      setMessage("Currency code is required");
+      return;
+    }
+
+    if (!currencyConvert || isNaN(currencyConvert) || currencyConvert <= 0) {
+      setMessage("Conversion rate must be a valid number > 0");
+      return;
+    }
+
+    // ✅ Check for duplicate locations (if creating new entry)
+    if (!editingEntry) {
+      const isDuplicate = entries.some(entry => 
+        entry.location.toLowerCase() === location.toLowerCase()
+      );
+      if (isDuplicate) {
+        setMessage("A location with this name already exists. Use Edit to modify it.");
+        return;
+      }
+    }
+
+    // ✅ Check for duplicate aliases
+    const aliasArray = aliases
+      ? aliases.split(",").map((a) => a.trim().toLowerCase()).filter(a => a)
+      : [];
+    
+    const hasDuplicateAlias = entries.some(entry => {
+      if (editingEntry && entry.location === editingEntry.location) return false; // Skip self
+      const entryAliases = (entry.aliases || []).map(a => a.toLowerCase());
+      return aliasArray.some(alias => entryAliases.includes(alias));
+    });
+
+    if (hasDuplicateAlias) {
+      setMessage("One or more aliases already exist in other locations");
       return;
     }
 
@@ -76,9 +114,7 @@ const MoneySet = () => {
           country: currencyCountry,
           toconvert: Number(currencyConvert),
         },
-        aliases: aliases
-          ? aliases.split(",").map((a) => a.trim()) // ✅ send as array
-          : [],
+        aliases: aliasArray,
       });
       console.log("✅ API Response:", result);
 
@@ -125,6 +161,20 @@ const MoneySet = () => {
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-800 mb-2">💰 Location Price Manager</h2>
         <p className="text-gray-600">Manage pricing and currency conversion rates for different locations</p>
+      </div>
+
+      {/* ✅ Setup Guide */}
+      <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
+        <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+          <span>📍</span> How Location Detection Works
+        </h3>
+        <ul className="text-sm text-blue-800 space-y-1 ml-6">
+          <li>• <strong>Frontend</strong> detects user's location via IP geolocation (returns country name like "India", "United States")</li>
+          <li>• <strong>Location Name</strong> should match the detected country name exactly (e.g., "India", "United States", "Germany")</li>
+          <li>• <strong>Aliases</strong> are alternative names for the same location (e.g., "USA", "US" for "United States")</li>
+          <li>• <strong>Conversion Rate</strong> is how much 1 INR equals in that currency (e.g., 1 INR = 0.012 USD)</li>
+          <li>• <strong>Price Increase %</strong> is the markup applied to base prices for that location</li>
+        </ul>
       </div>
 
       {message && (

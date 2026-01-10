@@ -9,23 +9,44 @@ const getUpdatePricesByLocation = async (req, res) => {
             return res.status(400).json({ message: 'Location is missing' });
         }
 
-        // Search by location or aliases
-        const ref = await Price.findOne({
-            $or: [
-                { location: { $regex: new RegExp(`^${location}$`, 'i') } },
-                { aliases: { $in: [new RegExp(`^${location}$`, 'i')] } }
-            ]
+        console.log('🔍 Looking up location:', location);
+
+        // ✅ Step 1: Try exact match first (case-insensitive)
+        let ref = await Price.findOne({
+            location: { $regex: new RegExp(`^${location}$`, 'i') }
         });
 
+        if (ref) {
+            console.log('✅ Found exact match for location:', location);
+        } else {
+            // ✅ Step 2: Try alias match (case-insensitive)
+            console.log('⚠️ No exact match, trying aliases...');
+            ref = await Price.findOne({
+                aliases: { $in: [new RegExp(`^${location}$`, 'i')] }
+            });
+            
+            if (ref) {
+                console.log('✅ Found alias match for location:', location, '-> mapped to:', ref.location);
+            }
+        }
+
         if (!ref) {
+            console.warn('❌ Location not found:', location);
             return res.status(404).json({ 
                 success: false,
-                message: 'Location not found' 
+                message: 'Location not found',
+                requestedLocation: location
             });
         }
 
         const increased_percentage = ref?.price_increase;
         const currency_info = ref?.currency; // Retrieve the currency details
+
+        console.log('✅ Returning price data:', {
+            location: ref.location,
+            percentage: increased_percentage,
+            currency: currency_info
+        });
 
         return res.status(200).json({
             success: true,
@@ -36,7 +57,8 @@ const getUpdatePricesByLocation = async (req, res) => {
         console.error('Error calculating updated prices:', error);
         return res.status(500).json({ 
             success: false,
-            message: 'Server error' 
+            message: 'Server error',
+            error: error.message
         });
     }
 };

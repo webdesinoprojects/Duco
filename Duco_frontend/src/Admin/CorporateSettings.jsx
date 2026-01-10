@@ -176,6 +176,24 @@ const CorporateSettings = () => {
       }
     }
 
+    // ✅ Validate B2C charges
+    if (settings.b2cPrintingChargePerSide < 0) {
+      setMessage('❌ B2C printing charge must be non-negative');
+      return false;
+    }
+    if (settings.b2cPfChargePerUnit < 0) {
+      setMessage('❌ B2C P&F charge must be non-negative');
+      return false;
+    }
+    if (!Number.isFinite(settings.b2cPrintingChargePerSide)) {
+      setMessage('❌ B2C printing charge must be a valid number');
+      return false;
+    }
+    if (!Number.isFinite(settings.b2cPfChargePerUnit)) {
+      setMessage('❌ B2C P&F charge must be a valid number');
+      return false;
+    }
+
     return true;
   };
 
@@ -392,12 +410,14 @@ const CorporateSettings = () => {
                 Printing Charge Per Side (₹)
               </label>
               <input
-                type="text"
+                type="number"
+                min="0"
+                step="0.01"
                 value={settings.b2cPrintingChargePerSide === 0 ? '' : settings.b2cPrintingChargePerSide}
                 onChange={(e) => {
                   const value = e.target.value;
-                  if (value === '' || /^\d+$/.test(value)) {
-                    const numValue = value === '' ? 0 : Number(value);
+                  if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
+                    const numValue = value === '' ? 0 : Math.max(0, Number(value));
                     setSettings(prev => ({ 
                       ...prev, 
                       b2cPrintingChargePerSide: numValue
@@ -418,12 +438,14 @@ const CorporateSettings = () => {
                 P&F Charge Per Unit (₹)
               </label>
               <input
-                type="text"
+                type="number"
+                min="0"
+                step="0.01"
                 value={settings.b2cPfChargePerUnit === 0 ? '' : settings.b2cPfChargePerUnit}
                 onChange={(e) => {
                   const value = e.target.value;
-                  if (value === '' || /^\d+$/.test(value)) {
-                    const numValue = value === '' ? 0 : Number(value);
+                  if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
+                    const numValue = value === '' ? 0 : Math.max(0, Number(value));
                     setSettings(prev => ({ 
                       ...prev, 
                       b2cPfChargePerUnit: numValue

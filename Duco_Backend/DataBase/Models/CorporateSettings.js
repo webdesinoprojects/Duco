@@ -43,6 +43,19 @@ const CorporateSettingsSchema = new mongoose.Schema({
     min: 1,
     max: 365,
     description: 'Number of days for estimated delivery from order creation'
+  },
+  // ✅ B2C Charges (Retail Orders)
+  b2cPrintingChargePerSide: {
+    type: Number,
+    default: 15,
+    min: 0,
+    description: 'Printing charge per side for B2C orders (in INR)'
+  },
+  b2cPfChargePerUnit: {
+    type: Number,
+    default: 10,
+    min: 0,
+    description: 'Packaging & Forwarding charge per unit for B2C orders (in INR)'
   }
 }, {
   timestamps: true

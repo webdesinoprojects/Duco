@@ -27,10 +27,22 @@ export const getUpdatePricesByLocation = async (location) => {
       { location },
       { headers: { "Content-Type": "application/json" } }
     );
+    
+    // ✅ Return the response data (includes success flag)
     return res.data; // expected: { success, percentage, currency, ... }
   } catch (err) {
-    console.error("Error fetching location-based prices:", err);
-    return null;
+    console.error("❌ Error fetching location-based prices:", err.response?.data || err.message);
+    
+    // ✅ Return default pricing instead of null
+    return {
+      success: false,
+      percentage: 0,
+      currency: {
+        country: 'INR',
+        toconvert: 1
+      },
+      message: 'Location not found, using default pricing'
+    };
   }
 };
 
