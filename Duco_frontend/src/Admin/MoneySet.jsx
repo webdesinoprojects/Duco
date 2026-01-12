@@ -143,7 +143,126 @@ const MoneySet = () => {
     entry.currency?.country.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Common currency options
+  // ✅ Comprehensive list of all countries with their currencies
+  const countryOptions = [
+    { country: 'Afghanistan', code: 'AFN', name: 'Afghan Afghani', rate: 1.55 },
+    { country: 'Albania', code: 'ALL', name: 'Albanian Lek', rate: 1.28 },
+    { country: 'Algeria', code: 'DZD', name: 'Algerian Dinar', rate: 1.62 },
+    { country: 'Andorra', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Angola', code: 'AOA', name: 'Angolan Kwanza', rate: 8.5 },
+    { country: 'Antigua and Barbuda', code: 'XCD', name: 'East Caribbean Dollar', rate: 0.032 },
+    { country: 'Argentina', code: 'ARS', name: 'Argentine Peso', rate: 0.11 },
+    { country: 'Armenia', code: 'AMD', name: 'Armenian Dram', rate: 4.7 },
+    { country: 'Australia', code: 'AUD', name: 'Australian Dollar', rate: 0.018 },
+    { country: 'Austria', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Azerbaijan', code: 'AZN', name: 'Azerbaijani Manat', rate: 0.020 },
+    { country: 'Bahamas', code: 'BSD', name: 'Bahamian Dollar', rate: 0.012 },
+    { country: 'Bahrain', code: 'BHD', name: 'Bahraini Dinar', rate: 0.0045 },
+    { country: 'Bangladesh', code: 'BDT', name: 'Bangladeshi Taka', rate: 1.25 },
+    { country: 'Barbados', code: 'BBD', name: 'Barbadian Dollar', rate: 0.024 },
+    { country: 'Belarus', code: 'BYN', name: 'Belarusian Ruble', rate: 0.039 },
+    { country: 'Belgium', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Belize', code: 'BZD', name: 'Belize Dollar', rate: 0.024 },
+    { country: 'Benin', code: 'XOF', name: 'West African CFA Franc', rate: 7.2 },
+    { country: 'Bhutan', code: 'BTN', name: 'Bhutanese Ngultrum', rate: 1.0 },
+    { country: 'Bolivia', code: 'BOB', name: 'Bolivian Boliviano', rate: 0.084 },
+    { country: 'Bosnia and Herzegovina', code: 'BAM', name: 'Convertible Mark', rate: 0.022 },
+    { country: 'Botswana', code: 'BWP', name: 'Botswana Pula', rate: 0.16 },
+    { country: 'Brazil', code: 'BRL', name: 'Brazilian Real', rate: 0.063 },
+    { country: 'Brunei', code: 'BND', name: 'Brunei Dollar', rate: 0.016 },
+    { country: 'Bulgaria', code: 'BGN', name: 'Bulgarian Lev', rate: 0.022 },
+    { country: 'Burkina Faso', code: 'XOF', name: 'West African CFA Franc', rate: 7.2 },
+    { country: 'Burundi', code: 'BIF', name: 'Burundian Franc', rate: 24 },
+    { country: 'Cambodia', code: 'KHR', name: 'Cambodian Riel', rate: 49 },
+    { country: 'Cameroon', code: 'XAF', name: 'Central African CFA Franc', rate: 7.2 },
+    { country: 'Canada', code: 'CAD', name: 'Canadian Dollar', rate: 0.017 },
+    { country: 'Cape Verde', code: 'CVE', name: 'Cape Verdean Escudo', rate: 1.25 },
+    { country: 'Central African Republic', code: 'XAF', name: 'Central African CFA Franc', rate: 7.2 },
+    { country: 'Chad', code: 'XAF', name: 'Central African CFA Franc', rate: 7.2 },
+    { country: 'Chile', code: 'CLP', name: 'Chilean Peso', rate: 10.5 },
+    { country: 'China', code: 'CNY', name: 'Chinese Yuan', rate: 0.085 },
+    { country: 'Colombia', code: 'COP', name: 'Colombian Peso', rate: 48 },
+    { country: 'Comoros', code: 'KMF', name: 'Comorian Franc', rate: 5.6 },
+    { country: 'Costa Rica', code: 'CRC', name: 'Costa Rican Colón', rate: 6.3 },
+    { country: 'Croatia', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Cuba', code: 'CUP', name: 'Cuban Peso', rate: 0.012 },
+    { country: 'Cyprus', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Czech Republic', code: 'CZK', name: 'Czech Koruna', rate: 0.29 },
+    { country: 'Denmark', code: 'DKK', name: 'Danish Krone', rate: 0.082 },
+    { country: 'Djibouti', code: 'DJF', name: 'Djiboutian Franc', rate: 2.14 },
+    { country: 'Dominican Republic', code: 'DOP', name: 'Dominican Peso', rate: 0.67 },
+    { country: 'Ecuador', code: 'USD', name: 'US Dollar', rate: 0.012 },
+    { country: 'Egypt', code: 'EGP', name: 'Egyptian Pound', rate: 0.38 },
+    { country: 'El Salvador', code: 'USD', name: 'US Dollar', rate: 0.012 },
+    { country: 'Estonia', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Ethiopia', code: 'ETB', name: 'Ethiopian Birr', rate: 0.64 },
+    { country: 'Fiji', code: 'FJD', name: 'Fijian Dollar', rate: 0.027 },
+    { country: 'Finland', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'France', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Germany', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Ghana', code: 'GHS', name: 'Ghanaian Cedi', rate: 0.15 },
+    { country: 'Greece', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Guatemala', code: 'GTQ', name: 'Guatemalan Quetzal', rate: 0.093 },
+    { country: 'Haiti', code: 'HTG', name: 'Haitian Gourde', rate: 1.58 },
+    { country: 'Honduras', code: 'HNL', name: 'Honduran Lempira', rate: 0.30 },
+    { country: 'Hong Kong', code: 'HKD', name: 'Hong Kong Dollar', rate: 0.094 },
+    { country: 'Hungary', code: 'HUF', name: 'Hungarian Forint', rate: 4.2 },
+    { country: 'Iceland', code: 'ISK', name: 'Icelandic Króna', rate: 1.6 },
+    { country: 'India', code: 'INR', name: 'Indian Rupee', rate: 1 },
+    { country: 'Indonesia', code: 'IDR', name: 'Indonesian Rupiah', rate: 190 },
+    { country: 'Iran', code: 'IRR', name: 'Iranian Rial', rate: 504 },
+    { country: 'Iraq', code: 'IQD', name: 'Iraqi Dinar', rate: 15.6 },
+    { country: 'Ireland', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Israel', code: 'ILS', name: 'Israeli New Shekel', rate: 0.044 },
+    { country: 'Italy', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Jamaica', code: 'JMD', name: 'Jamaican Dollar', rate: 1.88 },
+    { country: 'Japan', code: 'JPY', name: 'Japanese Yen', rate: 1.8 },
+    { country: 'Jordan', code: 'JOD', name: 'Jordanian Dinar', rate: 0.0085 },
+    { country: 'Kazakhstan', code: 'KZT', name: 'Kazakhstani Tenge', rate: 5.3 },
+    { country: 'Kenya', code: 'KES', name: 'Kenyan Shilling', rate: 1.55 },
+    { country: 'Kuwait', code: 'KWD', name: 'Kuwaiti Dinar', rate: 0.0037 },
+    { country: 'Laos', code: 'LAK', name: 'Lao Kip', rate: 255 },
+    { country: 'Latvia', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Lebanon', code: 'LBP', name: 'Lebanese Pound', rate: 18 },
+    { country: 'Libya', code: 'LYD', name: 'Libyan Dinar', rate: 0.058 },
+    { country: 'Lithuania', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Malaysia', code: 'MYR', name: 'Malaysian Ringgit', rate: 0.055 },
+    { country: 'Maldives', code: 'MVR', name: 'Maldivian Rufiyaa', rate: 0.185 },
+    { country: 'Mexico', code: 'MXN', name: 'Mexican Peso', rate: 0.21 },
+    { country: 'Morocco', code: 'MAD', name: 'Moroccan Dirham', rate: 0.12 },
+    { country: 'Myanmar', code: 'MMK', name: 'Burmese Kyat', rate: 25 },
+    { country: 'Nepal', code: 'NPR', name: 'Nepalese Rupee', rate: 1.58 },
+    { country: 'Netherlands', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'New Zealand', code: 'NZD', name: 'New Zealand Dollar', rate: 0.020 },
+    { country: 'Nigeria', code: 'NGN', name: 'Nigerian Naira', rate: 19.5 },
+    { country: 'North Korea', code: 'KPW', name: 'North Korean Won', rate: 10.8 },
+    { country: 'Norway', code: 'NOK', name: 'Norwegian Krone', rate: 0.13 },
+    { country: 'Oman', code: 'OMR', name: 'Omani Rial', rate: 0.0046 },
+    { country: 'Pakistan', code: 'PKR', name: 'Pakistani Rupee', rate: 3.15 },
+    { country: 'Philippines', code: 'PHP', name: 'Philippine Peso', rate: 0.67 },
+    { country: 'Poland', code: 'PLN', name: 'Polish Złoty', rate: 0.048 },
+    { country: 'Portugal', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Qatar', code: 'QAR', name: 'Qatari Riyal', rate: 0.044 },
+    { country: 'Romania', code: 'RON', name: 'Romanian Leu', rate: 0.054 },
+    { country: 'Russia', code: 'RUB', name: 'Russian Ruble', rate: 1.2 },
+    { country: 'Saudi Arabia', code: 'SAR', name: 'Saudi Riyal', rate: 0.045 },
+    { country: 'Singapore', code: 'SGD', name: 'Singapore Dollar', rate: 0.016 },
+    { country: 'South Africa', code: 'ZAR', name: 'South African Rand', rate: 0.22 },
+    { country: 'South Korea', code: 'KRW', name: 'South Korean Won', rate: 16 },
+    { country: 'Spain', code: 'EUR', name: 'Euro', rate: 0.011 },
+    { country: 'Sri Lanka', code: 'LKR', name: 'Sri Lankan Rupee', rate: 3.8 },
+    { country: 'Sweden', code: 'SEK', name: 'Swedish Krona', rate: 0.13 },
+    { country: 'Switzerland', code: 'CHF', name: 'Swiss Franc', rate: 0.011 },
+    { country: 'Thailand', code: 'THB', name: 'Thai Baht', rate: 0.42 },
+    { country: 'Turkey', code: 'TRY', name: 'Turkish Lira', rate: 0.40 },
+    { country: 'UAE', code: 'AED', name: 'UAE Dirham', rate: 0.044 },
+    { country: 'United Kingdom', code: 'GBP', name: 'Pound Sterling', rate: 0.0095 },
+    { country: 'United States', code: 'USD', name: 'US Dollar', rate: 0.012 },
+    { country: 'Vietnam', code: 'VND', name: 'Vietnamese Đồng', rate: 305 },
+    { country: 'Zimbabwe', code: 'ZWL', name: 'Zimbabwean Dollar', rate: 3.8 },
+  ];
+
+  // Common currency options (kept for backward compatibility)
   const currencyOptions = [
     { code: 'INR', name: 'Indian Rupee', rate: 1 },
     { code: 'USD', name: 'US Dollar', rate: 0.012 },
@@ -251,25 +370,28 @@ const MoneySet = () => {
             {/* Currency */}
             <div>
               <label className="block mb-2 font-medium text-gray-700">
-                Currency Code <span className="text-red-500">*</span>
+                Country / Currency <span className="text-red-500">*</span>
               </label>
               <select
                 value={currencyCountry}
                 onChange={(e) => {
-                  setCurrencyCountry(e.target.value);
-                  const selected = currencyOptions.find(c => c.code === e.target.value);
-                  if (selected) setCurrencyConvert(selected.rate.toString());
+                  const selected = countryOptions.find(c => c.code === e.target.value);
+                  if (selected) {
+                    setCurrencyCountry(selected.code);
+                    setCurrencyConvert(selected.rate.toString());
+                  }
                 }}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
-                <option value="">Select Currency</option>
-                {currencyOptions.map(curr => (
-                  <option key={curr.code} value={curr.code}>
-                    {curr.code} - {curr.name}
+                <option value="">Select Country / Currency</option>
+                {countryOptions.map(option => (
+                  <option key={option.code + option.country} value={option.code}>
+                    {option.country} - {option.code} ({option.name})
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-gray-500 mt-1">Select a country to auto-fill currency code and conversion rate</p>
             </div>
 
             {/* Conversion Rate */}

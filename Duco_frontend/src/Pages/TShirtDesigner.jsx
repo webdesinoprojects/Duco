@@ -179,8 +179,10 @@ const TshirtDesigner = () => {
     }
 
     // Step 2: Apply currency conversion
+    // ✅ CRITICAL FIX: Divide by conversion rate, not multiply
+    // If 1 INR = 0.012 USD, then 100 INR = 100 / 0.012 = 8333 USD (not 100 * 0.012 = 1.2 USD)
     if (conversionRate && conversionRate !== 1) {
-      price *= conversionRate;
+      price = price / conversionRate;
     }
 
     return Math.round(price);

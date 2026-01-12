@@ -187,7 +187,9 @@ const ProductPage = () => {
     }
 
     let increased = basePrice + basePrice * (priceIncrease / 100);
-    let converted = increased * toConvert;
+    // ✅ CRITICAL FIX: Divide by conversion rate, not multiply
+    // If 1 INR = 0.012 USD, then 100 INR = 100 / 0.012 = 8333 USD (not 100 * 0.012 = 1.2 USD)
+    let converted = increased / toConvert;
     setPrice(Math.round(converted));
   }, [product, toConvert, priceIncrease]);
 

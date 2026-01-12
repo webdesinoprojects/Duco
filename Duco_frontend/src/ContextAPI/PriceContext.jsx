@@ -31,29 +31,33 @@ export const PriceProvider = ({ children }) => {
           ip: data.ip
         });
 
-        // Map country to continent/region for backend
-        const continentMapping = {
-          "IN": "Asia",
-          "US": "North America", 
-          "CA": "North America",
-          "GB": "Europe",
-          "DE": "Europe",
-          "FR": "Europe",
-          "NL": "Europe", // Netherlands (Amsterdam)
-          "ES": "Europe",
-          "IT": "Europe",
-          "AU": "Australia",
-          "NZ": "Australia",
-          "CN": "Asia",
-          "JP": "Asia",
-          "KR": "Asia",
-          "SG": "Asia",
-          "AE": "Asia", // UAE
-          "SA": "Asia", // Saudi Arabia
-        };
-
+        // ✅ FIXED: Use actual country names from database, not continent mappings
+        // Database has entries like "India", "United States", etc.
         const countryCode = data.country_code || data.country;
-        const mappedLocation = continentMapping[countryCode] || data.country_name || "Unknown";
+        const countryName = data.country_name || "Unknown";
+        
+        // Map country codes to database location names
+        const countryToLocationMap = {
+          "IN": "India",
+          "US": "United States",
+          "CA": "Canada",
+          "GB": "United Kingdom",
+          "DE": "Germany",
+          "FR": "France",
+          "NL": "Netherlands",
+          "ES": "Spain",
+          "IT": "Italy",
+          "AU": "Australia",
+          "NZ": "New Zealand",
+          "CN": "China",
+          "JP": "Japan",
+          "KR": "South Korea",
+          "SG": "Singapore",
+          "AE": "UAE",
+          "SA": "Saudi Arabia",
+        };
+        
+        const mappedLocation = countryToLocationMap[countryCode] || countryName || "Unknown";
         
         console.log("🗺️ Mapped location:", {
           countryCode,

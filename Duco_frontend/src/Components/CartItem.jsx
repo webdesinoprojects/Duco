@@ -15,12 +15,14 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   // ✅ Check if image is blank/empty by checking if it's a data URL with minimal content
   const isBlankImage = (src) => {
     if (!src) return true;
+    if (typeof src !== 'string') return true;
     // Check if it's a data URL that's too small (likely blank)
     if (src.startsWith('data:image')) {
       // A blank white image is typically very small (< 1KB)
       // A real design image should be at least 5KB
       // But some compressed images might be smaller, so be more lenient
-      return src.length < 2000; // Changed from 5000 to 2000 to be more lenient
+      // Increased threshold from 2000 to 5000 to catch more blank images
+      return src.length < 5000;
     }
     return false;
   };
@@ -43,7 +45,11 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
     });
 
     // Try preview images first (from custom T-shirt designer)
-    if (item.previewImages?.front && !isBlankImage(item.previewImages.front)) {
+    // ✅ CRITICAL: Check if front image is valid (not "MISSING" string, not blank)
+    if (item.previewImages?.front && 
+        typeof item.previewImages.front === 'string' && 
+        item.previewImages.front !== 'MISSING' && 
+        !isBlankImage(item.previewImages.front)) {
       imageToDisplay = item.previewImages.front;
       console.log('✅ Using preview image (front)');
     }

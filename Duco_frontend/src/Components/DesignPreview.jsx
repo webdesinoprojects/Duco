@@ -13,11 +13,12 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
    return Object.values(size || {}).reduce((sum, q) => sum + Number(q || 0), 0);
  };
 
-  // ✅ Helper to check if image is blank (data URL < 2KB)
+  // ✅ Helper to check if image is blank (data URL < 5KB)
   const isBlankImage = (src) => {
     if (!src) return true;
     if (typeof src !== 'string') return true;
-    if (src.startsWith('data:') && src.length < 2000) return true; // Changed from 5000 to 2000
+    // Increased threshold from 2000 to 5000 to catch more blank images
+    if (src.startsWith('data:') && src.length < 5000) return true;
     return false;
   };
 
@@ -38,7 +39,8 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
       
       views.forEach(view => {
         const img = selectedDesign.previewImages[view];
-        if (img && !isBlankImage(img)) {
+        // ✅ CRITICAL: Check if image is valid (not empty, not "MISSING" string, not blank data URL)
+        if (img && typeof img === 'string' && img !== 'MISSING' && !isBlankImage(img)) {
           images.push({
             url: img,
             view: view.charAt(0).toUpperCase() + view.slice(1),
@@ -64,7 +66,8 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
         
         views.forEach(view => {
           const img = firstItem.previewImages[view];
-          if (img && !isBlankImage(img)) {
+          // ✅ CRITICAL: Check if image is valid
+          if (img && typeof img === 'string' && img !== 'MISSING' && !isBlankImage(img)) {
             images.push({
               url: img,
               view: view.charAt(0).toUpperCase() + view.slice(1),
@@ -260,6 +263,9 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
            const productName = selectedDesign.cutomerprodcuts || selectedDesign.products_name || 'Custom T-Shirt';
            
            // ✅ Create cart item with all necessary data
+           // ✅ CRITICAL: Ensure quantity is an object with size keys
+           const quantityObj = typeof size === 'object' && size !== null ? size : { 'One Size': 1 };
+           
            const cartItem = {
              id: `loaded-design-${selectedDesign._id}-${Date.now()}`, // Unique ID for loaded design
              productId: productId,
@@ -270,7 +276,7 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
              additionalFilesMeta: additionalFiles, // ✅ Include files metadata
              color: color,
              colortext: colortext,
-             quantity: size,
+             quantity: quantityObj, // ✅ FIXED: Ensure this is an object with size keys
              price: price, // ✅ This should already have location pricing applied
              gender: selectedDesign.gender || 'Unisex',
              isBulkProduct: true,
@@ -309,6 +315,8 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
              pricing: selectedDesign.pricing || [],
              // ✅ Include product images as fallback
              image_url: selectedDesign.image_url || [],
+             // ✅ CRITICAL: Include price (was missing!)
+             price: price || 0,
              // ✅ Mark as loaded design for tracking
              isLoadedDesign: true,
              originalDesignId: selectedDesign._id,
@@ -317,6 +325,7 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
            console.log('🧾 Complete cart item with all fields:', {
              id: completeCartItem.id,
              name: completeCartItem.products_name,
+             price: completeCartItem.price,
              hasPreviewImages: !!completeCartItem.previewImages,
              hasAdditionalFiles: completeCartItem.additionalFilesMeta?.length > 0,
              hasDesign: !!completeCartItem.design,
