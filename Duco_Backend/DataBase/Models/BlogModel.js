@@ -36,7 +36,8 @@ const BlogSchema = new Schema(
       },
       avatar: {
         type: String,
-        default: '/icons/default-avatar.png',
+        // ✅ Use DUCO logo from assets - this will be served from frontend public folder
+        default: 'https://ik.imagekit.io/vuavxn05l/duco-logo.png?updatedAt=1757162698605',
       },
     },
     category: {

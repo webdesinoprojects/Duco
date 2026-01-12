@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import OrderDetailsCard from "../Admin/Components/OrderDetailsCard";
-import JsBarcode from 'jsbarcode';
+import { InvoiceTemplate } from "../Components/InvoiceTemplate";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const statusClass = (s = "") => {
   switch (s) {
@@ -226,10 +228,10 @@ const generateInvoiceHTML = (invoice, totals) => {
                 </tr>
               ` : ''}
               
-              ${tax.type === 'INTRASTATE' && tax.cgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : CGST (${tax.cgstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td></tr>` : ''}
-              ${tax.type === 'INTRASTATE' && tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST (${tax.sgstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td></tr>` : ''}
-              ${tax.type === 'INTRASTATE_IGST' && tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST (${tax.igstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td></tr>` : ''}
-              ${tax.type === 'INTERNATIONAL' && tax.taxRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : TAX (${tax.taxRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.taxAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.taxAmount || 0).toFixed(2)}</td></tr>` : ''}
+              ${(tax.type === 'INTRASTATE_CGST_SGST' || tax.type === 'HOME_STATE_GST') && tax.cgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : CGST (${tax.cgstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td></tr>` : ''}
+              ${(tax.type === 'INTRASTATE_CGST_SGST' || tax.type === 'HOME_STATE_GST') && tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST (${tax.sgstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td></tr>` : ''}
+              ${(tax.type === 'INTERSTATE' || tax.type === 'OUTSIDE_STATE_IGST') && tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST (${tax.igstRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td></tr>` : ''}
+              ${(tax.type === 'INTERNATIONAL' || tax.type === 'INTERNATIONAL_TAX') && tax.taxRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : TAX (${tax.taxRate}%)</td><td style="padding: 4px; text-align: center; border: none;">${(tax.taxAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.taxAmount || 0).toFixed(2)}</td></tr>` : ''}
               
               ${Math.abs(Math.ceil(total) - total) > 0.01 && paymentmode !== '50%' ? `<tr><td style="padding: 4px; border: none;">Round Off</td><td style="padding: 4px; text-align: center; border: none;">+${(Math.ceil(total) - total).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td></tr>` : ''}
               
@@ -266,10 +268,9 @@ const generateInvoiceHTML = (invoice, totals) => {
           <tr style="background-color: #f5f5f5;">
             <th style="border: 1px solid #000; padding: 4px;">Tax Rate</th>
             <th style="border: 1px solid #000; padding: 4px;">Total Tax</th>
-            ${tax.type === 'INTRASTATE_IGST' ? `<th style="border: 1px solid #000; padding: 4px;">IGST Amt.</th>` : ''}
-            ${tax.type === 'INTRASTATE' ? `<th style="border: 1px solid #000; padding: 4px;">CGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">SGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">IGST Amt.</th>` : ''}
-            ${tax.type === 'INTERSTATE' ? `<th style="border: 1px solid #000; padding: 4px;">CGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">SGST Amt.</th>` : ''}
-            ${tax.type === 'INTERNATIONAL' ? `<th style="border: 1px solid #000; padding: 4px;">TAX Amt.</th>` : ''}
+            ${(tax.type === 'INTERSTATE' || tax.type === 'OUTSIDE_STATE_IGST') ? `<th style="border: 1px solid #000; padding: 4px;">IGST Amt.</th>` : ''}
+            ${(tax.type === 'INTRASTATE_CGST_SGST' || tax.type === 'HOME_STATE_GST') ? `<th style="border: 1px solid #000; padding: 4px;">CGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">SGST Amt.</th>` : ''}
+            ${(tax.type === 'INTERNATIONAL' || tax.type === 'INTERNATIONAL_TAX') ? `<th style="border: 1px solid #000; padding: 4px;">TAX Amt.</th>` : ''}
             ${!tax.type ? `<th style="border: 1px solid #000; padding: 4px;">CGST Amt.</th><th style="border: 1px solid #000; padding: 4px;">SGST Amt.</th>` : ''}
             <th style="border: 1px solid #000; padding: 4px;">Amount (Incl. Tax)</th>
           </tr>
@@ -277,19 +278,17 @@ const generateInvoiceHTML = (invoice, totals) => {
         <tbody>
           <tr>
             <td style="border: 1px solid #000; padding: 4px; text-align: center;">
-              ${tax.type === 'INTRASTATE_IGST' ? `${tax.igstRate || 5}%` : ''}
-              ${tax.type === 'INTRASTATE' ? `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%` : ''}
-              ${tax.type === 'INTERSTATE' ? `${(tax.cgstRate || 0) + (tax.sgstRate || 0)}%` : ''}
-              ${tax.type === 'INTERNATIONAL' ? `${tax.taxRate || 1}%` : ''}
+              ${(tax.type === 'INTERSTATE' || tax.type === 'OUTSIDE_STATE_IGST') ? `${tax.igstRate || 5}%` : ''}
+              ${(tax.type === 'INTRASTATE_CGST_SGST' || tax.type === 'HOME_STATE_GST') ? `${(tax.cgstRate || 0) + (tax.sgstRate || 0)}%` : ''}
+              ${(tax.type === 'INTERNATIONAL' || tax.type === 'INTERNATIONAL_TAX') ? `${tax.taxRate || 1}%` : ''}
               ${!tax.type ? `${(tax.cgstRate || 0) + (tax.sgstRate || 0) + (tax.igstRate || 0)}%` : ''}
             </td>
             <td style="border: 1px solid #000; padding: 4px; text-align: right;">
               ${((tax.cgstAmount || 0) + (tax.sgstAmount || 0) + (tax.igstAmount || 0) + (tax.taxAmount || 0)).toFixed(2)}
             </td>
-            ${tax.type === 'INTRASTATE_IGST' ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.igstAmount || 0).toFixed(2)}</td>` : ''}
-            ${tax.type === 'INTRASTATE' ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.cgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.sgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.igstAmount || 0).toFixed(2)}</td>` : ''}
-            ${tax.type === 'INTERSTATE' ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.cgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.sgstAmount || 0).toFixed(2)}</td>` : ''}
-            ${tax.type === 'INTERNATIONAL' ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.taxAmount || 0).toFixed(2)}</td>` : ''}
+            ${(tax.type === 'INTERSTATE' || tax.type === 'OUTSIDE_STATE_IGST') ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.igstAmount || 0).toFixed(2)}</td>` : ''}
+            ${(tax.type === 'INTRASTATE_CGST_SGST' || tax.type === 'HOME_STATE_GST') ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.cgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.sgstAmount || 0).toFixed(2)}</td>` : ''}
+            ${(tax.type === 'INTERNATIONAL' || tax.type === 'INTERNATIONAL_TAX') ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.taxAmount || 0).toFixed(2)}</td>` : ''}
             ${!tax.type ? `<td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.cgstAmount || 0).toFixed(2)}</td><td style="border: 1px solid #000; padding: 4px; text-align: right;">${Number(tax.sgstAmount || 0).toFixed(2)}</td>` : ''}
             <td style="border: 1px solid #000; padding: 4px; text-align: right;">${total.toFixed(2)}</td>
           </tr>
@@ -324,11 +323,19 @@ const OderSection = () => {
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [toast, setToast] = useState(null);
+  const [invoiceData, setInvoiceData] = useState(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const invoiceRef = useRef();
 
-  const fetchOrders = async () => {
+  const itemsPerPage = 10;
+
+  const fetchOrders = async (page = 1) => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
-      const res = await fetch(`${API_BASE}/api/order?page=1&limit=50&orderType=B2B`);
+      const res = await fetch(`${API_BASE}/api/order?page=${page}&limit=${itemsPerPage}&orderType=B2B`);
       
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -338,14 +345,23 @@ const OderSection = () => {
 
       if (Array.isArray(data)) {
         setOrders(data);
+        setTotalOrders(data.length);
+        setTotalPages(Math.ceil(data.length / itemsPerPage));
       } else if (Array.isArray(data.orders)) {
         setOrders(data.orders);
+        setTotalOrders(data.total || data.orders.length);
+        setTotalPages(Math.ceil((data.total || data.orders.length) / itemsPerPage));
       } else {
         setOrders([]);
+        setTotalOrders(0);
+        setTotalPages(1);
       }
+      setCurrentPage(page);
     } catch (err) {
       console.error("❌ Failed to fetch B2B orders", err);
       setOrders([]);
+      setTotalOrders(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -387,19 +403,75 @@ const OderSection = () => {
 
       const { invoice, totals } = await response.json();
       
-      const invoiceWindow = window.open('', '_blank');
-      if (!invoiceWindow) {
-        setToast({ type: "error", msg: "Please allow popups to view invoice" });
-        return;
-      }
+      // ✅ Normalize invoice data like OrderSuccess does
+      const items = invoice.items?.map((it, i) => ({
+        ...it,
+        sno: i + 1,
+        printSides: it.printSides || it.sides || 0,
+      })) || [];
 
-      const invoiceHTML = generateInvoiceHTML(invoice, totals);
-      invoiceWindow.document.write(invoiceHTML);
-      invoiceWindow.document.close();
+      const subtotal = items.reduce(
+        (sum, item) => sum + Number(item.qty || 0) * Number(item.price || 0),
+        0
+      );
 
-      setToast({ type: "success", msg: "Invoice opened in new window" });
+      const pf = Number(invoice.charges?.pf ?? invoice.pfCharges ?? 0);
+      const printing = Number(invoice.charges?.printing ?? invoice.printingCharges ?? 0);
+      
+      const currency = invoice.currency || 'INR';
+      const currencySymbol = currencySymbols[currency] || '₹';
+      const paymentmode = invoice.paymentmode || 'online';
+      const amountPaid = invoice.amountPaid || 0;
+      const displayTotal = paymentmode === '50%' && amountPaid > 0 ? amountPaid : totals?.grandTotal || 0;
+
+      const formatted = {
+        company: invoice.company || {},
+        invoice: invoice.invoice || {},
+        billTo: invoice.billTo || {},
+        shipTo: invoice.shipTo || {},
+        items: items,
+        charges: { pf, printing },
+        tax: invoice.tax || {},
+        subtotal: subtotal,
+        total: displayTotal,
+        terms: invoice.terms || [],
+        forCompany: invoice.forCompany || invoice.company?.name || '',
+        currency: currency,
+        currencySymbol: currencySymbol,
+        paymentmode: paymentmode,
+        amountPaid: amountPaid,
+        additionalFilesMeta: invoice.additionalFilesMeta || [],
+        // ✅ Add payment currency and location info
+        conversionRate: invoice.conversionRate || 1,
+        paymentCurrency: invoice.paymentCurrency || currency,
+        customerCountry: invoice.customerCountry || 'India',
+        customerCity: invoice.customerCity || '',
+        customerState: invoice.customerState || '',
+      };
+
+      setInvoiceData(formatted);
+      setShowInvoiceModal(true);
+      setToast({ type: "success", msg: "Invoice loaded" });
     } catch (error) {
       setToast({ type: "error", msg: `Failed to fetch invoice: ${error.message}` });
+    }
+  };
+
+  const downloadInvoicePDF = async () => {
+    const input = invoiceRef.current;
+    if (!input) return;
+    
+    try {
+      const canvas = await html2canvas(input, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`invoice-${invoiceData?.invoice?.number || 'document'}.pdf`);
+      setToast({ type: "success", msg: "Invoice downloaded successfully" });
+    } catch (error) {
+      setToast({ type: "error", msg: "Failed to download invoice" });
     }
   };
 
@@ -632,6 +704,64 @@ const OderSection = () => {
         </div>
       )}
 
+      {/* ✅ PAGINATION CONTROLS */}
+      {orders.length > 0 && totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Showing page <span className="font-semibold">{currentPage}</span> of <span className="font-semibold">{totalPages}</span> ({totalOrders} total orders)
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                if (currentPage > 1) {
+                  setLoading(true);
+                  fetchOrders(currentPage - 1);
+                  setLoading(false);
+                }
+              }}
+              disabled={currentPage === 1 || loading}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              ← Previous
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => {
+                    setLoading(true);
+                    fetchOrders(page);
+                    setLoading(false);
+                  }}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentPage === page
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            
+            <button
+              onClick={() => {
+                if (currentPage < totalPages) {
+                  setLoading(true);
+                  fetchOrders(currentPage + 1);
+                  setLoading(false);
+                }
+              }}
+              disabled={currentPage === totalPages || loading}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
       {selectedOrderId && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div
@@ -650,6 +780,38 @@ const OderSection = () => {
             </div>
             <div className="p-4">
               <OrderDetailsCard orderId={selectedOrderId} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ INVOICE MODAL */}
+      {showInvoiceModal && invoiceData && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowInvoiceModal(false)}
+          />
+          <div className="relative w-full sm:max-w-4xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
+              <h3 className="font-semibold text-lg">Invoice #{invoiceData?.invoice?.number}</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={downloadInvoicePDF}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                >
+                  📥 Download PDF
+                </button>
+                <button
+                  className="text-sm px-3 py-2 rounded hover:bg-gray-100"
+                  onClick={() => setShowInvoiceModal(false)}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+            <div ref={invoiceRef} className="p-6 overflow-auto">
+              <InvoiceTemplate data={invoiceData} />
             </div>
           </div>
         </div>

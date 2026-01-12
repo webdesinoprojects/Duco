@@ -52,10 +52,17 @@ export default function OrderSuccess() {
   // ✅ Get currency symbol
   const currencySymbol = currencySymbols[currency] || "₹";
   const isInternational = currency && currency !== 'INR';
+  
+  // ✅ Get payment currency and location from state or stored meta
+  const paymentCurrency = location.state?.paymentCurrency || storedMeta?.paymentCurrency || currency || 'INR';
+  const customerCountry = location.state?.customerCountry || storedMeta?.customerCountry || 'India';
+  const customerCity = location.state?.customerCity || storedMeta?.customerCity || '';
+  const customerState = location.state?.customerState || storedMeta?.customerState || '';
 
   console.log("💳 Payment Mode:", paymentMethod);
   console.log("🏢 Order Type:", isB2B ? "B2B" : "B2C");
   console.log("💱 Currency:", currency, "Symbol:", currencySymbol, "International:", isInternational);
+  console.log("🌍 Payment Location:", { paymentCurrency, customerCountry, customerCity, customerState });
 
   /* ✅ FIXED INVOICE LOGIC: accurate charges + gst like cart + side printing info */
   useEffect(() => {
@@ -150,9 +157,13 @@ export default function OrderSuccess() {
           locationTax,
           currency: currency || 'INR', // ✅ Add currency
           currencySymbol: currencySymbol, // ✅ Add currency symbol
-          conversionRate: toConvert || 1, // ✅ Add conversion rate
+          conversionRate: inv.conversionRate || toConvert || 1, // ✅ Use conversion rate from invoice
           paymentmode: inv.paymentmode || paymentMeta.mode || 'online', // ✅ Add payment mode
           amountPaid: inv.amountPaid || 0, // ✅ Add amount paid (for 50% payments)
+          paymentCurrency: inv.paymentCurrency || paymentCurrency, // ✅ Use payment currency from invoice
+          customerCountry: inv.customerCountry || customerCountry, // ✅ Use customer country from invoice
+          customerCity: inv.customerCity || customerCity, // ✅ Use customer city from invoice
+          customerState: inv.customerState || customerState, // ✅ Use customer state from invoice
         };
 
         console.log("🧾 Normalized Invoice for Success Page:", formatted);
@@ -245,8 +256,16 @@ export default function OrderSuccess() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Currency:</span>
-                <span className="font-semibold text-gray-800">{currency}</span>
+                <span className="font-semibold text-gray-800">{paymentCurrency}</span>
               </div>
+              {customerCountry && customerCountry !== 'India' && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Payment From:</span>
+                  <span className="font-semibold text-gray-800">
+                    {customerCity && customerState ? `${customerCity}, ${customerState}, ${customerCountry}` : customerCountry}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

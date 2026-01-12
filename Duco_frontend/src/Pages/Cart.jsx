@@ -58,10 +58,12 @@ const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
   }
   
   // Step 2: Apply currency conversion
-  // ✅ CRITICAL FIX: Divide by conversion rate, not multiply
-  // If 1 INR = 0.012 USD, then 100 INR = 100 / 0.012 = 8333 USD (not 100 * 0.012 = 1.2 USD)
+  // ✅ CRITICAL FIX: Multiply by conversion rate, NOT divide
+  // Conversion rate represents: 1 INR = X target_currency
+  // Example: 1 INR = 0.011 EUR, so 500 INR = 500 * 0.011 = 5.5 EUR ✅
+  // NOT: 500 / 0.011 = 45,454 EUR ❌ WRONG
   if (conversionRate && conversionRate !== 1) {
-    price = price / conversionRate;
+    price = price * conversionRate;
   }
   
   // ✅ Don't round here - keep precision for calculations
@@ -220,34 +222,108 @@ const InvoiceDucoTailwind = ({ data }) => {
             
             {/* ✅ REMOVED: Location adjustment is already applied to item prices, don't show as separate line */}
 
-            {/* ✅ GST Breakdown */}
+            {/* ✅ GST Breakdown - Show correct tax based on order type */}
             {(() => {
               const gstRate = data.gstPercent || 5;
               const taxableAmount = data.subtotal + (data.printingCost || 0) + (data.pfCost || 0);
               const totalGstAmount = (taxableAmount * gstRate) / 100;
               const cgstAmount = totalGstAmount / 2;
               const sgstAmount = totalGstAmount / 2;
+              const igstAmount = totalGstAmount;
+              const taxAmount = totalGstAmount;
+              
+              // ✅ Check tax type from data
+              const taxType = data.taxType || 'INTRASTATE_CGST_SGST';
+              
+              console.log('🧾 Invoice Tax Display Debug:', {
+                taxType,
+                gstRate,
+                taxableAmount,
+                totalGstAmount,
+                cgstAmount,
+                sgstAmount,
+                igstAmount,
+                taxAmount,
+                dataKeys: Object.keys(data),
+              });
               
               return (
                 <>
-                  <tr>
-                    <td style={{ padding: "6px" }}>Add: CGST</td>
-                    <td style={{ textAlign: "center", padding: "6px" }}>
-                      {data.formatCurrency(cgstAmount)}
-                    </td>
-                    <td style={{ textAlign: "right", padding: "6px" }}>
-                      {data.formatCurrency(taxableAmount + cgstAmount)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: "6px" }}>Add: SGST</td>
-                    <td style={{ textAlign: "center", padding: "6px" }}>
-                      {data.formatCurrency(sgstAmount)}
-                    </td>
-                    <td style={{ textAlign: "right", padding: "6px" }}>
-                      {data.formatCurrency(taxableAmount + cgstAmount + sgstAmount)}
-                    </td>
-                  </tr>
+                  {/* INTERSTATE: Show CGST + SGST (Other Indian states) */}
+                  {taxType === 'INTERSTATE' && (
+                    <>
+                      <tr>
+                        <td style={{ padding: "6px" }}>Add: CGST (2.5%)</td>
+                        <td style={{ textAlign: "center", padding: "6px" }}>
+                          {data.formatCurrency(cgstAmount)}
+                        </td>
+                        <td style={{ textAlign: "right", padding: "6px" }}>
+                          {data.formatCurrency(taxableAmount + cgstAmount)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: "6px" }}>Add: SGST (2.5%)</td>
+                        <td style={{ textAlign: "center", padding: "6px" }}>
+                          {data.formatCurrency(sgstAmount)}
+                        </td>
+                        <td style={{ textAlign: "right", padding: "6px" }}>
+                          {data.formatCurrency(taxableAmount + cgstAmount + sgstAmount)}
+                        </td>
+                      </tr>
+                    </>
+                  )}
+                  
+                  {/* INTRASTATE_IGST: Show IGST only (Chhattisgarh) */}
+                  {taxType === 'INTRASTATE_IGST' && (
+                    <tr>
+                      <td style={{ padding: "6px" }}>Add: IGST (5%)</td>
+                      <td style={{ textAlign: "center", padding: "6px" }}>
+                        {data.formatCurrency(igstAmount)}
+                      </td>
+                      <td style={{ textAlign: "right", padding: "6px" }}>
+                        {data.formatCurrency(taxableAmount + igstAmount)}
+                      </td>
+                    </tr>
+                  )}
+                  
+                  {/* INTERNATIONAL: Show TAX only (Outside India) */}
+                  {taxType === 'INTERNATIONAL' && (
+                    <tr>
+                      <td style={{ padding: "6px" }}>Add: TAX (1%)</td>
+                      <td style={{ textAlign: "center", padding: "6px" }}>
+                        {data.formatCurrency(taxAmount)}
+                      </td>
+                      <td style={{ textAlign: "right", padding: "6px" }}>
+                        {data.formatCurrency(taxableAmount + taxAmount)}
+                      </td>
+                    </tr>
+                  )}
+                  
+                  {/* B2C_NO_TAX: Show no tax (B2C orders) */}
+                  {taxType === 'B2C_NO_TAX' && (
+                    <tr>
+                      <td style={{ padding: "6px" }}>Tax</td>
+                      <td style={{ textAlign: "center", padding: "6px" }}>
+                        {data.formatCurrency(0)}
+                      </td>
+                      <td style={{ textAlign: "right", padding: "6px" }}>
+                        {data.formatCurrency(taxableAmount)}
+                      </td>
+                    </tr>
+                  )}
+                  
+                  {/* Fallback: If no tax type matches, show nothing (for B2C) */}
+                  {!['INTERSTATE', 'INTRASTATE_IGST', 'INTERNATIONAL', 'B2C_NO_TAX'].includes(taxType) && (
+                    <tr>
+                      <td style={{ padding: "6px" }}>Tax</td>
+                      <td style={{ textAlign: "center", padding: "6px" }}>
+                        {data.formatCurrency(0)}
+                      </td>
+                      <td style={{ textAlign: "right", padding: "6px" }}>
+                        {data.formatCurrency(taxableAmount)}
+                      </td>
+                    </tr>
+                  )}
                 </>
               );
             })()}
@@ -795,6 +871,76 @@ const Cart = () => {
     return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
   }, [itemsSubtotal, printingCost, pfCost]);
 
+  // ✅ Calculate tax information (type, amounts, rates)
+  const taxInfo = useMemo(() => {
+    const adjustedTaxable = safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
+    const isBulkOrder = actualData.some(item => item.isCorporate === true);
+    
+    let gstRate = 0;
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+    let taxAmount = 0;
+    let taxType = 'NO_TAX';
+    
+    // ✅ Only apply tax for B2B orders
+    if (isBulkOrder) {
+      const customerState = billingAddress?.state || '';
+      const customerCountry = billingAddress?.country || '';
+      
+      const normalizeState = (state) => {
+        if (!state) return '';
+        const s = state.toLowerCase().trim();
+        if (s.includes('chhattisgarh') || s.includes('chattisgarh') || s === 'cg' || s === 'c.g' || s === '(22)') {
+          return 'CHHATTISGARH';
+        }
+        return s.toUpperCase();
+      };
+      
+      const normalizedState = normalizeState(customerState);
+      const countryLower = customerCountry.toLowerCase().trim();
+      
+      let isIndia = false;
+      if (customerCountry) {
+        isIndia = countryLower === 'india' || 
+                 countryLower === 'bharat' || 
+                 countryLower === 'in' ||
+                 countryLower.includes('india') || 
+                 countryLower.includes('bharat');
+      } else {
+        isIndia = true;
+      }
+      
+      if (!isIndia) {
+        // Outside India: 1% TAX
+        gstRate = 1;
+        taxAmount = (adjustedTaxable * 1) / 100;
+        taxType = 'INTERNATIONAL';
+      } else if (normalizedState === 'CHHATTISGARH') {
+        // Home state (Chhattisgarh): 2.5% CGST + 2.5% SGST = 5% total
+        gstRate = 5;
+        cgstAmount = (adjustedTaxable * 2.5) / 100;
+        sgstAmount = (adjustedTaxable * 2.5) / 100;
+        taxType = 'INTRASTATE_CGST_SGST';
+      } else {
+        // Other Indian states: 5% IGST only
+        gstRate = 5;
+        igstAmount = (adjustedTaxable * 5) / 100;
+        taxType = 'INTERSTATE';
+      }
+    }
+    
+    return {
+      taxType,
+      gstRate,
+      cgstAmount,
+      sgstAmount,
+      igstAmount,
+      taxAmount,
+      totalTax: cgstAmount + sgstAmount + igstAmount + taxAmount,
+    };
+  }, [itemsSubtotal, printingCost, pfCost, billingAddress, actualData]);
+
   const gstTotal = useMemo(() => {
     return (safeNum(taxableAmount) * safeNum(gstPercent)) / 100;
   }, [taxableAmount, gstPercent]);
@@ -842,6 +988,7 @@ const Cart = () => {
       const countryLower = customerCountry.toLowerCase().trim();
       
       // Determine if India based on address country field
+      // ✅ CRITICAL: Check country field FIRST, don't fall back to resolvedLocation
       let isIndia = false;
       if (customerCountry) {
         // If country is explicitly set, use it
@@ -850,37 +997,38 @@ const Cart = () => {
                  countryLower === 'in' ||
                  countryLower.includes('india') || 
                  countryLower.includes('bharat');
+        console.log(`🌍 Country field set to: "${customerCountry}" → isIndia: ${isIndia}`);
       } else {
-        // If no country set, check resolvedLocation
-        // Asia = India (default), anything else = International
-        isIndia = !resolvedLocation || resolvedLocation === 'Asia';
+        // If no country set, default to India (backward compatibility)
+        isIndia = true;
+        console.log(`🌍 No country field set, defaulting to India`);
       }
       
-      // ✅ B2B Tax Rates (CORRECTED):
+      // ✅ B2B Tax Rates (CORRECTED - REVERSED):
+      // - Chhattisgarh (home state): 2.5% CGST + 2.5% SGST = 5% total
+      // - Outside Chhattisgarh (outside home state): 5% IGST only
       // - Outside India: 1% TAX
-      // - Chhattisgarh (same state): 5% IGST only
-      // - Other Indian states: 2.5% CGST + 2.5% SGST = 5% total
       if (!isIndia) {
         // Outside India: 1% TAX
         gstRate = 1;
         adjustedGst = (adjustedTaxable * 1) / 100;
-        taxType = 'INTERNATIONAL_TAX';
+        taxType = 'INTERNATIONAL';
         console.log("🌍 International order: 1% TAX applied");
       } else if (normalizedState === 'CHHATTISGARH') {
-        // Same state (Chhattisgarh): 5% IGST only
-        igstAmount = (adjustedTaxable * 5) / 100;
-        adjustedGst = igstAmount;
-        gstRate = 5;
-        taxType = 'INTRASTATE_IGST';
-        console.log("🏠 Chhattisgarh order: 5% IGST applied");
-      } else {
-        // Different state in India: 2.5% CGST + 2.5% SGST = 5% total
+        // Home state (Chhattisgarh): 2.5% CGST + 2.5% SGST = 5% total
         cgstAmount = (adjustedTaxable * 2.5) / 100;
         sgstAmount = (adjustedTaxable * 2.5) / 100;
         adjustedGst = cgstAmount + sgstAmount;
         gstRate = 5;
-        taxType = 'INTERSTATE_GST';
-        console.log("🚚 Interstate order: 2.5% CGST + 2.5% SGST applied");
+        taxType = 'INTRASTATE_CGST_SGST';
+        console.log("🏠 Chhattisgarh (home state) order: 2.5% CGST + 2.5% SGST applied");
+      } else {
+        // Outside home state (other Indian states): 5% IGST only
+        igstAmount = (adjustedTaxable * 5) / 100;
+        adjustedGst = igstAmount;
+        gstRate = 5;
+        taxType = 'INTERSTATE';
+        console.log("🚚 Outside Chhattisgarh (outside home state) order: 5% IGST applied");
       }
     }
     // ✅ B2C: No tax (gstRate = 0, adjustedGst = 0)
@@ -978,9 +1126,20 @@ const Cart = () => {
                 // ✅ Check if this is a B2B order
                 const isBulkOrder = actualData.some(item => item.isCorporate === true);
                 
+                console.log('🧾 Order Summary - B2B Check:', {
+                  isBulkOrder,
+                  actualDataLength: actualData.length,
+                  actualData: actualData.map(item => ({ name: item.name, isCorporate: item.isCorporate }))
+                });
+                
                 if (!isBulkOrder) {
                   // ✅ B2C Orders: NO TAX
-                  return null;
+                  return (
+                    <div className="flex justify-between text-gray-400 text-sm italic">
+                      <span>Tax</span>
+                      <span>No tax (B2C)</span>
+                    </div>
+                  );
                 }
                 
                 // ✅ If no billing address selected, show message
@@ -1047,27 +1206,18 @@ const Cart = () => {
                   // ✅ Outside India: TAX 1%
                   const taxAmount = (taxableAmount * 1) / 100;
                   return (
-                    <div className="flex justify-between">
+                    <div className="flex justify-between border-t pt-2 mt-2">
                       <span>TAX (1%)</span>
                       <span>{formatCurrency(taxAmount)}</span>
                     </div>
                   );
                 } else if (isChhattisgarh) {
-                  // ✅ Same state (Chhattisgarh): IGST 5% only
-                  const igstAmount = (taxableAmount * 5) / 100;
-                  return (
-                    <div className="flex justify-between">
-                      <span>IGST (5%)</span>
-                      <span>{formatCurrency(igstAmount)}</span>
-                    </div>
-                  );
-                } else {
-                  // ✅ Different state in India: CGST 2.5% + SGST 2.5% = 5%
+                  // ✅ Home state (Chhattisgarh): CGST 2.5% + SGST 2.5% = 5%
                   const cgstAmount = (taxableAmount * 2.5) / 100;
                   const sgstAmount = (taxableAmount * 2.5) / 100;
                   return (
                     <>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between border-t pt-2 mt-2">
                         <span>CGST (2.5%)</span>
                         <span>{formatCurrency(cgstAmount)}</span>
                       </div>
@@ -1076,6 +1226,15 @@ const Cart = () => {
                         <span>{formatCurrency(sgstAmount)}</span>
                       </div>
                     </>
+                  );
+                } else {
+                  // ✅ Other Indian states: IGST 5% only
+                  const igstAmount = (taxableAmount * 5) / 100;
+                  return (
+                    <div className="flex justify-between border-t pt-2 mt-2">
+                      <span>IGST (5%)</span>
+                      <span>{formatCurrency(igstAmount)}</span>
+                    </div>
                   );
                 }
               })()}
@@ -1437,6 +1596,7 @@ const Cart = () => {
             gstPercent,
             printingCost,
             pfCost,
+            taxType: taxInfo.taxType,
             locationTax: {
               country: resolvedLocation,
               percentage: priceIncrease || 0,

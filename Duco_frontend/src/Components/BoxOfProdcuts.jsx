@@ -46,16 +46,48 @@ const BoxOfProducts = ({ price, title, id, image }) => {
   const finalPrice = useMemo(() => {
     let base = Number(price) || 0;
 
-    if (priceIncrease) {
-      base += (base * Number(priceIncrease)) / 100;
+    console.log('💰 BoxOfProducts Price Calculation:', {
+      basePrice: base,
+      toConvert,
+      priceIncrease,
+      currency,
+      resolvedLocation,
+      hasToConvert: toConvert != null,
+      hasPriceIncrease: priceIncrease != null
+    });
+
+    // ✅ If conversion rate is not ready, use base price
+    if (toConvert == null || priceIncrease == null) {
+      console.log('⚠️ Conversion not ready, using base price:', base);
+      return Math.round(base);
     }
 
-    if (toConvert && toConvert !== 1) {
-      base *= Number(toConvert);
+    // ✅ Ensure conversion rate is valid (> 0)
+    if (toConvert <= 0) {
+      console.warn('⚠️ Invalid conversion rate:', toConvert, '- using base price');
+      return Math.round(base);
     }
 
-    return Math.round(base);
-  }, [price, toConvert, priceIncrease]);
+    // ✅ Step 1: Apply markup percentage
+    let increased = base + (base * Number(priceIncrease)) / 100;
+
+    // ✅ Step 2: CRITICAL FIX - Multiply by conversion rate, NOT divide
+    // Conversion rate represents: 1 INR = X target_currency
+    // Example: 1 INR = 0.011 EUR, so 500 INR = 500 * 0.011 = 5.5 EUR ✅
+    // NOT: 500 / 0.011 = 45,454 EUR ❌ WRONG
+    let converted = increased * Number(toConvert);
+
+    console.log('✅ Price converted:', {
+      basePrice: base,
+      priceIncrease,
+      afterMarkup: increased,
+      toConvert,
+      finalPrice: Math.round(converted),
+      currency
+    });
+
+    return Math.round(converted);
+  }, [price, toConvert, priceIncrease, currency]);
 
   return (
     <Link

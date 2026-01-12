@@ -208,6 +208,16 @@ async function getInvoiceByOrderId(orderId) {
     invoiceObj.currency = 'INR';
   }
   
+  // ✅ Add conversion rate and display price from order
+  if (invoiceObj.order) {
+    invoiceObj.conversionRate = invoiceObj.order.conversionRate || 1;
+    invoiceObj.displayPrice = invoiceObj.order.displayPrice || invoiceObj.order.price || 0;
+    invoiceObj.paymentCurrency = invoiceObj.order.paymentCurrency || 'INR';
+    invoiceObj.customerCountry = invoiceObj.order.customerCountry || 'India';
+    invoiceObj.customerCity = invoiceObj.order.customerCity || '';
+    invoiceObj.customerState = invoiceObj.order.customerState || '';
+  }
+  
   // ✅ Compute totals before returning
   const totals = computeTotals(invoiceObj);
   

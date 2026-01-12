@@ -116,6 +116,34 @@ const OrderSchema = new Schema(
     sgst: { type: Number, default: 0 },
     igst: { type: Number, default: 0 },
     printing: { type: Number, default: 0 },
+    
+    // ✅ Payment currency and location information
+    paymentCurrency: { type: String, default: 'INR' }, // Currency used for payment (INR, USD, EUR, etc.)
+    customerCountry: { type: String, default: 'India' }, // Customer's country
+    customerCity: { type: String, default: '' }, // Customer's city
+    customerState: { type: String, default: '' }, // Customer's state/province
+
+    // ✅ Design preview images (Cloudinary URLs)
+    designImages: {
+      type: {
+        front: String,  // Cloudinary URL
+        back: String,   // Cloudinary URL
+        left: String,   // Cloudinary URL
+        right: String   // Cloudinary URL
+      },
+      default: {}
+    },
+
+    // ✅ Additional files metadata (CDR, PDF)
+    additionalFilesMeta: {
+      type: [{
+        name: String,
+        size: Number,
+        type: String,
+        url: String  // Cloudinary URL if uploaded
+      }],
+      default: []
+    }
   },
   { timestamps: true }
 );

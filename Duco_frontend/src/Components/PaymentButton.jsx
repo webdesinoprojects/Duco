@@ -55,10 +55,40 @@ const PaymentButton = ({ orderData }) => {
       itemCount: orderData.items?.length || 0
     });
     
+    // ✅ Detect customer location and currency
+    const customerCountry = orderData?.address?.country || orderData?.addresses?.billing?.country || 'India';
+    const customerCity = orderData?.address?.city || orderData?.addresses?.billing?.city || '';
+    const customerState = orderData?.address?.state || orderData?.addresses?.billing?.state || '';
+    
+    // ✅ Map country to currency (for display purposes)
+    const countryToCurrency = {
+      'India': 'INR',
+      'United States': 'USD',
+      'USA': 'USD',
+      'France': 'EUR',
+      'Germany': 'EUR',
+      'United Kingdom': 'GBP',
+      'UK': 'GBP',
+      'Australia': 'AUD',
+      'Canada': 'CAD',
+      'Singapore': 'SGD',
+      'United Arab Emirates': 'AED',
+      'UAE': 'AED',
+    };
+    
+    const displayCurrency = countryToCurrency[customerCountry] || 'INR';
+    
+    console.log('🌍 Customer Location:', {
+      country: customerCountry,
+      city: customerCity,
+      state: customerState,
+      displayCurrency
+    });
+    
     // ✅ Show user what they're paying in INR
-    if (orderData.displayCurrency && orderData.displayCurrency !== 'INR') {
+    if (displayCurrency && displayCurrency !== 'INR') {
       console.log('💱 International payment conversion:', {
-        displayAmount: `${orderData.displayCurrency} ${orderData.totalPayDisplay}`,
+        displayAmount: `${displayCurrency} ${orderData.totalPayDisplay}`,
         razorpayAmount: `INR ₹${orderData.totalPay}`,
         note: 'Razorpay only accepts INR, amount has been converted'
       });
@@ -133,25 +163,43 @@ const PaymentButton = ({ orderData }) => {
       console.log("🌐 Making request to:", `${API_BASE}api/payment/create-order`);
       
       // ✅ Detect if international order
-      const customerCountry = orderData?.address?.country || 'India';
       const isInternational = !['India', 'india', 'IN', 'IND', 'Bharat', 'bharat'].includes(customerCountry);
       
       console.log('🌍 Payment request:', {
         country: customerCountry,
+        city: customerCity,
+        state: customerState,
         isInternational,
-        amount: orderData.totalPay
+        amount: orderData.totalPay,
+        displayCurrency
       });
       
       const { data } = await axios.post(`${API_BASE}api/payment/create-order`, {
         amount: orderData.totalPay, // totalPay in INR (backend will convert to paise)
         half: false, // only full payment here
-        currency: 'INR', // ✅ Support for international payments (can be extended to other currencies)
+        currency: 'INR', // ✅ Razorpay only accepts INR
         customerCountry: customerCountry, // ✅ Pass country for international payment handling
+        customerCity: customerCity,
+        customerState: customerState,
+        displayCurrency: displayCurrency, // ✅ Pass display currency for invoice
       });
 
       console.log("✅ Payment order created successfully:", data);
 
-      const { orderId, amount } = data;
+      const { orderId, amount, paymentCurrency: returnedPaymentCurrency, customerCountry: returnedCountry, customerCity: returnedCity, customerState: returnedState } = data;
+      
+      // ✅ Use returned values from backend if available
+      const finalPaymentCurrency = returnedPaymentCurrency || displayCurrency;
+      const finalCustomerCountry = returnedCountry || customerCountry;
+      const finalCustomerCity = returnedCity || customerCity;
+      const finalCustomerState = returnedState || customerState;
+      
+      console.log('🌍 Payment info from backend:', {
+        paymentCurrency: finalPaymentCurrency,
+        country: finalCustomerCountry,
+        city: finalCustomerCity,
+        state: finalCustomerState
+      });
 
       // ✅ 2. Configure Razorpay options
       const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_RKkNoqkW7sQisX";
@@ -195,6 +243,10 @@ const PaymentButton = ({ orderData }) => {
                   paymentmode: paymentMode, // ✅ "50%" for half payment, "online" for full
                   isHalfPayment: orderData.isHalfPayment || false,
                   originalTotal: orderData.originalTotal || orderData.totalPay,
+                  paymentCurrency: finalPaymentCurrency, // ✅ Add payment currency
+                  customerCountry: finalCustomerCountry, // ✅ Add customer country
+                  customerCity: finalCustomerCity, // ✅ Add customer city
+                  customerState: finalCustomerState, // ✅ Add customer state
                 },
               });
             } else {

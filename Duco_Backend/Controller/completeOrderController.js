@@ -7,6 +7,7 @@ const { getOrCreateSingleton } = require('../Router/DataRoutes');
 const { createTransaction } = require('./walletController');
 const { calculateOrderTotal } = require('../Service/TaxCalculationService');
 const LZString = require('lz-string'); // ✅ added for decompression
+const { uploadDesignPreviewImages } = require('../Utils/cloudinaryUpload'); // ✅ Cloudinary upload
 
 // --- Razorpay client ---
 const razorpay = new Razorpay({
@@ -124,6 +125,49 @@ function buildInvoiceItems(products, { hsn = '7307', unit = 'Pcs.' } = {}) {
     });
   });
   return items;
+}
+
+// ✅ Extract design preview images from first product
+async function extractAndUploadDesignImages(products, orderId) {
+  try {
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      console.log('⚠️ No products found for design extraction');
+      return {};
+    }
+
+    const firstProduct = products[0];
+    const previewImages = {};
+
+    // Check for preview images in product design
+    if (firstProduct.design && typeof firstProduct.design === 'object') {
+      const design = firstProduct.design;
+      
+      // Extract preview images from design object
+      if (design.previewImages && typeof design.previewImages === 'object') {
+        Object.assign(previewImages, design.previewImages);
+      }
+      
+      // Also check for direct front/back/left/right views
+      if (design.front?.uploadedImage) previewImages.front = design.front.uploadedImage;
+      if (design.back?.uploadedImage) previewImages.back = design.back.uploadedImage;
+      if (design.left?.uploadedImage) previewImages.left = design.left.uploadedImage;
+      if (design.right?.uploadedImage) previewImages.right = design.right.uploadedImage;
+    }
+
+    // If we found preview images, upload them to Cloudinary
+    if (Object.keys(previewImages).length > 0) {
+      console.log('📸 Found preview images, uploading to Cloudinary...');
+      const uploadedImages = await uploadDesignPreviewImages(previewImages, orderId);
+      console.log('✅ Design images uploaded:', uploadedImages);
+      return uploadedImages;
+    }
+
+    console.log('⚠️ No preview images found in product design');
+    return {};
+  } catch (error) {
+    console.error('❌ Error extracting/uploading design images:', error.message);
+    return {};
+  }
 }
 
 function formatDateDDMMYYYY(d = new Date()) {
@@ -263,7 +307,7 @@ async function verifyRazorpayPayment(paymentId, expectedAmountINR) {
 const processingCache = new Map();
 
 const completeOrder = async (req, res) => {
-  let { paymentId, orderData, paymentmode, compressed } = req.body || {};
+  let { paymentId, orderData, paymentmode, compressed, paymentCurrency, customerCountry, customerCity, customerState } = req.body || {};
 
   // ✅ Prevent duplicate processing for the same payment ID
   if (paymentId && paymentId !== 'manual_payment') {
@@ -426,6 +470,21 @@ const completeOrder = async (req, res) => {
     const billingCountry = addresses?.billing?.country || legacyAddress?.country || 'India';
     const currency = getCurrencyFromCountry(billingCountry);
     
+    // ✅ Use payment currency from frontend if provided, otherwise detect from country
+    const finalPaymentCurrency = paymentCurrency || currency;
+    const finalCustomerCountry = customerCountry || billingCountry;
+    const finalCustomerCity = customerCity || '';
+    const finalCustomerState = customerState || '';
+    
+    console.log('💱 Payment Currency & Location:', {
+      paymentCurrency: finalPaymentCurrency,
+      customerCountry: finalCustomerCountry,
+      customerCity: finalCustomerCity,
+      customerState: finalCustomerState,
+      billingCountry,
+      detectedCurrency: currency,
+    });
+    
     // ✅ Get conversion rate and display price from orderData (try multiple locations)
     const conversionRate = safeNum(
       orderData.conversionRate || 
@@ -439,7 +498,7 @@ const completeOrder = async (req, res) => {
       totalPay
     );
     
-    console.log('💱 Currency Detection:', {
+    console.log('💱 Currency & Price Details:', {
       billingCountry,
       detectedCurrency: currency,
       priceInINR: totalPay,
@@ -518,6 +577,11 @@ const completeOrder = async (req, res) => {
           displayPrice, // ✅ Price in customer's currency
           conversionRate, // ✅ Conversion rate used
           deliveryExpectedDate, // ✅ Use setting-based delivery date
+          // ✅ Add payment currency and location
+          paymentCurrency: finalPaymentCurrency,
+          customerCountry: finalCustomerCountry,
+          customerCity: finalCustomerCity,
+          customerState: finalCustomerState,
         };
         
         // ✅ Add addresses (new format) or address (legacy format)
@@ -549,6 +613,11 @@ const completeOrder = async (req, res) => {
             displayPrice, // ✅ Price in customer's currency
             conversionRate, // ✅ Conversion rate used
             deliveryExpectedDate, // ✅ Use setting-based delivery date
+            // ✅ Add payment currency and location
+            paymentCurrency: finalPaymentCurrency,
+            customerCountry: finalCustomerCountry,
+            customerCity: finalCustomerCity,
+            customerState: finalCustomerState,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -599,6 +668,11 @@ const completeOrder = async (req, res) => {
         displayPrice, // ✅ Price in customer's currency
         deliveryExpectedDate, // ✅ Use setting-based delivery date
         conversionRate, // ✅ Conversion rate used
+        // ✅ Add payment currency and location
+        paymentCurrency: finalPaymentCurrency,
+        customerCountry: finalCustomerCountry,
+        customerCity: finalCustomerCity,
+        customerState: finalCustomerState,
       });
 
       const settings = await getOrCreateSingleton();
@@ -646,6 +720,11 @@ const completeOrder = async (req, res) => {
           displayPrice, // ✅ Price in customer's currency
           conversionRate, // ✅ Conversion rate used
           deliveryExpectedDate, // ✅ Use setting-based delivery date
+          // ✅ Add payment currency and location
+          paymentCurrency: finalPaymentCurrency,
+          customerCountry: finalCustomerCountry,
+          customerCity: finalCustomerCity,
+          customerState: finalCustomerState,
         });
       } catch (createError) {
         if (createError.code === 11000) {
@@ -669,6 +748,11 @@ const completeOrder = async (req, res) => {
             displayPrice, // ✅ Price in customer's currency
             conversionRate, // ✅ Conversion rate used
             deliveryExpectedDate, // ✅ Use setting-based delivery date
+            // ✅ Add payment currency and location
+            paymentCurrency: finalPaymentCurrency,
+            customerCountry: finalCustomerCountry,
+            customerCity: finalCustomerCity,
+            customerState: finalCustomerState,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -724,6 +808,11 @@ const completeOrder = async (req, res) => {
           displayPrice, // ✅ Price in customer's currency
           conversionRate, // ✅ Conversion rate used
           deliveryExpectedDate, // ✅ Use setting-based delivery date
+          // ✅ Add payment currency and location
+          paymentCurrency: finalPaymentCurrency,
+          customerCountry: finalCustomerCountry,
+          customerCity: finalCustomerCity,
+          customerState: finalCustomerState,
         });
       } catch (createError) {
         if (createError.code === 11000) {
@@ -747,6 +836,11 @@ const completeOrder = async (req, res) => {
             displayPrice, // ✅ Price in customer's currency
             conversionRate, // ✅ Conversion rate used
             deliveryExpectedDate, // ✅ Use setting-based delivery date
+            // ✅ Add payment currency and location
+            paymentCurrency: finalPaymentCurrency,
+            customerCountry: finalCustomerCountry,
+            customerCity: finalCustomerCity,
+            customerState: finalCustomerState,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId

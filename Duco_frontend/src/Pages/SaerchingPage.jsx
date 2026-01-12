@@ -31,8 +31,12 @@ const SaerchingPage = () => {
   }, [id, catogory_name]);
 
   function calculatePrice(currency, ac, high) {
-    const actualPrice = currency * ac
-    const finalPrice = actualPrice + (actualPrice * (high / 100));
+    // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
+    if (!currency || !ac || high === null) {
+      return ac || 0; // Return base price if context not ready
+    }
+    const withMarkup = ac + (ac * (high / 100));
+    const finalPrice = currency && currency > 0 ? withMarkup * currency : withMarkup;
     return Math.round(finalPrice);
   }
 

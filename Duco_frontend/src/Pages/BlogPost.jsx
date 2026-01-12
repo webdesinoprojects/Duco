@@ -122,9 +122,12 @@ const BlogPost = () => {
         <div className="flex flex-wrap items-center gap-6 mb-8 text-gray-400">
           <div className="flex items-center gap-3">
             <img
-              src={blog.author.avatar}
+              src={blog.author.avatar || 'https://ik.imagekit.io/vuavxn05l/duco-logo.png?updatedAt=1757162698605'}
               alt={blog.author.name}
-              className="w-12 h-12 rounded-full"
+              className="w-12 h-12 rounded-full object-cover"
+              onError={(e) => {
+                e.target.src = 'https://ik.imagekit.io/vuavxn05l/duco-logo.png?updatedAt=1757162698605';
+              }}
             />
             <div>
               <p className="text-white font-semibold">{blog.author.name}</p>

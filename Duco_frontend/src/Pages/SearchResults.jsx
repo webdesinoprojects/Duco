@@ -59,8 +59,13 @@ const SearchResults = () => {
   }, [query]);
 
   const calculatePrice = (currency, basePrice, increase) => {
-    const actualPrice = currency * basePrice;
-    return actualPrice + (actualPrice * (increase / 100));
+    // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
+    if (!currency || !basePrice || increase === null) {
+      return basePrice || 0;
+    }
+    const withMarkup = basePrice + (basePrice * (increase / 100));
+    const finalPrice = currency && currency > 0 ? withMarkup * currency : withMarkup;
+    return Math.round(finalPrice);
   };
 
   if (loading) {

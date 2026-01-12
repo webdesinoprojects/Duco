@@ -149,7 +149,24 @@ export const PriceProvider = ({ children }) => {
 
         // Backend returns { percentage, currency } directly (no success field)
         if (data && data.percentage !== undefined) {
-          console.log("✅ Price data received:", data);
+          console.log("✅ Price data received:", {
+            location: location,
+            percentage: data.percentage,
+            currency: data.currency,
+            currencyCode: data.currency?.country,
+            conversionRate: data.currency?.toconvert
+          });
+          
+          // ✅ Validate conversion rate
+          if (!data.currency?.toconvert || data.currency.toconvert <= 0) {
+            console.error('❌ Invalid conversion rate:', data.currency?.toconvert);
+            setPriceIncrease(0);
+            setToConvert(1);
+            setCurrency('INR');
+            setResolvedLocation(location);
+            return;
+          }
+          
           setPriceIncrease(data.percentage);
           setToConvert(data.currency?.toconvert || 1);
           setCurrency(data.currency?.country || 'INR');
@@ -166,7 +183,11 @@ export const PriceProvider = ({ children }) => {
               },
               timestamp: Date.now()
             }));
-            console.log("💾 Cached location pricing in localStorage");
+            console.log("💾 Cached location pricing in localStorage:", {
+              location,
+              code: data.currency?.country,
+              toconvert: data.currency?.toconvert
+            });
           } catch (e) {
             console.warn("⚠️ Could not cache location pricing:", e);
           }

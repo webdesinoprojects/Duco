@@ -67,6 +67,11 @@ export const InvoiceTemplate = ({ data }) => {
     paymentmode = "online",
     amountPaid = 0,
     additionalFilesMeta = [], // ✅ Add files metadata
+    paymentCurrency = "INR", // ✅ Add payment currency
+    customerCountry = "India", // ✅ Add customer country
+    customerCity = "", // ✅ Add customer city
+    customerState = "", // ✅ Add customer state
+    conversionRate = 1, // ✅ Add conversion rate
   } = data;
 
   const displayAmount = paymentmode === '50%' && amountPaid > 0 ? amountPaid : total;
@@ -131,6 +136,32 @@ export const InvoiceTemplate = ({ data }) => {
           </div>
         </div>
       </div>
+
+      {/* ✅ PAYMENT CURRENCY AND LOCATION INFO */}
+      {(paymentCurrency !== 'INR' || (customerCountry && customerCountry !== 'India')) && (
+        <div style={{ marginBottom: "8px", padding: "6px", backgroundColor: "#f0f0f0", border: "1px solid #999", fontSize: "10px" }}>
+          <div style={{ display: "flex", marginBottom: "2px" }}>
+            <span style={{ fontWeight: "bold", marginRight: "10px" }}>Payment Currency:</span>
+            <span>{paymentCurrency}</span>
+          </div>
+          {conversionRate && conversionRate !== 1 && (
+            <div style={{ display: "flex", marginBottom: "2px" }}>
+              <span style={{ fontWeight: "bold", marginRight: "10px" }}>Conversion Rate:</span>
+              <span>1 INR = {conversionRate.toFixed(4)} {paymentCurrency}</span>
+            </div>
+          )}
+          {customerCountry && customerCountry !== 'India' && (
+            <div style={{ display: "flex" }}>
+              <span style={{ fontWeight: "bold", marginRight: "10px" }}>Payment From:</span>
+              <span>
+                {customerCity && customerState 
+                  ? `${customerCity}, ${customerState}, ${customerCountry}` 
+                  : customerCountry}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* BILLED TO AND SHIPPED TO */}
       <div style={{ display: "flex", marginBottom: "8px", borderBottom: "1px solid #000", paddingBottom: "5px" }}>
@@ -228,8 +259,8 @@ export const InvoiceTemplate = ({ data }) => {
         <div style={{ width: "400px", borderLeft: "1px solid #000" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
-              {/* INTERSTATE: 2.5% CGST + 2.5% SGST */}
-              {tax?.type === 'INTERSTATE' && (
+              {/* INTRASTATE_CGST_SGST: 2.5% CGST + 2.5% SGST (Chhattisgarh - Home State) */}
+              {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
                 <>
                   <tr>
                     <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : SGST</td>
@@ -244,8 +275,8 @@ export const InvoiceTemplate = ({ data }) => {
                 </>
               )}
               
-              {/* INTRASTATE_IGST: 5% IGST only (Chhattisgarh) */}
-              {tax?.type === 'INTRASTATE_IGST' && (
+              {/* INTERSTATE: 5% IGST only (Outside Chhattisgarh) */}
+              {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
                 <tr>
                   <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : IGST</td>
                   <td style={{ padding: "3px 8px", textAlign: "right" }}>@ {(tax?.igstRate || 5).toFixed(2)} %</td>
@@ -254,7 +285,7 @@ export const InvoiceTemplate = ({ data }) => {
               )}
               
               {/* INTERNATIONAL: 1% TAX */}
-              {tax?.type === 'INTERNATIONAL' && (
+              {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
                 <tr>
                   <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : TAX</td>
                   <td style={{ padding: "3px 8px", textAlign: "right" }}>@ {(tax?.taxRate || 1).toFixed(2)} %</td>
@@ -305,21 +336,21 @@ export const InvoiceTemplate = ({ data }) => {
             <th style={{ border: "1px solid #000", padding: "4px" }}>Tax Rate</th>
             <th style={{ border: "1px solid #000", padding: "4px" }}>Taxable Amt.</th>
             
-            {/* INTERSTATE: Show CGST and SGST columns */}
-            {tax?.type === 'INTERSTATE' && (
+            {/* INTRASTATE_CGST_SGST: Show CGST and SGST columns */}
+            {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
               <>
                 <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
                 <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
               </>
             )}
             
-            {/* INTRASTATE_IGST: Show IGST column */}
-            {tax?.type === 'INTRASTATE_IGST' && (
+            {/* INTERSTATE: Show IGST column */}
+            {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
               <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
             )}
             
             {/* INTERNATIONAL: Show TAX column */}
-            {tax?.type === 'INTERNATIONAL' && (
+            {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
               <th style={{ border: "1px solid #000", padding: "4px" }}>TAX Amt.</th>
             )}
             
@@ -338,9 +369,9 @@ export const InvoiceTemplate = ({ data }) => {
           <tr>
             {/* Tax Rate */}
             <td style={{ border: "1px solid #000", padding: "4px", textAlign: "center" }}>
-              {tax?.type === 'INTERSTATE' && `${((tax?.cgstRate || 0) + (tax?.sgstRate || 0)).toFixed(2)}%`}
-              {tax?.type === 'INTRASTATE_IGST' && `${(tax?.igstRate || 5).toFixed(2)}%`}
-              {tax?.type === 'INTERNATIONAL' && `${(tax?.taxRate || 1).toFixed(2)}%`}
+              {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && `${((tax?.cgstRate || 0) + (tax?.sgstRate || 0)).toFixed(2)}%`}
+              {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && `${(tax?.igstRate || 5).toFixed(2)}%`}
+              {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && `${(tax?.taxRate || 1).toFixed(2)}%`}
               {tax?.type === 'B2C_NO_TAX' && `0%`}
               {!tax?.type && cgstAmount > 0 && `${((tax?.cgstRate || 0) + (tax?.sgstRate || 0)).toFixed(2)}%`}
             </td>
@@ -348,21 +379,21 @@ export const InvoiceTemplate = ({ data }) => {
             {/* Taxable Amount */}
             <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
 
-            {/* INTERSTATE: CGST and SGST amounts */}
-            {tax?.type === 'INTERSTATE' && (
+            {/* INTRASTATE_CGST_SGST: CGST and SGST amounts */}
+            {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
               <>
                 <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{cgstAmount.toFixed(2)}</td>
                 <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{sgstAmount.toFixed(2)}</td>
               </>
             )}
 
-            {/* INTRASTATE_IGST: IGST amount */}
-            {tax?.type === 'INTRASTATE_IGST' && (
+            {/* INTERSTATE: IGST amount */}
+            {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
               <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{igstAmount.toFixed(2)}</td>
             )}
 
             {/* INTERNATIONAL: TAX amount */}
-            {tax?.type === 'INTERNATIONAL' && (
+            {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
               <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{taxAmount.toFixed(2)}</td>
             )}
 

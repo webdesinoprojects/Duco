@@ -168,32 +168,57 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
     const normalize = (s) => (s || "").trim().toLowerCase();
     const companyState = normalize(d.company?.state);
     const supplyState = normalize(d.invoice?.placeOfSupply);
-    const isSameState = companyState && supplyState && companyState === supplyState;
+    const billToCountry = normalize(d.billTo?.country || d.invoice?.country || '');
+    
+    // ✅ Check if this is an international order (outside India)
+    const isInternational = billToCountry && 
+      billToCountry !== 'india' && 
+      billToCountry !== 'bharat' && 
+      billToCountry !== 'in' &&
+      !billToCountry.includes('india') &&
+      !billToCountry.includes('bharat');
+    
+    // ✅ Check if supply state is Chhattisgarh (home state)
+    const isHomeState = supplyState && (
+      supplyState.includes('chhattisgarh') || 
+      supplyState.includes('chattisgarh') || 
+      supplyState === 'cg' || 
+      supplyState === 'c.g'
+    );
 
     let cgstRate = 0,
       sgstRate = 0,
       igstRate = 0,
+      taxRate = 0,
       cgst = 0,
       sgst = 0,
-      igst = 0;
+      igst = 0,
+      tax = 0;
 
     // ✅ Only apply tax for B2B orders
     if (isB2B) {
-      if (isSameState) {
-        // within state - B2B: 18% GST
-        cgstRate = 9;
-        sgstRate = 9;
+      if (isInternational) {
+        // International order: 1% TAX only
+        taxRate = 1;
+        tax = r2((taxable * taxRate) / 100);
+        console.log("🌍 International order: 1% TAX applied");
+      } else if (isHomeState) {
+        // Home state (Chhattisgarh): 5% IGST only
+        igstRate = 5;
+        igst = r2((taxable * igstRate) / 100);
+        console.log("🏠 Home state (Chhattisgarh): 5% IGST applied");
+      } else {
+        // Outside home state: 2.5% CGST + 2.5% SGST = 5% total
+        cgstRate = 2.5;
+        sgstRate = 2.5;
         cgst = r2((taxable * cgstRate) / 100);
         sgst = r2((taxable * sgstRate) / 100);
-      } else {
-        // interstate - B2B: 18% GST
-        igstRate = 18;
-        igst = r2((taxable * igstRate) / 100);
+        console.log("🚚 Outside home state: 2.5% CGST + 2.5% SGST applied");
       }
     }
     // ✅ B2C: No tax (all rates remain 0)
 
-    const grand = r2(taxable + cgst + sgst + igst);
+    const grand = r2(taxable + cgst + sgst + igst + tax);
     const totalQty = r2(items.reduce((s, it) => s + Number(it.qty || 0), 0));
 
     return {
@@ -205,14 +230,17 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
       cgstRate,
       sgstRate,
       igstRate,
+      taxRate,
       cgst,
       sgst,
       igst,
+      tax,
       grand,
       totalQty,
-      isSameState,
       isB2B,
       orderType,
+      isInternational,
+      isHomeState,
     };
   }, [d, charges]);
 
@@ -307,7 +335,25 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
 
               {/* ✅ Only show tax for B2B orders */}
               {calc.isB2B && (
-                calc.isSameState ? (
+                calc.isInternational ? (
+                  <tr>
+                    <td className="border p-1">
+                      Add: TAX
+                    </td>
+                    <td className="border p-1 text-center">
+                      {fmtINR(calc.tax)}
+                    </td>
+                  </tr>
+                ) : calc.isHomeState ? (
+                  <tr>
+                    <td className="border p-1">
+                      Add: IGST
+                    </td>
+                    <td className="border p-1 text-center">
+                      {fmtINR(calc.igst)}
+                    </td>
+                  </tr>
+                ) : (
                   <>
                     <tr>
                       <td className="border p-1">
@@ -326,15 +372,6 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
                       </td>
                     </tr>
                   </>
-                ) : (
-                  <tr>
-                    <td className="border p-1">
-                      Add: IGST
-                    </td>
-                    <td className="border p-1 text-center">
-                      {fmtINR(calc.igst)}
-                    </td>
-                  </tr>
                 )
               )}
 

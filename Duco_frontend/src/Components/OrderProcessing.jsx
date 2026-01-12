@@ -17,6 +17,12 @@ const OrderProcessing = () => {
   let paymentmode = location.state?.paymentmode || "online";
   const compressed = location.state?.compressed || false;
   const inboundPaymentMeta = location.state?.paymentMeta || null;
+  
+  // ✅ Extract payment currency and location info
+  const paymentCurrency = location.state?.paymentCurrency || 'INR';
+  const customerCountry = location.state?.customerCountry || 'India';
+  const customerCity = location.state?.customerCity || '';
+  const customerState = location.state?.customerState || '';
 
   // ✅ Recovery helpers
   const orderIdFromQuery = search.get("orderId");
@@ -117,6 +123,11 @@ const OrderProcessing = () => {
           paymentId,
           paymentmode,
           orderData,
+          // ✅ Add payment currency and location info
+          paymentCurrency,
+          customerCountry,
+          customerCity,
+          customerState,
         });
 
         console.log("✅ Backend Response:", response.data);
@@ -145,6 +156,11 @@ const OrderProcessing = () => {
             state: {
               order: data.order,
               paymentMeta: inboundPaymentMeta || null,
+              // ✅ Pass payment currency and location info
+              paymentCurrency,
+              customerCountry,
+              customerCity,
+              customerState,
             },
           });
         } else {

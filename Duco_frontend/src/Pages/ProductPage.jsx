@@ -181,17 +181,48 @@ const ProductPage = () => {
     if (!product) return;
     const basePrice = product?.pricing?.[0]?.price_per || 0;
 
+    console.log('💰 ProductPage Price Calculation:', {
+      basePrice,
+      toConvert,
+      priceIncrease,
+      currency,
+      resolvedLocation,
+      hasToConvert: toConvert != null,
+      hasPriceIncrease: priceIncrease != null
+    });
+
+    // ✅ If conversion rate is not ready, use base price
     if (toConvert == null || priceIncrease == null) {
+      console.log('⚠️ Conversion not ready, using base price:', basePrice);
+      setPrice(Math.round(basePrice));
+      return;
+    }
+
+    // ✅ Ensure conversion rate is valid (> 0)
+    if (toConvert <= 0) {
+      console.warn('⚠️ Invalid conversion rate:', toConvert, '- using base price');
       setPrice(Math.round(basePrice));
       return;
     }
 
     let increased = basePrice + basePrice * (priceIncrease / 100);
-    // ✅ CRITICAL FIX: Divide by conversion rate, not multiply
-    // If 1 INR = 0.012 USD, then 100 INR = 100 / 0.012 = 8333 USD (not 100 * 0.012 = 1.2 USD)
-    let converted = increased / toConvert;
+    // ✅ CRITICAL FIX: Multiply by conversion rate, NOT divide
+    // Conversion rate represents: 1 INR = X target_currency
+    // Example: 1 INR = 0.011 EUR, so 500 INR = 500 * 0.011 = 5.5 EUR ✅
+    // NOT: 500 / 0.011 = 45,454 EUR ❌ WRONG
+    let converted = increased * toConvert;
+    
+    console.log('✅ Price converted:', {
+      basePrice,
+      priceIncrease,
+      afterMarkup: increased,
+      toConvert,
+      finalPrice: Math.round(converted),
+      currency
+    });
+    
     setPrice(Math.round(converted));
-  }, [product, toConvert, priceIncrease]);
+  }, [product, toConvert, priceIncrease, currency]);
 
   // ✅ Load previous designs
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getLogisticsByOrder } from "../../Service/logisticsApi";
+import DesignPreviewModal from "./DesignPreviewModal";
 
 const SIZE_ORDER = ["S", "M", "L", "XL", "2XL", "3XL"];
 
@@ -59,6 +60,7 @@ const OrderDetailsCard = ({ orderId }) => {
   const [allProducts, setAllProducts] = useState([]); // ✅ store all products
   const [logistics, setLogistics] = useState([]); // ✅ store logistics data
   const [logisticsLoading, setLogisticsLoading] = useState(false);
+  const [showDesignModal, setShowDesignModal] = useState(false); // ✅ Design modal state
 
   const statusOptions = [
     "Pending",
@@ -199,6 +201,15 @@ const OrderDetailsCard = ({ orderId }) => {
           >
             {order.status}
           </span>
+          {/* ✅ Design Preview Button */}
+          {(order.designImages && Object.values(order.designImages).some(v => v)) && (
+            <button
+              onClick={() => setShowDesignModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+            >
+              👁️ View Design
+            </button>
+          )}
           <select
             value={order.status ?? ""}
             onChange={(e) => handleStatusChange(e.target.value)}
@@ -625,6 +636,15 @@ const OrderDetailsCard = ({ orderId }) => {
           )}
         </div>
       )}
+
+      {/* ✅ Design Preview Modal */}
+      <DesignPreviewModal
+        isOpen={showDesignModal}
+        onClose={() => setShowDesignModal(false)}
+        designImages={order.designImages || {}}
+        additionalFiles={order.additionalFilesMeta || []}
+        orderId={order._id}
+      />
     </div>
   );
 };

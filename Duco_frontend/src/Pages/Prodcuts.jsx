@@ -268,7 +268,13 @@ const Products = ({ gender }) => {
                     </h3>
                     <p className="text-sm font-bold mt-2">
                       {product.pricing?.[0]?.price_per
-                        ? `${currencySymbol}${Math.round(Number(product.pricing[0].price_per) * toConvert * (1 + priceIncrease / 100)).toLocaleString('en-IN')}`
+                        ? (() => {
+                            const basePrice = Number(product.pricing[0].price_per);
+                            // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
+                            const withMarkup = basePrice + (basePrice * priceIncrease / 100);
+                            const finalPrice = toConvert && toConvert > 0 ? withMarkup * toConvert : withMarkup;
+                            return `${currencySymbol}${Math.round(finalPrice).toLocaleString('en-IN')}`;
+                          })()
                         : `${currencySymbol}N/A`}
                     </p>
                   </div>                </Link>

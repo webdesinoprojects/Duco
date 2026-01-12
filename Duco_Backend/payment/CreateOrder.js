@@ -55,7 +55,7 @@ const createRazorpayOrder = async (req, res) => {
     console.log('🔍 STEP 3: Creating Razorpay order...');
     
     // ✅ Support international payments
-    const { currency = 'INR', customerCountry } = req.body;
+    const { currency = 'INR', customerCountry, customerCity, customerState, displayCurrency } = req.body;
     const isInternational = customerCountry && !['India', 'IN', 'IND'].includes(customerCountry);
     
     const orderData = {
@@ -63,16 +63,23 @@ const createRazorpayOrder = async (req, res) => {
       currency: currency || 'INR', // Support multiple currencies
       receipt: `receipt_${Date.now()}`,
       payment_capture: 1,
+      notes: {
+        // ✅ Store payment location and currency info in notes
+        customer_country: customerCountry || 'India',
+        customer_city: customerCity || '',
+        customer_state: customerState || '',
+        display_currency: displayCurrency || 'INR',
+        international_payment: isInternational,
+      }
     };
     
-    // ✅ Enable international payments if needed
-    if (isInternational) {
-      orderData.notes = {
-        international_payment: true,
-        customer_country: customerCountry
-      };
-      console.log('🌍 International payment detected for:', customerCountry);
-    }
+    console.log('🌍 Payment location info:', {
+      country: customerCountry,
+      city: customerCity,
+      state: customerState,
+      displayCurrency,
+      isInternational
+    });
 
     console.log('📤 Razorpay order data:', orderData);
 
@@ -86,7 +93,16 @@ const createRazorpayOrder = async (req, res) => {
       status: order.status,
     });
 
-    const response = { orderId: order.id, amount: order.amount, half };
+    const response = { 
+      orderId: order.id, 
+      amount: order.amount, 
+      half,
+      // ✅ Return payment location and currency info
+      paymentCurrency: displayCurrency || 'INR',
+      customerCountry: customerCountry || 'India',
+      customerCity: customerCity || '',
+      customerState: customerState || '',
+    };
     console.log('📤 Sending response to frontend:', response);
     console.groupEnd();
 

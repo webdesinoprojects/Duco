@@ -166,9 +166,12 @@ const Blog = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <img
-                          src={blog.author.avatar}
+                          src={blog.author.avatar || 'https://ik.imagekit.io/vuavxn05l/duco-logo.png?updatedAt=1757162698605'}
                           alt={blog.author.name}
-                          className="w-8 h-8 rounded-full"
+                          className="w-8 h-8 rounded-full object-cover"
+                          onError={(e) => {
+                            e.target.src = 'https://ik.imagekit.io/vuavxn05l/duco-logo.png?updatedAt=1757162698605';
+                          }}
                         />
                         <span className="text-sm text-gray-400">{blog.author.name}</span>
                       </div>

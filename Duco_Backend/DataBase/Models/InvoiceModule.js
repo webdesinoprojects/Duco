@@ -76,6 +76,28 @@ const InvoiceSchema = new Schema({
   orderType: { type: String, enum: ['B2B', 'B2C'], default: 'B2C' }, // ✅ Add orderType field
   paymentmode: { type: String, default: 'online' }, // ✅ Add paymentmode field (online, 50%, store_pickup, netbanking)
   amountPaid: { type: Number, default: 0 }, // ✅ Amount actually paid (for 50% payments)
+  
+  // ✅ Design preview images (Cloudinary URLs)
+  designImages: {
+    type: {
+      front: String,  // Cloudinary URL
+      back: String,   // Cloudinary URL
+      left: String,   // Cloudinary URL
+      right: String   // Cloudinary URL
+    },
+    default: {}
+  },
+
+  // ✅ Additional files metadata (CDR, PDF)
+  additionalFilesMeta: {
+    type: [{
+      name: String,
+      size: Number,
+      type: String,
+      url: String  // Cloudinary URL if uploaded
+    }],
+    default: []
+  }
 }, { timestamps: true });
 
 InvoiceSchema.index({ order: 1 }, { unique: true, sparse: true });

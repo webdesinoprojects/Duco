@@ -7,24 +7,24 @@ import BannerHome from '../Components/BannerHome.jsx';
 import axios from 'axios';
 import { usePriceContext } from '../ContextAPI/PriceContext.jsx';
 
-const continentMapping = {
-  "IN": "Asia",
-  "US": "North America",
-  "CA": "North America",
-  "GB": "Europe",
-  "DE": "Europe",
-  "FR": "Europe",
-  "NL": "Europe", // Netherlands (Amsterdam)
-  "ES": "Europe",
-  "IT": "Europe",
+const countryToLocationMap = {
+  "IN": "India",
+  "US": "United States",
+  "CA": "Canada",
+  "GB": "United Kingdom",
+  "DE": "Germany",
+  "FR": "France",
+  "NL": "Netherlands",
+  "ES": "Spain",
+  "IT": "Italy",
   "AU": "Australia",
-  "NZ": "Australia",
-  "CN": "Asia",
-  "JP": "Asia",
-  "KR": "Asia",
-  "SG": "Asia",
-  "AE": "Asia", // UAE
-  "SA": "Asia", // Saudi Arabia
+  "NZ": "New Zealand",
+  "CN": "China",
+  "JP": "Japan",
+  "KR": "South Korea",
+  "SG": "Singapore",
+  "AE": "UAE",
+  "SA": "Saudi Arabia",
 };
 
 const Home = () => {
@@ -88,7 +88,7 @@ const Home = () => {
     axios.get("https://ipapi.co/json/")
       .then((response) => {
         const data = response.data;
-        const mappedLocation = continentMapping[data?.country] || data?.country_name || "Asia";
+        const mappedLocation = countryToLocationMap[data?.country] || data?.country_name || "India";
         console.log("🌍 Home detected location:", {
           countryCode: data?.country,
           countryName: data?.country_name,
@@ -98,7 +98,7 @@ const Home = () => {
       })
       .catch((err) => {
         console.error("Failed to fetch location:", err);
-        setLocation("Asia");
+        setLocation("India");
       });
 
     const fetchBanner = async () => {
