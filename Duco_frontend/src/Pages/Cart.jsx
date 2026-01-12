@@ -652,8 +652,11 @@ const Cart = () => {
       const isCustomItem = item.id && String(item.id).startsWith('custom-tshirt-');
       let finalPrice = basePrice;
       
-      // Only apply conversion for non-loaded designs and non-INR currencies
-      if (!isLoadedDesign && !isCustomItem && !isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
+      // ✅ CRITICAL FIX: Apply conversion for ALL items that need it
+      // - Loaded designs: already converted, skip
+      // - Custom items WITHOUT isLoadedDesign flag: need conversion
+      // - Regular products: need conversion
+      if (!isLoadedDesign && !isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
         finalPrice = applyLocationPricing(basePrice, priceIncrease, conversionRate);
         console.log(`💰 Applied location pricing: ${basePrice} INR → ${finalPrice} ${currencySymbol}`);
       }
@@ -795,17 +798,12 @@ const Cart = () => {
       const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
       const sides = countDesignSides(item);
       
-      // ✅ ONLY charge printing if there are actually printed sides
-      if (sides === 0) {
-        console.log(`🖨️ No printing for ${item.products_name || item.name} (0 sides)`);
-        return total;
-      }
-      
       let itemCost = 0;
       let chargePerUnit = 0;
       
       if (isBulkOrder) {
         // ✅ B2B Orders: Use printPerUnit from charge plan (per unit, not per side)
+        // B2B orders ALWAYS have printing charges, regardless of design
         chargePerUnit = safeNum(printPerUnit, 0);
         itemCost = qty * chargePerUnit;
         console.log(`🖨️ B2B Printing cost for ${item.products_name || item.name}:`, {
@@ -816,6 +814,12 @@ const Cart = () => {
           source: 'charge_plan'
         });
       } else {
+        // ✅ B2C Orders: ONLY charge printing if there are actually printed sides
+        if (sides === 0) {
+          console.log(`🖨️ No printing for ${item.products_name || item.name} (0 sides)`);
+          return total;
+        }
+        
         // ✅ B2C Orders: Use B2C printing charge per side from settings (NOT from charge plan)
         chargePerUnit = safeNum(b2cPrintingChargePerSide, 0);
         itemCost = qty * sides * chargePerUnit;
@@ -1117,7 +1121,7 @@ const Cart = () => {
               
               {/* Subtotal before GST - matching invoice format */}
               <div className="flex justify-between border-t pt-2 mt-2">
-                <span className="font-medium">Subtotal</span>
+                <span className="font-medium">Subtotal (Taxable)</span>
                 <span className="font-medium">{formatCurrency(itemsSubtotal + printingCost + pfCost)}</span>
               </div>
               
@@ -1125,10 +1129,14 @@ const Cart = () => {
               {(() => {
                 // ✅ Check if this is a B2B order
                 const isBulkOrder = actualData.some(item => item.isCorporate === true);
+                const taxableAmount = itemsSubtotal + printingCost + pfCost;
                 
                 console.log('🧾 Order Summary - B2B Check:', {
                   isBulkOrder,
                   actualDataLength: actualData.length,
+                  taxableAmount,
+                  currency,
+                  currencySymbol,
                   actualData: actualData.map(item => ({ name: item.name, isCorporate: item.isCorporate }))
                 });
                 
@@ -1152,7 +1160,6 @@ const Cart = () => {
                 }
                 
                 // ✅ B2B Orders: Show GST breakdown (Updated rates)
-                const taxableAmount = itemsSubtotal + printingCost + pfCost;
                 const customerState = billingAddress?.state || '';
                 
                 // Check if in India
@@ -1244,6 +1251,14 @@ const Cart = () => {
                 <div className="flex justify-between text-yellow-400 text-sm">
                   <span>✓ Location Pricing Applied ({resolvedLocation})</span>
                   <span>+{safeNum(priceIncrease)}%</span>
+                </div>
+              )}
+              
+              {/* Currency Conversion Info */}
+              {conversionRate && conversionRate !== 1 && (
+                <div className="flex justify-between text-cyan-400 text-sm">
+                  <span>💱 Currency Conversion Applied</span>
+                  <span>1 INR = {conversionRate.toFixed(4)} {currency}</span>
                 </div>
               )}
             </div>
@@ -1465,10 +1480,21 @@ const Cart = () => {
                   
                   console.log(`📦 Item price fix: ${item.products_name || item.name} - Cart: ${item.price}, Actual: ${correctPrice}`);
                   
-                  return {
+                  // ✅ CRITICAL: Ensure previewImages and design are included
+                  const itemWithPrice = {
                     ...item,
                     price: correctPrice, // ✅ Use correct product price
                   };
+                  
+                  console.log(`🖼️ Item being sent to checkout:`, {
+                    name: itemWithPrice.products_name || itemWithPrice.name,
+                    hasPreviewImages: !!itemWithPrice.previewImages,
+                    hasDesign: !!itemWithPrice.design,
+                    previewImagesKeys: itemWithPrice.previewImages ? Object.keys(itemWithPrice.previewImages) : [],
+                    designKeys: itemWithPrice.design ? Object.keys(itemWithPrice.design) : [],
+                  });
+                  
+                  return itemWithPrice;
                 });
 
                 navigate("/payment", {

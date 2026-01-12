@@ -201,8 +201,8 @@ const OrderDetailsCard = ({ orderId }) => {
           >
             {order.status}
           </span>
-          {/* ✅ Design Preview Button */}
-          {(order.designImages && Object.values(order.designImages).some(v => v)) && (
+          {/* ✅ Design Preview Button - Always show for orders with products */}
+          {order.products && order.products.length > 0 && (
             <button
               onClick={() => setShowDesignModal(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm"
@@ -638,13 +638,116 @@ const OrderDetailsCard = ({ orderId }) => {
       )}
 
       {/* ✅ Design Preview Modal */}
-      <DesignPreviewModal
-        isOpen={showDesignModal}
-        onClose={() => setShowDesignModal(false)}
-        designImages={order.designImages || {}}
-        additionalFiles={order.additionalFilesMeta || []}
-        orderId={order._id}
-      />
+      {(() => {
+        // ✅ Extract design images from order items
+        let designImages = {};
+        let additionalFiles = [];
+        
+        // ✅ FIRST: Try to extract from first product item (most reliable source)
+        const firstItem = order.products?.[0];
+        if (firstItem) {
+          const design = firstItem.design || firstItem.design_data || firstItem.product?.design || firstItem?.customDesign || {};
+          
+          console.log('📸 MODAL EXTRACTION - Checking sources:', {
+            'item.image': firstItem.image ? `${firstItem.image.substring(0, 50)}...` : 'NONE',
+            'item.previewImages': firstItem.previewImages ? Object.keys(firstItem.previewImages) : 'NONE',
+            'design.frontView': design.frontView ? 'EXISTS' : 'NONE',
+            'item.additionalFilesMeta': firstItem.additionalFilesMeta?.length || 0,
+            'design.additionalFilesMeta': design.additionalFilesMeta?.length || 0,
+          });
+          
+          // ✅ Priority 1: item.image (this is what the thumbnail uses!)
+          if (firstItem.image && typeof firstItem.image === 'string' && firstItem.image.startsWith('data:image')) {
+            designImages = { front: firstItem.image };
+            console.log('✅ MODAL: Using item.image');
+          }
+          // ✅ Priority 2: item.previewImages
+          else if (firstItem.previewImages?.front || firstItem.previewImages?.back) {
+            designImages = {
+              front: firstItem.previewImages?.front || null,
+              back: firstItem.previewImages?.back || null,
+              left: firstItem.previewImages?.left || null,
+              right: firstItem.previewImages?.right || null,
+            };
+            console.log('✅ MODAL: Using item.previewImages');
+          }
+          // ✅ Priority 3: design.frontView/backView
+          else if (design.frontView && typeof design.frontView === 'string') {
+            designImages = {
+              front: design.frontView || null,
+              back: design.backView || null,
+              left: design.leftView || null,
+              right: design.rightView || null,
+            };
+            console.log('✅ MODAL: Using design.*View');
+          }
+          // ✅ Priority 4: design.previewImages
+          else if (design.previewImages?.front || design.previewImages?.back) {
+            designImages = {
+              front: design.previewImages?.front || null,
+              back: design.previewImages?.back || null,
+              left: design.previewImages?.left || null,
+              right: design.previewImages?.right || null,
+            };
+            console.log('✅ MODAL: Using design.previewImages');
+          }
+          // ✅ Priority 5: design.front/back objects
+          else if (design.front || design.back) {
+            designImages = {
+              front: typeof design.front === 'string' ? design.front : design.front?.uploadedImage || null,
+              back: typeof design.back === 'string' ? design.back : design.back?.uploadedImage || null,
+              left: typeof design.left === 'string' ? design.left : design.left?.uploadedImage || null,
+              right: typeof design.right === 'string' ? design.right : design.right?.uploadedImage || null,
+            };
+            console.log('✅ MODAL: Using design.front/back objects');
+          }
+          
+          // ✅ Extract additional files (CDR/PDF) from product item
+          if (Array.isArray(firstItem.additionalFilesMeta) && firstItem.additionalFilesMeta.length > 0) {
+            additionalFiles = firstItem.additionalFilesMeta;
+            console.log('✅ MODAL: Found files in item.additionalFilesMeta:', additionalFiles.length);
+          } else if (Array.isArray(design.additionalFilesMeta) && design.additionalFilesMeta.length > 0) {
+            additionalFiles = design.additionalFilesMeta;
+            console.log('✅ MODAL: Found files in design.additionalFilesMeta:', additionalFiles.length);
+          } else if (Array.isArray(design.extraFiles) && design.extraFiles.length > 0) {
+            additionalFiles = design.extraFiles;
+            console.log('✅ MODAL: Found files in design.extraFiles:', additionalFiles.length);
+          }
+        }
+        
+        // ✅ FALLBACK: Check order.designImages if item extraction failed
+        if (!designImages.front && !designImages.back) {
+          const orderDesign = order.designImages || {};
+          if (orderDesign.front || orderDesign.back || orderDesign.left || orderDesign.right) {
+            designImages = orderDesign;
+            console.log('✅ MODAL: Using order.designImages');
+          }
+        }
+        
+        // ✅ FALLBACK: Check order.additionalFilesMeta if item extraction failed
+        if (additionalFiles.length === 0 && Array.isArray(order.additionalFilesMeta) && order.additionalFilesMeta.length > 0) {
+          additionalFiles = order.additionalFilesMeta;
+          console.log('✅ MODAL: Using order.additionalFilesMeta:', additionalFiles.length);
+        }
+        
+        console.log('📸 MODAL FINAL:', {
+          hasFront: !!designImages.front,
+          hasBack: !!designImages.back,
+          frontPreview: designImages.front ? `${designImages.front.substring(0, 30)}...` : 'NONE',
+          filesCount: additionalFiles.length,
+          files: additionalFiles.map(f => f.name || f),
+        });
+        
+        return (
+          <DesignPreviewModal
+            isOpen={showDesignModal}
+            onClose={() => setShowDesignModal(false)}
+            designImages={designImages}
+            additionalFiles={additionalFiles}
+            orderId={order._id}
+          />
+        );
+      })()}
     </div>
   );
 };

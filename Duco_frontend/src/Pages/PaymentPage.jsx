@@ -3,7 +3,7 @@ import PaymentButton from "../Components/PaymentButton";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import NetbankingPanel from "../Components/NetbankingPanel.jsx";
-import { completeOrder } from "../Service/APIservice";
+import { completeOrder, uploadDesignImagesForOrder } from "../Service/APIservice";
 import { useCart } from "../ContextAPI/CartContext.jsx";
 
 /* ------------------------------ helpers ------------------------------ */
@@ -316,6 +316,16 @@ const PaymentPage = () => {
       // persist for refresh / deep-link
       if (orderId) localStorage.setItem("lastOrderId", orderId);
       localStorage.setItem("lastOrderMeta", JSON.stringify(paymentMeta));
+
+      // ✅ Upload design images for each item in the order
+      if (orderId && normalizedPayload.items && Array.isArray(normalizedPayload.items)) {
+        for (const item of normalizedPayload.items) {
+          if (item.previewImages && Object.keys(item.previewImages).length > 0) {
+            console.log(`📤 Uploading design images for item: ${item.name}`);
+            await uploadDesignImagesForOrder(orderId, item.previewImages);
+          }
+        }
+      }
 
       toast.success(`✅ ${successMsg}`);
 

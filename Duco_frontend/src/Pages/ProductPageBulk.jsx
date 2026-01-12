@@ -121,8 +121,7 @@ const ProductPageBulk = () => {
         setDefaultColorGroup(p.image_url?.[0]);
         setSelectedColorCode(p.image_url?.[0]?.colorcode || '#ffffff');
         setColortext(p.image_url?.[0]?.color)
-         setPrice(calculatePrice(toConvert,p?.pricing?.[0]?.price_per,priceIncrease))
-         setGender(p.gender)
+        setGender(p.gender)
 
         // Generate video thumbnail if video exists
         if (p.image_url?.[0]?.videolink) {
@@ -135,6 +134,21 @@ const ProductPageBulk = () => {
     };
     fetchProduct();
   }, [id]);
+
+  // ✅ Recalculate price whenever location/currency changes
+  useEffect(() => {
+    if (product?.pricing?.[0]?.price_per) {
+      const newPrice = calculatePrice(toConvert, product.pricing[0].price_per, priceIncrease);
+      console.log('💰 ProductPageBulk price updated:', {
+        basePrice: product.pricing[0].price_per,
+        toConvert,
+        priceIncrease,
+        newPrice,
+        currency
+      });
+      setPrice(newPrice);
+    }
+  }, [toConvert, priceIncrease, currency, product?.pricing]);
 
 
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getInvoiceByOrder } from "../Service/APIservice";
 import { useCart } from "../ContextAPI/CartContext";
@@ -19,7 +19,21 @@ const currencySymbols = {
   SGD: "S$",
 };
 
+// Helper to safely convert to number
+const safeNum = (v, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
 
+// Format currency based on type
+const formatCurrency = (amount, symbol, isINR = true) => {
+  const num = safeNum(amount);
+  if (isINR) {
+    return `${symbol}${num.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  } else {
+    return `${symbol}${num.toFixed(2)}`;
+  }
+};
 
 // Use the new InvoiceTemplate component
 const InvoiceDucoTailwind = InvoiceTemplate;
@@ -31,7 +45,7 @@ export default function OrderSuccess() {
   const location = useLocation();
   const [invoiceData, setInvoiceData] = useState(null);
   const { clearCart } = useCart();
-  const { currency, toConvert, priceIncrease } = usePriceContext();
+  const { currency, toConvert } = usePriceContext();
   const invoiceRef = useRef();
 
   const orderId = paramId || localStorage.getItem("lastOrderId");
@@ -46,12 +60,14 @@ export default function OrderSuccess() {
       ? "Pay on Store (Pickup)"
       : paymentMeta.mode === "netbanking"
       ? "Netbanking / UPI"
+      : paymentMeta.mode === "50%"
+      ? "50% Advance Payment"
       : "Pay Online";
   const isB2B = paymentMeta?.isCorporate || false;
 
   // ✅ Get currency symbol
   const currencySymbol = currencySymbols[currency] || "₹";
-  const isInternational = currency && currency !== 'INR';
+  const isINR = currency === 'INR' || !currency;
   
   // ✅ Get payment currency and location from state or stored meta
   const paymentCurrency = location.state?.paymentCurrency || storedMeta?.paymentCurrency || currency || 'INR';
@@ -61,7 +77,7 @@ export default function OrderSuccess() {
 
   console.log("💳 Payment Mode:", paymentMethod);
   console.log("🏢 Order Type:", isB2B ? "B2B" : "B2C");
-  console.log("💱 Currency:", currency, "Symbol:", currencySymbol, "International:", isInternational);
+  console.log("💱 Currency:", currency, "Symbol:", currencySymbol, "IsINR:", isINR);
   console.log("🌍 Payment Location:", { paymentCurrency, customerCountry, customerCity, customerState });
 
   /* ✅ FIXED INVOICE LOGIC: accurate charges + gst like cart + side printing info */
@@ -85,38 +101,15 @@ export default function OrderSuccess() {
           printSides: it.printSides || it.sides || 0,
         })) || [];
 
+        // ✅ Calculate subtotal from items
         const subtotal = items.reduce(
-          (sum, item) => sum + Number(item.qty || 0) * Number(item.price || 0),
+          (sum, item) => sum + safeNum(item.qty, 0) * safeNum(item.price, 0),
           0
         );
 
-        // ✅ Extract charges from invoice, with fallback to order data
-        let pf = Number(inv.charges?.pf ?? inv.pfCharges ?? 0);
-        let printing = Number(inv.charges?.printing ?? inv.printingCharges ?? 0);
-        
-        // ✅ If charges are 0, try to get from order object
-        if (pf === 0 && inv.order) {
-          pf = Number(inv.order.pf ?? 0);
-        }
-        if (printing === 0 && inv.order) {
-          printing = Number(inv.order.printing ?? 0);
-        }
-        
-        // ✅ If still 0, calculate based on quantity (fallback)
-        if (pf === 0 || printing === 0) {
-          const totalQty = items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
-          if (pf === 0) {
-            pf = 15; // Fixed P&F charge
-          }
-          if (printing === 0) {
-            // Calculate printing based on items with print sides
-            printing = items.reduce((sum, item) => {
-              const sides = item.printSides || 0;
-              const qty = Number(item.qty || 0);
-              return sum + (qty * sides * 15); // ₹15 per side
-            }, 0);
-          }
-        }
+        // ✅ Extract charges from invoice with proper fallbacks
+        let pf = safeNum(inv.charges?.pf ?? inv.pfCharges ?? inv.order?.pf ?? 0);
+        let printing = safeNum(inv.charges?.printing ?? inv.printingCharges ?? inv.order?.printing ?? 0);
         
         console.log('💰 Invoice Charges Debug:', {
           invCharges: inv.charges,
@@ -124,50 +117,65 @@ export default function OrderSuccess() {
           printing,
           orderPf: inv.order?.pf,
           orderPrinting: inv.order?.printing,
-          calculatedFromItems: printing > 0
         });
 
         // ✅ CRITICAL FIX: Use backend total directly instead of recalculating
         // The backend has already calculated the correct total with proper tax logic
-        const total = Number(inv.total ?? inv.totalPay) || 0;
+        const total = safeNum(inv.total ?? inv.totalPay ?? 0);
         
         // ✅ Extract tax information from backend (already calculated correctly)
-        const gstRate = inv.tax?.igstRate ?? inv.tax?.gstRate ?? inv.gstRate ?? 5;
-        const gstTotal = inv.tax?.igstAmount ?? inv.tax?.totalTax ?? inv.gstTotal ?? 0;
+        const taxInfo = inv.tax || {};
+        const cgstAmount = safeNum(taxInfo.cgstAmount ?? 0);
+        const sgstAmount = safeNum(taxInfo.sgstAmount ?? 0);
+        const igstAmount = safeNum(taxInfo.igstAmount ?? 0);
+        const taxAmount = safeNum(taxInfo.taxAmount ?? 0);
+        
+        // ✅ Calculate total tax based on type
+        let totalTax = 0;
+        if (taxInfo.type === 'INTERNATIONAL') {
+          totalTax = taxAmount;
+        } else if (taxInfo.type === 'INTRASTATE_CGST_SGST') {
+          totalTax = cgstAmount + sgstAmount;
+        } else if (taxInfo.type === 'INTERSTATE') {
+          totalTax = igstAmount;
+        } else if (taxInfo.type === 'B2C_NO_TAX') {
+          totalTax = 0;
+        } else {
+          totalTax = cgstAmount + sgstAmount + igstAmount + taxAmount;
+        }
 
-        const cgstRate = inv.tax?.cgstRate ?? gstRate / 2;
-        const sgstRate = inv.tax?.sgstRate ?? gstRate / 2;
-        const cgstAmount = inv.tax?.cgstAmount ?? 0;
-        const sgstAmount = inv.tax?.sgstAmount ?? 0;
-
-        // ✅ Add location-based adjustment
-        const locationTax = inv.locationTax || paymentMeta.locationTax || null;
-        const locationAdj =
-          locationTax?.percentage
-            ? ((subtotal + pf + printing) * locationTax.percentage) / 100
-            : 0;
+        // ✅ Calculate taxable amount (subtotal + charges)
+        const taxableAmount = subtotal + pf + printing;
 
         const formatted = {
           ...inv,
           items,
           charges: { pf, printing },
-          tax: inv.tax || { cgstRate, sgstRate, cgstAmount, sgstAmount }, // ✅ Use tax from backend if available
-          subtotal,
-          total,
-          locationTax,
-          currency: currency || 'INR', // ✅ Add currency
-          currencySymbol: currencySymbol, // ✅ Add currency symbol
-          conversionRate: inv.conversionRate || toConvert || 1, // ✅ Use conversion rate from invoice
-          paymentmode: inv.paymentmode || paymentMeta.mode || 'online', // ✅ Add payment mode
-          amountPaid: inv.amountPaid || 0, // ✅ Add amount paid (for 50% payments)
-          paymentCurrency: inv.paymentCurrency || paymentCurrency, // ✅ Use payment currency from invoice
-          customerCountry: inv.customerCountry || customerCountry, // ✅ Use customer country from invoice
-          customerCity: inv.customerCity || customerCity, // ✅ Use customer city from invoice
-          customerState: inv.customerState || customerState, // ✅ Use customer state from invoice
+          tax: taxInfo,
+          subtotal: safeNum(subtotal),
+          taxableAmount: safeNum(taxableAmount),
+          totalTax: safeNum(totalTax),
+          total: safeNum(total),
+          currency: currency || 'INR',
+          currencySymbol: currencySymbol,
+          conversionRate: safeNum(inv.conversionRate ?? toConvert ?? 1),
+          paymentmode: inv.paymentmode || paymentMeta.mode || 'online',
+          amountPaid: safeNum(inv.amountPaid ?? 0),
+          paymentCurrency: inv.paymentCurrency || paymentCurrency,
+          customerCountry: inv.customerCountry || customerCountry,
+          customerCity: inv.customerCity || customerCity,
+          customerState: inv.customerState || customerState,
         };
 
-        console.log("🧾 Normalized Invoice for Success Page:", formatted);
-        console.log("💱 Tax Info:", formatted.tax);
+        console.log("🧾 Normalized Invoice for Success Page:", {
+          subtotal: formatted.subtotal,
+          pf: formatted.charges.pf,
+          printing: formatted.charges.printing,
+          taxableAmount: formatted.taxableAmount,
+          totalTax: formatted.totalTax,
+          total: formatted.total,
+          taxType: formatted.tax?.type,
+        });
         
         if (isMounted) {
           setInvoiceData(formatted);
@@ -274,29 +282,69 @@ export default function OrderSuccess() {
             <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Charges Summary</h2>
             <div className="space-y-3">
               <div className="flex justify-between">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-semibold text-gray-800">
+                  {formatCurrency(invoiceData.subtotal, currencySymbol, isINR)}
+                </span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-gray-600">P&F Charges:</span>
-                <span className="font-semibold text-gray-800">{currencySymbol}{invoiceData.charges.pf.toFixed(2)}</span>
+                <span className="font-semibold text-gray-800">
+                  {formatCurrency(invoiceData.charges.pf, currencySymbol, isINR)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Printing Charges:</span>
-                <span className="font-semibold text-gray-800">{currencySymbol}{invoiceData.charges.printing.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">
-                  {invoiceData.tax?.type === 'INTERNATIONAL' ? 'TAX (1%)' : 'GST (5%)'}:
-                </span>
                 <span className="font-semibold text-gray-800">
-                  {currencySymbol}
-                  {invoiceData.tax?.type === 'INTERNATIONAL' 
-                    ? (invoiceData.tax.taxAmount || 0).toFixed(2)
-                    : ((invoiceData.tax.cgstAmount || 0) + (invoiceData.tax.sgstAmount || 0) + (invoiceData.tax.igstAmount || 0)).toFixed(2)}
+                  {formatCurrency(invoiceData.charges.printing, currencySymbol, isINR)}
                 </span>
               </div>
-              {invoiceData.locationTax?.percentage && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Location Adjustment:</span>
-                  <span className="font-semibold text-gray-800">+{invoiceData.locationTax.percentage}%</span>
-                </div>
+              <div className="border-t pt-3 flex justify-between">
+                <span className="text-gray-600">Taxable Amount:</span>
+                <span className="font-semibold text-gray-800">
+                  {formatCurrency(invoiceData.taxableAmount, currencySymbol, isINR)}
+                </span>
+              </div>
+              
+              {/* Tax Breakdown */}
+              {invoiceData.tax && (
+                <>
+                  {invoiceData.tax.type === 'B2C_NO_TAX' ? (
+                    <div className="flex justify-between text-green-600">
+                      <span className="text-sm">Tax (B2C):</span>
+                      <span className="font-semibold">No Tax</span>
+                    </div>
+                  ) : invoiceData.tax.type === 'INTERNATIONAL' ? (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">TAX (1%):</span>
+                      <span className="font-semibold text-gray-800">
+                        {formatCurrency(invoiceData.tax.taxAmount || 0, currencySymbol, isINR)}
+                      </span>
+                    </div>
+                  ) : invoiceData.tax.type === 'INTRASTATE_CGST_SGST' ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">CGST (2.5%):</span>
+                        <span className="font-semibold text-gray-800">
+                          {formatCurrency(invoiceData.tax.cgstAmount || 0, currencySymbol, isINR)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">SGST (2.5%):</span>
+                        <span className="font-semibold text-gray-800">
+                          {formatCurrency(invoiceData.tax.sgstAmount || 0, currencySymbol, isINR)}
+                        </span>
+                      </div>
+                    </>
+                  ) : invoiceData.tax.type === 'INTERSTATE' ? (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">IGST (5%):</span>
+                      <span className="font-semibold text-gray-800">
+                        {formatCurrency(invoiceData.tax.igstAmount || 0, currencySymbol, isINR)}
+                      </span>
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           </div>
@@ -309,7 +357,9 @@ export default function OrderSuccess() {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-blue-100 text-sm mb-1">Grand Total</p>
-              <h3 className="text-4xl font-bold">{currencySymbol}{invoiceData.total.toFixed(2)}</h3>
+              <h3 className="text-4xl font-bold">
+                {formatCurrency(invoiceData.total, currencySymbol, isINR)}
+              </h3>
             </div>
             <div className="text-right">
               <p className="text-blue-100 text-sm mb-1">Order ID</p>

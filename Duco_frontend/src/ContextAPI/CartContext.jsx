@@ -53,36 +53,42 @@ export const CartProvider = ({ children }) => {
       }
     });
     
-    // ✅ Strip large data from localStorage to save space
+    // ✅ CRITICAL FIX: Keep BOTH design object AND previewImages in localStorage
+    // Both are needed for proper order processing:
+    // - design: needed for countDesignSides() to calculate printing charges
+    // - previewImages: needed for design preview modal and Cloudinary upload
     const cartForStorage = cart.map(item => {
-      const { design, ...itemWithoutDesign } = item;
-      return itemWithoutDesign;
+      // Keep everything - design, previewImages, additionalFilesMeta
+      return item;
     });
     
     try {
       localStorage.setItem("cart", JSON.stringify(cartForStorage));
       console.log("🛒 Cart saved to localStorage:", {
         itemCount: cartForStorage.length,
+        itemsWithDesign: cart.filter(i => !!i.design).length,
         itemsWithPreviewImages: cart.filter(i => !!i.previewImages).length,
         itemsWithData: cartForStorage.map(i => ({
           id: i.id,
           name: i.name,
+          hasDesign: !!i.design,
           hasPreviewImages: !!i.previewImages,
           hasFiles: !!i.additionalFilesMeta?.length
         }))
       });
     } catch (err) {
       console.error("❌ Failed to save cart to localStorage:", err);
-      // If still too large, try removing preview images too
+      // If still too large, try removing preview images only
       if (err.name === 'QuotaExceededError') {
         console.warn("⚠️ Cart too large, removing preview images from storage...");
-        const minimalCart = cartForStorage.map(item => {
-          const { previewImages, ...itemWithoutImages } = item;
-          return itemWithoutImages;
+        const minimalCart = cart.map(item => {
+          const { previewImages, ...itemWithoutPreviewImages } = item;
+          // ✅ KEEP design object - it's critical for printing charges
+          return itemWithoutPreviewImages;
         });
         try {
           localStorage.setItem("cart", JSON.stringify(minimalCart));
-          console.log("🛒 Cart saved with minimal data (preview images in memory)");
+          console.log("🛒 Cart saved with minimal data (design kept, preview images removed)");
         } catch (err2) {
           console.error("❌ Failed to save even minimal cart:", err2);
         }

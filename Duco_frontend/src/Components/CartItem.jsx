@@ -76,15 +76,22 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   // ✅ Apply location pricing to a base price
   const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {
     let price = Number(basePrice) || 0;
+    const originalPrice = price;
     
     // Step 1: Apply percentage increase (location markup)
-    if (priceIncrease) {
+    if (priceIncrease && priceIncrease > 0) {
       price += (price * Number(priceIncrease)) / 100;
+      console.log(`💱 Applied markup: ${originalPrice} + ${priceIncrease}% = ${price}`);
     }
     
     // Step 2: Apply currency conversion
-    if (conversionRate && conversionRate !== 1) {
+    // ✅ CRITICAL: Only apply if conversion rate is valid and not 1
+    if (conversionRate && conversionRate !== 1 && conversionRate > 0) {
+      const beforeConversion = price;
       price *= conversionRate;
+      console.log(`💱 Applied conversion: ${beforeConversion} × ${conversionRate} = ${price}`);
+    } else {
+      console.log(`⚠️ Conversion NOT applied: rate=${conversionRate}, isValid=${conversionRate && conversionRate !== 1 && conversionRate > 0}`);
     }
     
     // ✅ Don't round here - keep precision for calculations
@@ -100,11 +107,31 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
       const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
       
       let basePrice = 0;
+      let finalPrice = 0;
       
       if (isLoadedDesign || isCustomItem) {
         // Loaded designs and custom items: use item.price as it's already converted
         basePrice = Number(item.price) || 0;
-        console.log(`💰 CartItem (${isLoadedDesign ? 'Loaded' : 'Custom'}): ${item.products_name || item.name} - Pre-converted: ${basePrice}, Qty: ${qty}`);
+        
+        // ✅ CRITICAL FIX: Re-apply conversion if toConvert is now available but wasn't when item was added
+        // This handles the case where user added item before conversion rate was fetched
+        if (toConvert && toConvert !== 1 && toConvert > 0) {
+          // Check if price looks like it hasn't been converted yet (too high for target currency)
+          // If item.price is > 100 and toConvert < 0.1, it's likely not converted
+          if (basePrice > 100 && toConvert < 0.1) {
+            // This price looks like it's in INR, not the target currency
+            // Re-apply conversion
+            finalPrice = applyLocationPricing(basePrice, 0, toConvert); // Don't re-apply markup
+            console.log(`💰 CartItem (${isLoadedDesign ? 'Loaded' : 'Custom'}) - RE-CONVERTING: ${basePrice} × ${toConvert} = ${finalPrice}`);
+          } else {
+            // Price looks already converted
+            finalPrice = basePrice;
+            console.log(`💰 CartItem (${isLoadedDesign ? 'Loaded' : 'Custom'}) - Already converted: ${finalPrice}`);
+          }
+        } else {
+          finalPrice = basePrice;
+          console.log(`💰 CartItem (${isLoadedDesign ? 'Loaded' : 'Custom'}) - No conversion needed: ${finalPrice}, toConvert: ${toConvert}`);
+        }
       } else {
         // Regular products: use pricing array for base INR price
         if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
@@ -114,11 +141,11 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         }
         
         // Apply location pricing to base INR price
-        basePrice = applyLocationPricing(basePrice, priceIncrease, toConvert);
-        console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Final: ${basePrice}, Qty: ${qty}`);
+        finalPrice = applyLocationPricing(basePrice, priceIncrease, toConvert);
+        console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Base: ${basePrice}, After pricing: ${finalPrice}, Qty: ${qty}, toConvert: ${toConvert}, priceIncrease: ${priceIncrease}`);
       }
       
-      return acc + qty * basePrice;
+      return acc + qty * finalPrice;
     },
     0
   );

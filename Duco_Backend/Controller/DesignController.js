@@ -10,29 +10,12 @@ const createDesign = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    // ✅ Extract preview images and files from design array
-    let previewImages = {};
+    // ✅ Extract additional files metadata from design array
     let additionalFilesMeta = [];
 
     if (Array.isArray(design) && design.length > 0) {
       const firstDesign = design[0];
       
-      // Extract preview images
-      if (firstDesign.previewImages && typeof firstDesign.previewImages === 'object') {
-        previewImages = {
-          front: firstDesign.previewImages.front || null,
-          back: firstDesign.previewImages.back || null,
-          left: firstDesign.previewImages.left || null,
-          right: firstDesign.previewImages.right || null
-        };
-        console.log('✅ Preview images extracted:', {
-          front: !!previewImages.front,
-          back: !!previewImages.back,
-          left: !!previewImages.left,
-          right: !!previewImages.right
-        });
-      }
-
       // Extract additional files metadata
       if (Array.isArray(firstDesign.additionalFilesMeta)) {
         additionalFilesMeta = firstDesign.additionalFilesMeta.map(f => ({
@@ -49,14 +32,12 @@ const createDesign = async (req, res) => {
       products,
       cutomerprodcuts,
       design,
-      previewImages,
       additionalFilesMeta
     });
 
     const saved = await newDesign.save();
     
     console.log('✅ Design saved with:', {
-      hasPreviewImages: !!saved.previewImages,
       hasFiles: saved.additionalFilesMeta?.length > 0
     });
 

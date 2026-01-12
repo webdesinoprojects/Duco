@@ -4,11 +4,27 @@ import { X, Download, Eye } from 'lucide-react';
 const DesignPreviewModal = ({ isOpen, onClose, designImages, additionalFiles, orderId }) => {
   const [selectedView, setSelectedView] = useState('front');
   const [showFileList, setShowFileList] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   if (!isOpen) return null;
 
   const views = ['front', 'back', 'left', 'right'];
   const currentImage = designImages?.[selectedView];
+  
+  // Check if image is a valid data URL or URL
+  const isValidImage = currentImage && (
+    currentImage.startsWith('data:image') || 
+    currentImage.startsWith('http://') || 
+    currentImage.startsWith('https://')
+  );
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const handleImageLoad = () => {
+    setImageError(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -30,13 +46,15 @@ const DesignPreviewModal = ({ isOpen, onClose, designImages, additionalFiles, or
         {/* Content */}
         <div className="p-6">
           {/* Design Image Display */}
-          {currentImage ? (
+          {isValidImage && !imageError ? (
             <div className="mb-8">
               <div className="bg-gray-100 rounded-lg p-4 mb-4">
                 <img
                   src={currentImage}
                   alt={`${selectedView} view`}
                   className="w-full h-auto max-h-96 object-contain rounded"
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
                 />
               </div>
               <p className="text-center text-gray-600 text-sm">
@@ -46,7 +64,9 @@ const DesignPreviewModal = ({ isOpen, onClose, designImages, additionalFiles, or
           ) : (
             <div className="bg-gray-100 rounded-lg p-12 mb-8 text-center">
               <Eye size={48} className="mx-auto text-gray-400 mb-2" />
-              <p className="text-gray-500">No design image available for {selectedView} view</p>
+              <p className="text-gray-500">
+                {imageError ? 'Failed to load image' : `No design image available for ${selectedView} view`}
+              </p>
             </div>
           )}
 
@@ -54,19 +74,32 @@ const DesignPreviewModal = ({ isOpen, onClose, designImages, additionalFiles, or
           <div className="mb-8">
             <h3 className="text-lg font-semibold mb-3 text-gray-800">Select View</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {views.map((view) => (
-                <button
-                  key={view}
-                  onClick={() => setSelectedView(view)}
-                  className={`py-2 px-3 rounded-lg font-medium transition ${
-                    selectedView === view
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {view.charAt(0).toUpperCase() + view.slice(1)}
-                </button>
-              ))}
+              {views.map((view) => {
+                const hasImage = designImages?.[view] && (
+                  designImages[view].startsWith('data:image') || 
+                  designImages[view].startsWith('http')
+                );
+                return (
+                  <button
+                    key={view}
+                    onClick={() => {
+                      setSelectedView(view);
+                      setImageError(false);
+                    }}
+                    className={`py-2 px-3 rounded-lg font-medium transition ${
+                      selectedView === view
+                        ? 'bg-blue-600 text-white'
+                        : hasImage
+                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                    disabled={!hasImage}
+                  >
+                    {view.charAt(0).toUpperCase() + view.slice(1)}
+                    {hasImage && <span className="ml-1">✓</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -83,35 +116,44 @@ const DesignPreviewModal = ({ isOpen, onClose, designImages, additionalFiles, or
 
               {showFileList && (
                 <div className="mt-4 space-y-2">
-                  {additionalFiles.map((file, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-400 transition"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="text-xl">
-                          {file.name?.toLowerCase().endsWith('.cdr') ? '🎨' : '📄'}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-800 truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {file.type || 'File'} • {file.size ? `${(file.size / 1024).toFixed(2)} KB` : 'Size unknown'}
-                          </p>
+                  {additionalFiles.map((file, idx) => {
+                    // ✅ Support both url and dataUrl
+                    const fileUrl = file.url || file.dataUrl;
+                    const fileName = file.name || `File ${idx + 1}`;
+                    const isCdr = fileName.toLowerCase().endsWith('.cdr');
+                    const isPdf = fileName.toLowerCase().endsWith('.pdf');
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-400 transition"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="text-xl">
+                            {isCdr ? '🎨' : isPdf ? '📄' : '📁'}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-800 truncate">{fileName}</p>
+                            <p className="text-xs text-gray-500">
+                              {file.type || (isCdr ? 'CorelDRAW' : isPdf ? 'PDF' : 'File')} • {file.size ? `${(file.size / 1024).toFixed(2)} KB` : 'Size unknown'}
+                            </p>
+                          </div>
                         </div>
+                        {fileUrl && (
+                          <a
+                            href={fileUrl}
+                            download={fileName}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-2 p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                            title="Download file"
+                          >
+                            <Download size={18} />
+                          </a>
+                        )}
                       </div>
-                      {file.url && (
-                        <a
-                          href={file.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-2 p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                          title="Download file"
-                        >
-                          <Download size={18} />
-                        </a>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

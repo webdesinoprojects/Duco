@@ -438,3 +438,43 @@ export async function getWallet(userId) {
   const res = await axios.get(url);
   return res.data; // { _id, user, balance?, transactions: [...] }
 }
+
+
+/* ------------------------------- DESIGN UPLOAD FOR ORDERS ------------------------------- */
+/**
+ * Upload design preview images for an order
+ * @param {string} orderId - The order ID
+ * @param {object} designImages - Object with front, back, left, right preview images (base64 data URLs)
+ * @returns {Promise} Response from backend
+ */
+export const uploadDesignImagesForOrder = async (orderId, designImages) => {
+  try {
+    if (!orderId) {
+      throw new Error("Order ID is required");
+    }
+
+    // Only send if there are actual images
+    if (!designImages || Object.keys(designImages).length === 0) {
+      console.warn("⚠️ No design images to upload");
+      return { success: false, message: "No design images provided" };
+    }
+
+    console.log("📤 Uploading design images for order:", orderId);
+
+    const res = await axios.post(
+      `${API_BASE}api/design/upload/${orderId}`,
+      { designImages },
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    console.log("✅ Design images uploaded successfully:", res.data);
+    return res.data;
+  } catch (err) {
+    console.error("❌ Failed to upload design images:", err.response?.data || err.message);
+    return {
+      success: false,
+      message: err.response?.data?.message || err.message,
+      error: err.response?.data?.error || err.message
+    };
+  }
+};

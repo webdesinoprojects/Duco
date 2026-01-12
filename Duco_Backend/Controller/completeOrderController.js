@@ -138,31 +138,82 @@ async function extractAndUploadDesignImages(products, orderId) {
     const firstProduct = products[0];
     const previewImages = {};
 
+    console.log('🔍 Extracting design images from product:', {
+      hasPreviewImages: !!firstProduct.previewImages,
+      hasDesign: !!firstProduct.design,
+      previewImagesKeys: firstProduct.previewImages ? Object.keys(firstProduct.previewImages) : [],
+      designKeys: firstProduct.design ? Object.keys(firstProduct.design) : [],
+    });
+
+    // ✅ CRITICAL: Check for previewImages at top level first (from loaded designs)
+    if (firstProduct.previewImages && typeof firstProduct.previewImages === 'object') {
+      console.log('📸 Found previewImages at top level (from loaded design)');
+      for (const [key, value] of Object.entries(firstProduct.previewImages)) {
+        if (value && typeof value === 'string' && value.length > 100) {
+          previewImages[key] = value;
+          console.log(`  ✅ ${key}: ${value.substring(0, 50)}... (${value.length} chars)`);
+        }
+      }
+    }
+
     // Check for preview images in product design
     if (firstProduct.design && typeof firstProduct.design === 'object') {
       const design = firstProduct.design;
       
       // Extract preview images from design object
       if (design.previewImages && typeof design.previewImages === 'object') {
-        Object.assign(previewImages, design.previewImages);
+        console.log('📸 Found previewImages in design object');
+        for (const [key, value] of Object.entries(design.previewImages)) {
+          if (value && typeof value === 'string' && value.length > 100 && !previewImages[key]) {
+            previewImages[key] = value;
+            console.log(`  ✅ ${key}: ${value.substring(0, 50)}... (${value.length} chars)`);
+          }
+        }
       }
       
       // Also check for direct front/back/left/right views
-      if (design.front?.uploadedImage) previewImages.front = design.front.uploadedImage;
-      if (design.back?.uploadedImage) previewImages.back = design.back.uploadedImage;
-      if (design.left?.uploadedImage) previewImages.left = design.left.uploadedImage;
-      if (design.right?.uploadedImage) previewImages.right = design.right.uploadedImage;
+      if (design.front?.uploadedImage && typeof design.front.uploadedImage === 'string' && design.front.uploadedImage.length > 100 && !previewImages.front) {
+        previewImages.front = design.front.uploadedImage;
+        console.log(`  ✅ front (from design.front.uploadedImage): ${design.front.uploadedImage.substring(0, 50)}...`);
+      }
+      if (design.back?.uploadedImage && typeof design.back.uploadedImage === 'string' && design.back.uploadedImage.length > 100 && !previewImages.back) {
+        previewImages.back = design.back.uploadedImage;
+        console.log(`  ✅ back (from design.back.uploadedImage): ${design.back.uploadedImage.substring(0, 50)}...`);
+      }
+      if (design.left?.uploadedImage && typeof design.left.uploadedImage === 'string' && design.left.uploadedImage.length > 100 && !previewImages.left) {
+        previewImages.left = design.left.uploadedImage;
+        console.log(`  ✅ left (from design.left.uploadedImage): ${design.left.uploadedImage.substring(0, 50)}...`);
+      }
+      if (design.right?.uploadedImage && typeof design.right.uploadedImage === 'string' && design.right.uploadedImage.length > 100 && !previewImages.right) {
+        previewImages.right = design.right.uploadedImage;
+        console.log(`  ✅ right (from design.right.uploadedImage): ${design.right.uploadedImage.substring(0, 50)}...`);
+      }
     }
 
     // If we found preview images, upload them to Cloudinary
     if (Object.keys(previewImages).length > 0) {
-      console.log('📸 Found preview images, uploading to Cloudinary...');
+      console.log('📸 Found preview images, uploading to Cloudinary...', {
+        count: Object.keys(previewImages).length,
+        views: Object.keys(previewImages)
+      });
       const uploadedImages = await uploadDesignPreviewImages(previewImages, orderId);
       console.log('✅ Design images uploaded:', uploadedImages);
       return uploadedImages;
     }
 
     console.log('⚠️ No preview images found in product design');
+    console.log('📋 First product structure:', {
+      keys: Object.keys(firstProduct),
+      hasPreviewImages: !!firstProduct.previewImages,
+      hasDesign: !!firstProduct.design,
+      designStructure: firstProduct.design ? {
+        keys: Object.keys(firstProduct.design),
+        hasFront: !!firstProduct.design.front,
+        hasBack: !!firstProduct.design.back,
+        hasLeft: !!firstProduct.design.left,
+        hasRight: !!firstProduct.design.right,
+      } : null
+    });
     return {};
   } catch (error) {
     console.error('❌ Error extracting/uploading design images:', error.message);
@@ -635,6 +686,18 @@ const completeOrder = async (req, res) => {
         console.error('Invoice creation failed (store pickup):', e);
       }
 
+      // ✅ Upload design images to Cloudinary
+      try {
+        const designImages = await extractAndUploadDesignImages(items, order._id.toString());
+        if (Object.keys(designImages).length > 0) {
+          order.designImages = designImages;
+          await order.save();
+          console.log('✅ Design images uploaded and saved to order');
+        }
+      } catch (e) {
+        console.error('Design image upload failed (store pickup):', e);
+      }
+
       // ✅ Clean up processing cache on success
       if (paymentId && paymentId !== 'manual_payment') {
         const cacheKey = `${paymentId}_${paymentmode}`;
@@ -681,6 +744,18 @@ const completeOrder = async (req, res) => {
         await createInvoice(invoicePayload);
       } catch (e) {
         console.error('Invoice creation failed (netbanking):', e);
+      }
+
+      // ✅ Upload design images to Cloudinary
+      try {
+        const designImages = await extractAndUploadDesignImages(items, order._id.toString());
+        if (Object.keys(designImages).length > 0) {
+          order.designImages = designImages;
+          await order.save();
+          console.log('✅ Design images uploaded and saved to order');
+        }
+      } catch (e) {
+        console.error('Design image upload failed (netbanking):', e);
       }
 
       // ✅ Clean up processing cache on success
@@ -769,6 +844,18 @@ const completeOrder = async (req, res) => {
         await createInvoice(invoicePayload);
       } catch (e) {
         console.error('Invoice creation failed (razorpay):', e);
+      }
+
+      // ✅ Upload design images to Cloudinary
+      try {
+        const designImages = await extractAndUploadDesignImages(items, order._id.toString());
+        if (Object.keys(designImages).length > 0) {
+          order.designImages = designImages;
+          await order.save();
+          console.log('✅ Design images uploaded and saved to order');
+        }
+      } catch (e) {
+        console.error('Design image upload failed (razorpay):', e);
       }
 
       // ✅ Clean up processing cache on success
@@ -862,6 +949,18 @@ const completeOrder = async (req, res) => {
         await createInvoice(invoicePayload);
       } catch (e) {
         console.error('Invoice creation failed (50%):', e);
+      }
+
+      // ✅ Upload design images to Cloudinary
+      try {
+        const designImages = await extractAndUploadDesignImages(items, order._id.toString());
+        if (Object.keys(designImages).length > 0) {
+          order.designImages = designImages;
+          await order.save();
+          console.log('✅ Design images uploaded and saved to order');
+        }
+      } catch (e) {
+        console.error('Design image upload failed (50%):', e);
       }
 
       // ✅ Clean up processing cache on success

@@ -158,8 +158,9 @@ export const PriceProvider = ({ children }) => {
           });
           
           // ✅ Validate conversion rate
-          if (!data.currency?.toconvert || data.currency.toconvert <= 0) {
-            console.error('❌ Invalid conversion rate:', data.currency?.toconvert);
+          const convRate = data.currency?.toconvert;
+          if (!convRate || convRate <= 0) {
+            console.error('❌ Invalid conversion rate:', convRate, '- Using default 1');
             setPriceIncrease(0);
             setToConvert(1);
             setCurrency('INR');
@@ -168,9 +169,11 @@ export const PriceProvider = ({ children }) => {
           }
           
           setPriceIncrease(data.percentage);
-          setToConvert(data.currency?.toconvert || 1);
+          setToConvert(convRate);
           setCurrency(data.currency?.country || 'INR');
           setResolvedLocation(location);
+          
+          console.log("✅ Set conversion rate:", convRate);
           
           // ✅ Cache in localStorage for Cart.jsx fallback
           try {
@@ -179,14 +182,14 @@ export const PriceProvider = ({ children }) => {
               percentage: data.percentage,
               currency: {
                 code: data.currency?.country || 'INR',
-                toconvert: data.currency?.toconvert || 1
+                toconvert: convRate
               },
               timestamp: Date.now()
             }));
             console.log("💾 Cached location pricing in localStorage:", {
               location,
               code: data.currency?.country,
-              toconvert: data.currency?.toconvert
+              toconvert: convRate
             });
           } catch (e) {
             console.warn("⚠️ Could not cache location pricing:", e);

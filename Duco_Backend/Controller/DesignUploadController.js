@@ -10,6 +10,7 @@ const { uploadOrderDesignImages, updateOrderWithDesignImages, updateInvoiceWithD
 const uploadDesignForOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
+    const { designImages } = req.body;
 
     if (!orderId) {
       return res.status(400).json({
@@ -29,24 +30,29 @@ const uploadDesignForOrder = async (req, res) => {
 
     console.log(`📦 Processing design upload for order: ${orderId}`);
 
-    // Extract and upload design images
-    const designImages = await uploadOrderDesignImages(order, order.products);
+    // ✅ If designImages are provided directly in request body, use them
+    let imagesToStore = designImages || {};
+
+    // Otherwise, extract and upload design images from order products
+    if (!designImages || Object.keys(designImages).length === 0) {
+      imagesToStore = await uploadOrderDesignImages(order, order.products);
+    }
 
     // Update order with design images
-    if (Object.keys(designImages).length > 0) {
-      await updateOrderWithDesignImages(order, designImages);
+    if (Object.keys(imagesToStore).length > 0) {
+      await updateOrderWithDesignImages(order, imagesToStore);
 
       // Also update invoice if it exists
       const invoice = await Invoice.findOne({ order: orderId });
       if (invoice) {
-        await updateInvoiceWithDesignImages(invoice, designImages, order.additionalFilesMeta);
+        await updateInvoiceWithDesignImages(invoice, imagesToStore, order.additionalFilesMeta);
       }
     }
 
     return res.status(200).json({
       success: true,
       message: 'Design images uploaded successfully',
-      designImages,
+      designImages: order.designImages,
       order: {
         _id: order._id,
         orderId: order.orderId,

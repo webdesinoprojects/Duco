@@ -22,17 +22,7 @@ const DesignSchema = new Schema(
       type: [Schema.Types.Mixed], // can hold array of objects
       default: []
     },
-    // ✅ CRITICAL: Explicitly store preview images
-    previewImages: {
-      type: {
-        front: String,  // Data URL
-        back: String,   // Data URL
-        left: String,   // Data URL
-        right: String   // Data URL
-      },
-      default: {}
-    },
-    // ✅ CRITICAL: Explicitly store additional files metadata
+    // ✅ Store additional files metadata only
     additionalFilesMeta: {
       type: [{
         name: String,

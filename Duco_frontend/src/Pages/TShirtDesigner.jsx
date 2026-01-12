@@ -17,6 +17,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { FaUpload, FaFont, FaRegKeyboard, FaTimes } from "react-icons/fa";
 import { startFreshDesignSession } from "../utils/clearOrderCache";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import { toast } from "react-toastify";
 
 // ======================== SIMPLE DRAGGABLE ITEM ========================
 const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 }, onPositionChange }) => {
@@ -179,10 +180,12 @@ const TshirtDesigner = () => {
     }
 
     // Step 2: Apply currency conversion
-    // ✅ CRITICAL FIX: Divide by conversion rate, not multiply
-    // If 1 INR = 0.012 USD, then 100 INR = 100 / 0.012 = 8333 USD (not 100 * 0.012 = 1.2 USD)
+    // ✅ CRITICAL FIX: Multiply by conversion rate, NOT divide
+    // Conversion rate represents: 1 INR = X target_currency
+    // Example: 1 INR = 0.011 EUR, so 500 INR = 500 * 0.011 = 5.5 EUR ✅
+    // NOT: 500 / 0.011 = 45,454 EUR ❌ WRONG
     if (conversionRate && conversionRate !== 1) {
-      price = price / conversionRate;
+      price = price * conversionRate;
     }
 
     return Math.round(price);
@@ -1014,6 +1017,15 @@ const TshirtDesigner = () => {
         element.className = className;
       });
 
+      // ✅ Preview images stored in memory - no Cloudinary upload needed
+      console.log('🖼️ Preview images ready for cart storage:', {
+        usingCloudinary: false,
+        images: Object.keys(images).reduce((acc, key) => {
+          acc[key] = images[key] ? `${images[key].substring(0, 50)}...` : 'MISSING';
+          return acc;
+        }, {})
+      });
+
       // Identify user
       const userData = JSON.parse(localStorage.getItem("user")) || {};
       const userId =
@@ -1047,7 +1059,7 @@ const TshirtDesigner = () => {
         },
       });
 
-      // Assemble design doc
+      // Assemble design doc - DO NOT include large preview images in payload
       const designPayload = {
         user: userId,
         products: productDetails?._id || proid,
@@ -1058,7 +1070,7 @@ const TshirtDesigner = () => {
             back: allDesigns.back,
             left: allDesigns.left,
             right: allDesigns.right,
-            previewImages: images,
+            // ⚠️ Preview images are stored in cart context, not sent to backend
             color: colorWithHash,
             additionalFilesMeta: additionalFiles.map((f) => ({
               name: f.name,
@@ -1212,6 +1224,7 @@ const TshirtDesigner = () => {
           priceIncrease,
           conversionRate
         ),
+        isLoadedDesign: true, // ✅ Mark as loaded design so cart doesn't re-apply location pricing
         quantity: finalQuantities,
         additionalFilesMeta: additionalFiles.map((f) => ({
           name: f.name,

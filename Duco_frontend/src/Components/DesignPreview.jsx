@@ -1,13 +1,87 @@
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePriceContext } from '../ContextAPI/PriceContext';
+import { getproductssingle } from '../Service/APIservice';
 
 const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color ,colortext,price,gender, minOrderQty = 100 }) => {
   if (!selectedDesign) return null;
   console.log(colortext)
 
   console.log(price)
- const navigator = useNavigate()
- 
+  const navigator = useNavigate();
+  const { toConvert, priceIncrease, resolvedLocation, currency } = usePriceContext();
+  const [productPricing, setProductPricing] = useState(null);
+  
+  // ✅ Fetch product pricing if design doesn't have it
+  useEffect(() => {
+    const fetchProductPricing = async () => {
+      try {
+        // Use product ID from design or from props
+        const productId = selectedDesign.products || id;
+        if (!productId) return;
+        
+        console.log('📦 Fetching product pricing for:', productId);
+        const productData = await getproductssingle(productId);
+        if (productData) {
+          const p = Array.isArray(productData) ? productData[0] : productData;
+          setProductPricing(p?.pricing || null);
+          console.log('✅ Product pricing loaded:', p?.pricing);
+        }
+      } catch (err) {
+        console.error('❌ Failed to fetch product pricing:', err);
+      }
+    };
+    
+    // Only fetch if design doesn't have pricing
+    if (!selectedDesign.pricing || selectedDesign.pricing.length === 0) {
+      fetchProductPricing();
+    }
+  }, [selectedDesign, id]);
+  
+  // ✅ CRITICAL FIX: Recalculate price using current PriceContext values
+  // This ensures the price is always up-to-date even if user changed location/currency
+  const recalculatedPrice = useMemo(() => {
+    // Priority: selectedDesign.pricing > fetched productPricing > fallback to passed price
+    let pricingArray = selectedDesign.pricing;
+    if (!pricingArray || !Array.isArray(pricingArray) || pricingArray.length === 0) {
+      pricingArray = productPricing;
+    }
+    
+    if (!pricingArray || !Array.isArray(pricingArray) || pricingArray.length === 0) {
+      console.warn('⚠️ No pricing data available for recalculation, using passed price:', price);
+      return price || 0;
+    }
+
+    const basePrice = pricingArray[0]?.price_per || 0;
+    console.log('💰 Recalculating price for loaded design:', {
+      basePrice,
+      priceIncrease,
+      toConvert,
+      currency,
+      resolvedLocation,
+      source: selectedDesign.pricing ? 'design' : 'product'
+    });
+
+    // Apply location pricing (markup %)
+    let calculatedPrice = basePrice;
+    if (priceIncrease && priceIncrease > 0) {
+      calculatedPrice = basePrice * (1 + priceIncrease / 100);
+    }
+
+    // Apply currency conversion
+    if (toConvert && toConvert !== 1) {
+      calculatedPrice = calculatedPrice * toConvert;
+    }
+
+    console.log('💰 Recalculated price:', {
+      basePrice,
+      afterMarkup: basePrice * (1 + (priceIncrease || 0) / 100),
+      afterConversion: calculatedPrice,
+      currency
+    });
+
+    return calculatedPrice;
+  }, [selectedDesign.pricing, productPricing, priceIncrease, toConvert, currency, price]);
  // Calculate total quantity
  const getTotalQty = () => {
    return Object.values(size || {}).reduce((sum, q) => sum + Number(q || 0), 0);
@@ -299,10 +373,17 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
            });
 
            // ✅ CRITICAL: Include all necessary fields for cart
+           // Calculate total quantity from size object
+           const totalQtyFromSize = typeof size === 'object' && size !== null 
+             ? Object.values(size).reduce((sum, q) => sum + Number(q || 0), 0) 
+             : 0;
+           
            const completeCartItem = {
              ...cartItem,
              // ✅ Include additional files
              additionalFilesMeta: additionalFiles,
+             // ✅ CRITICAL: Preserve previewImages from cartItem (needed for design upload)
+             previewImages: cartItem.previewImages || selectedDesign.previewImages || previewImages,
              // ✅ Fix design structure - convert array to object if needed
              design: Array.isArray(selectedDesign.design) && selectedDesign.design.length > 0
                ? selectedDesign.design[0]
@@ -311,12 +392,16 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
              id: selectedDesign.products || selectedDesign.productId || id,
              // ✅ Include product details for pricing and display
              products_name: selectedDesign.cutomerprodcuts || selectedDesign.products_name || 'Custom T-Shirt',
-             // ✅ Include product pricing array for calculations
-             pricing: selectedDesign.pricing || [],
+             // ✅ Include product pricing array for calculations (priority: design > fetched product > empty)
+             pricing: selectedDesign.pricing && selectedDesign.pricing.length > 0 ? selectedDesign.pricing : (productPricing || []),
              // ✅ Include product images as fallback
              image_url: selectedDesign.image_url || [],
              // ✅ CRITICAL: Include price (was missing!)
-             price: price || 0,
+             price: recalculatedPrice, // ✅ Use recalculated price instead of stale prop
+             // ✅ CRITICAL: Include quantity - check if total qty > 0, otherwise use default
+             quantity: totalQtyFromSize > 0 
+               ? size 
+               : { 'M': minOrderQty }, // Default to minimum order quantity if no size selected
              // ✅ Mark as loaded design for tracking
              isLoadedDesign: true,
              originalDesignId: selectedDesign._id,
@@ -326,6 +411,12 @@ const DesignPreviewModal = ({id,selectedDesign, onClose ,addtocart ,size , color
              id: completeCartItem.id,
              name: completeCartItem.products_name,
              price: completeCartItem.price,
+             recalculatedPrice: recalculatedPrice,
+             originalPrice: price,
+             quantity: completeCartItem.quantity,
+             totalQtyFromSize: totalQtyFromSize,
+             totalQty: Object.values(completeCartItem.quantity || {}).reduce((s, n) => s + Number(n || 0), 0),
+             usedDefault: totalQtyFromSize === 0,
              hasPreviewImages: !!completeCartItem.previewImages,
              hasAdditionalFiles: completeCartItem.additionalFilesMeta?.length > 0,
              hasDesign: !!completeCartItem.design,
