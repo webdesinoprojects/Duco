@@ -22,8 +22,8 @@ const SIZES = ["S", "M", "L", "XL", "2XL", "3XL"];
 
 const initialQty = SIZES.reduce((acc, k) => ({ ...acc, [k]: 0 }), {});
 
-
-const PRICE_TIERS = [
+// Base price tiers in INR (will be converted based on currency)
+const BASE_PRICE_TIERS = [
   { range: "1", price: 510 },
   { range: "2 - 4", price: 467 },
   { range: "5 - 10", price: 408, recommended: true },
@@ -41,7 +41,7 @@ const VIEWS = [
 export default function SizeChange() {
      const { cart, clear, removeFromCart, updateQuantity } = useContext(CartContext);
      const [getProducts,setGetproducts] = useState();
-     const { currency } = usePriceContext();
+     const { currency, toConvert, priceIncrease } = usePriceContext();
      const currencySymbol = currencySymbols[currency] || "₹";
      const navigator = useNavigate()
      const {id} = useParams()
@@ -52,6 +52,17 @@ export default function SizeChange() {
 
 
      }, [id])
+     
+  // ✅ Create converted price tiers based on currency
+  const PRICE_TIERS = useMemo(() => {
+    const rate = toConvert && toConvert > 0 ? toConvert : 1;
+    const markup = priceIncrease || 0;
+    
+    return BASE_PRICE_TIERS.map(tier => ({
+      ...tier,
+      price: Math.round((tier.price + tier.price * (markup / 100)) * rate)
+    }));
+  }, [toConvert, priceIncrease]);
      
 
  console.log(getProducts)

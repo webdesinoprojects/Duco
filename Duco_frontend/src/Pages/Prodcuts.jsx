@@ -27,6 +27,14 @@ const Products = ({ gender }) => {
   const { currency, toConvert, priceIncrease } = usePriceContext();
   const currencySymbol = currencySymbols[currency] || "₹";
 
+  // Debug price context
+  console.log('🛍️ Products page - Price Context:', {
+    currency,
+    toConvert,
+    priceIncrease,
+    currencySymbol
+  });
+
   // Normalize gender value
   const normalizeGender = (g) => g?.toLowerCase().trim();
 
@@ -271,8 +279,10 @@ const Products = ({ gender }) => {
                         ? (() => {
                             const basePrice = Number(product.pricing[0].price_per);
                             // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
-                            const withMarkup = basePrice + (basePrice * priceIncrease / 100);
-                            const finalPrice = toConvert && toConvert > 0 ? withMarkup * toConvert : withMarkup;
+                            const markup = priceIncrease || 0;
+                            const rate = toConvert && toConvert > 0 ? toConvert : 1;
+                            const withMarkup = basePrice + (basePrice * markup / 100);
+                            const finalPrice = withMarkup * rate;
                             return `${currencySymbol}${Math.round(finalPrice).toLocaleString('en-IN')}`;
                           })()
                         : `${currencySymbol}N/A`}

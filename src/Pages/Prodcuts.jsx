@@ -4,14 +4,26 @@ import { Link, useLocation } from "react-router-dom";
 import { FaFilter } from "react-icons/fa";
 import { usePriceContext } from "../ContextAPI/PriceContext";
 
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+};
+
 const Products = ({ gender }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const {
     toConvert,
     priceIncrease,
+    currency,
     isLoading: priceLoading,
   } = usePriceContext();
+  
+  const currencySymbol = currencySymbols[currency] || "₹";
 
   // Filters
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -20,22 +32,18 @@ const Products = ({ gender }) => {
 
   const location = useLocation();
 
-  // Price calculation function
+  // ✅ FIXED: Price calculation function with correct formula
   const calculatePrice = (basePrice) => {
-    if (!basePrice || !toConvert || priceIncrease === null) {
-      console.log("💰 Using base price (context not ready):", basePrice);
-      return basePrice || 0; // Return base price if context not ready
-    }
-    const actualPrice = toConvert * basePrice;
-    const finalPrice = Math.round(
-      actualPrice + actualPrice * (priceIncrease / 100)
-    );
-    console.log("💰 Price calculation:", {
-      basePrice,
-      toConvert,
-      priceIncrease,
-      finalPrice,
-    });
+    if (!basePrice) return 0;
+    
+    // Default values if context not ready
+    const markup = priceIncrease || 0;
+    const rate = toConvert && toConvert > 0 ? toConvert : 1;
+    
+    // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
+    const withMarkup = basePrice + (basePrice * markup / 100);
+    const finalPrice = Math.round(withMarkup * rate);
+    
     return finalPrice;
   };
 
@@ -284,8 +292,8 @@ const Products = ({ gender }) => {
                     </h3>
                     <p className="text-sm font-bold mt-2">
                       {product.pricing?.[0]?.price_per
-                        ? `₹${calculatePrice(product.pricing[0].price_per)}`
-                        : "₹N/A"}
+                        ? `${currencySymbol}${calculatePrice(product.pricing[0].price_per)}`
+                        : `${currencySymbol}N/A`}
                     </p>
                   </div>
                 </Link>

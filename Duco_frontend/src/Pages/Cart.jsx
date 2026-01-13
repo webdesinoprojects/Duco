@@ -798,12 +798,17 @@ const Cart = () => {
       const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
       const sides = countDesignSides(item);
       
+      // ✅ FIXED: No printing charges if there's no design (0 sides) - applies to BOTH B2B and B2C
+      if (sides === 0) {
+        console.log(`🖨️ No printing for ${item.products_name || item.name} (0 sides - plain t-shirt)`);
+        return total;
+      }
+      
       let itemCost = 0;
       let chargePerUnit = 0;
       
       if (isBulkOrder) {
         // ✅ B2B Orders: Use printPerUnit from charge plan (per unit, not per side)
-        // B2B orders ALWAYS have printing charges, regardless of design
         chargePerUnit = safeNum(printPerUnit, 0);
         itemCost = qty * chargePerUnit;
         console.log(`🖨️ B2B Printing cost for ${item.products_name || item.name}:`, {
@@ -814,13 +819,7 @@ const Cart = () => {
           source: 'charge_plan'
         });
       } else {
-        // ✅ B2C Orders: ONLY charge printing if there are actually printed sides
-        if (sides === 0) {
-          console.log(`🖨️ No printing for ${item.products_name || item.name} (0 sides)`);
-          return total;
-        }
-        
-        // ✅ B2C Orders: Use B2C printing charge per side from settings (NOT from charge plan)
+        // ✅ B2C Orders: Use B2C printing charge per side from settings
         chargePerUnit = safeNum(b2cPrintingChargePerSide, 0);
         itemCost = qty * sides * chargePerUnit;
         console.log(`🖨️ B2C Printing cost for ${item.products_name || item.name}:`, {
@@ -1247,20 +1246,10 @@ const Cart = () => {
               })()}
               
               {/* Location pricing adjustment if applicable */}
-              {priceIncrease && priceIncrease > 0 && (
-                <div className="flex justify-between text-yellow-400 text-sm">
-                  <span>✓ Location Pricing Applied ({resolvedLocation})</span>
-                  <span>+{safeNum(priceIncrease)}%</span>
-                </div>
-              )}
+              
               
               {/* Currency Conversion Info */}
-              {conversionRate && conversionRate !== 1 && (
-                <div className="flex justify-between text-cyan-400 text-sm">
-                  <span>💱 Currency Conversion Applied</span>
-                  <span>1 INR = {conversionRate.toFixed(4)} {currency}</span>
-                </div>
-              )}
+             
             </div>
 
             <div className="flex justify-between border-t pt-4 mb-6">

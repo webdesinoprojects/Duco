@@ -145,10 +145,16 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Base: ${basePrice}, After pricing: ${finalPrice}, Qty: ${qty}, toConvert: ${toConvert}, priceIncrease: ${priceIncrease}`);
       }
       
-      return acc + qty * finalPrice;
+      const itemTotal = qty * finalPrice;
+      console.log(`💰 CartItem Total: ${item.products_name || item.name} - Size: ${size}, Qty: ${qty}, UnitPrice: ${finalPrice}, ItemTotal: ${itemTotal}`);
+      
+      return acc + itemTotal;
     },
     0
   );
+  
+  // ✅ Debug: Log final total price
+  console.log(`💰 CartItem FINAL Total for ${item.products_name || item.name}: ${totalPrice}`);
 
   return (
     <div className="border-b border-gray-800 pb-6 mb-6">

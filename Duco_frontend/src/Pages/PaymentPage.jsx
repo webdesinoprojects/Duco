@@ -5,6 +5,39 @@ import { toast } from "react-toastify";
 import NetbankingPanel from "../Components/NetbankingPanel.jsx";
 import { completeOrder, uploadDesignImagesForOrder } from "../Service/APIservice";
 import { useCart } from "../ContextAPI/CartContext.jsx";
+import { usePriceContext } from "../ContextAPI/PriceContext.jsx";
+
+/* ------------------------------ currency symbols ------------------------------ */
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  AED: "د.إ",
+  EUR: "€",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+  NZD: "NZ$",
+  CHF: "CHF",
+  JPY: "¥",
+  CNY: "¥",
+  HKD: "HK$",
+  MYR: "RM",
+  THB: "฿",
+  SAR: "﷼",
+  QAR: "ر.ق",
+  KWD: "KD",
+  BHD: "BD",
+  OMR: "﷼",
+  ZAR: "R",
+  PKR: "₨",
+  LKR: "Rs",
+  BDT: "৳",
+  NPR: "रू",
+  PHP: "₱",
+  IDR: "Rp",
+  KRW: "₩",
+};
 
 /* ------------------------------ helpers ------------------------------ */
 const onlyDigits = (s = "") => String(s).replace(/\D/g, "");
@@ -45,6 +78,11 @@ const PaymentPage = () => {
   const locations = useLocation();
   const navigate = useNavigate();
   const { cart } = useCart();
+  
+  // ✅ Get currency from PriceContext (with safety check)
+  const priceContext = usePriceContext() || {};
+  const { currency, toConvert } = priceContext;
+  const currencySymbol = currencySymbols[currency] || "₹";
 
   const orderpayload = locations.state || {};
 
@@ -179,9 +217,33 @@ const PaymentPage = () => {
   }, [isB2B]);
   
   // Calculate 50% amount for B2B orders
+  // ✅ Use totalPayDisplay (converted amount) for display, fallback to grandTotal
   const halfPayAmount = useMemo(() => {
-    const total = orderpayload?.totalPay || orderpayload?.totals?.grandTotal || 0;
-    return Math.ceil(total / 2);
+    // Priority: totalPayDisplay (already converted) > totals.grandTotal (already converted) > totalPay (INR)
+    const displayTotal = orderpayload?.totalPayDisplay || orderpayload?.totals?.grandTotal || 0;
+    
+    // If we have a display total, use it directly
+    if (displayTotal > 0) {
+      return Math.ceil(displayTotal / 2);
+    }
+    
+    // Fallback: Convert totalPay (INR) to target currency
+    const inrTotal = orderpayload?.totalPay || 0;
+    if (inrTotal > 0 && toConvert && toConvert !== 1) {
+      const convertedTotal = inrTotal * toConvert;
+      console.log(`💱 PaymentPage: Converting totalPay ${inrTotal} INR × ${toConvert} = ${convertedTotal} ${currency}`);
+      return Math.ceil(convertedTotal / 2);
+    }
+    
+    return Math.ceil(inrTotal / 2);
+  }, [orderpayload, toConvert, currency]);
+
+  // ✅ Calculate 50% amount in INR for Razorpay (Razorpay only accepts INR)
+  const halfPayAmountINR = useMemo(() => {
+    const inrTotal = orderpayload?.totalPay || 0;
+    const half = Math.ceil(inrTotal / 2);
+    console.log(`💰 PaymentPage halfPayAmountINR: totalPay=${inrTotal} INR, half=${half} INR`);
+    return half;
   }, [orderpayload]);
 
   // Selecting method
@@ -414,7 +476,7 @@ const PaymentPage = () => {
               amountPaid: halfPayAmount,
               amountDue: halfPayAmount,
             };
-      return placeOrder("50%", `50% advance (₹${halfPayAmount.toLocaleString()}) order placed successfully!`, meta);
+      return placeOrder("50%", `50% advance (${currencySymbol}${halfPayAmount.toLocaleString()}) order placed successfully!`, meta);
     }
   };
 
@@ -673,10 +735,10 @@ const PaymentPage = () => {
                       <div className="mt-3 space-y-3">
                         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                           <p className="text-sm text-yellow-800 font-medium">
-                            💰 50% Advance Payment: ₹{halfPayAmount.toLocaleString()}
+                            💰 50% Advance Payment: {currencySymbol}{halfPayAmount.toLocaleString()}
                           </p>
                           <p className="text-xs text-yellow-600 mt-1">
-                            Remaining ₹{halfPayAmount.toLocaleString()} will be due before delivery
+                            Remaining {currencySymbol}{halfPayAmount.toLocaleString()} will be due before delivery
                           </p>
                         </div>
                         
@@ -938,17 +1000,19 @@ const PaymentPage = () => {
             <div className="mt-6 space-y-3">
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800 font-medium">
-                  💰 50% Advance Payment: ₹{halfPayAmount.toLocaleString()}
+                  💰 50% Advance Payment: {currencySymbol}{halfPayAmount.toLocaleString()}
                 </p>
                 <p className="text-xs text-yellow-600 mt-1">
-                  Remaining ₹{halfPayAmount.toLocaleString()} will be due before delivery
+                  Remaining {currencySymbol}{halfPayAmount.toLocaleString()} will be due before delivery
                 </p>
               </div>
               <PaymentButton
                 orderData={{
                   ...orderpayload,
                   items: orderpayload?.items?.length > 0 ? orderpayload.items : cart || [],
-                  totalPay: halfPayAmount, // Only 50% amount
+                  totalPay: halfPayAmountINR, // ✅ INR amount for Razorpay
+                  totalPayDisplay: halfPayAmount, // ✅ Converted amount for display
+                  displayCurrency: currency, // ✅ Currency for display
                   originalTotal: orderpayload?.totalPay || orderpayload?.totals?.grandTotal || 0,
                   isHalfPayment: true,
                   paymentType: "50%",
@@ -1080,7 +1144,7 @@ const PaymentPage = () => {
                 className="w-full mt-6 py-2 px-4 bg-[#E5C870] text-black rounded-lg hover:bg-[#D4B752] font-semibold"
               >
                 {paymentMethod === "50% Advance (Bank Transfer)" 
-                  ? `Pay 50% Advance (₹${halfPayAmount.toLocaleString()})` 
+                  ? `Pay 50% Advance (${currencySymbol}${halfPayAmount.toLocaleString()})` 
                   : "Continue"}
               </button>
             )}

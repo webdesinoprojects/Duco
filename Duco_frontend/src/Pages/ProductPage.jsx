@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useRef } from "react";
+import { useState, useEffect, useContext, useRef, useMemo } from "react";
 import { FaCheckCircle } from "react-icons/fa";
 import { MdOutlineColorLens, MdOutlineStraighten } from "react-icons/md";
 import { useNavigate, useParams, useOutletContext } from "react-router-dom";
@@ -51,14 +51,6 @@ const currencySymbols = {
   IDR: "Rp",
   KRW: "₩",
 };
-
-const PRICE_TIERS = [
-  { range: "1", price: 510 },
-  { range: "2 - 4", price: 467 },
-  { range: "5 - 10", price: 408, recommended: true },
-  { range: "11 - 20", price: 380 },
-  { range: "21 - 50", price: 371 },
-];
 
 const ProductPage = () => {
   const { setIsOpenLog } = useLayoutCtx();
@@ -223,6 +215,51 @@ const ProductPage = () => {
     
     setPrice(Math.round(converted));
   }, [product, toConvert, priceIncrease, currency]);
+
+  // ✅ Default price tiers (used when product doesn't have multiple tiers)
+  const DEFAULT_PRICE_TIERS = [
+    { range: "1", price: 510 },
+    { range: "2 - 4", price: 467 },
+    { range: "5 - 10", price: 408, recommended: true },
+    { range: "11 - 20", price: 380 },
+    { range: "21 - 50", price: 371 },
+  ];
+
+  // ✅ Create dynamic price tiers from product pricing with currency conversion
+  const priceTiers = useMemo(() => {
+    // Get conversion values, default to 1 and 0 if not ready
+    const rate = toConvert && toConvert > 0 ? toConvert : 1;
+    const markup = priceIncrease || 0;
+    
+    // Use product pricing if it has multiple tiers, otherwise use defaults
+    const baseTiers = (product?.pricing && product.pricing.length > 1) 
+      ? product.pricing.map((tier, index) => ({
+          range: String(tier.quantity || index + 1),
+          price: Number(tier.price_per) || 0,
+          recommended: index === Math.floor(product.pricing.length / 2)
+        }))
+      : DEFAULT_PRICE_TIERS;
+    
+    console.log('📊 Creating price tiers:', {
+      source: (product?.pricing && product.pricing.length > 1) ? 'product' : 'default',
+      tiersCount: baseTiers.length,
+      toConvert: rate,
+      priceIncrease: markup,
+      currency
+    });
+    
+    // Apply conversion to all tiers
+    return baseTiers.map(tier => {
+      const basePrice = tier.price;
+      const withMarkup = basePrice + (basePrice * (markup / 100));
+      const convertedPrice = Math.round(withMarkup * rate);
+      
+      return {
+        ...tier,
+        price: convertedPrice
+      };
+    });
+  }, [product?.pricing, toConvert, priceIncrease, currency]);
 
   // ✅ Load previous designs
   useEffect(() => {
@@ -555,7 +592,7 @@ const ProductPage = () => {
         </div>
       </div>
 
-      <PriceTiers tiers={PRICE_TIERS} currencySymbol={currencySymbol} />
+      <PriceTiers tiers={priceTiers} currencySymbol={currencySymbol} />
       <CropTankSizeChart />
       <CropTanksTabs />
 

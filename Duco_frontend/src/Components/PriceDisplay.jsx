@@ -41,23 +41,17 @@ const PriceDisplay = ({ price, className, skipConversion = false }) => {
   // Convert price to target currency only if not already converted
   let displayPrice = Math.ceil(Number(price));
   
-  // ✅ CRITICAL FIX: Check if price needs conversion
-  // If skipConversion is true, assume price is already converted
-  // If skipConversion is false, apply conversion if available
-  if (!skipConversion && toConvert && toConvert !== 1 && toConvert > 0) {
+  // ✅ FIXED: If skipConversion is true, NEVER re-apply conversion
+  // The caller is responsible for ensuring the price is already in the correct currency
+  if (skipConversion) {
+    // Price is already converted, just display it
+    console.log(`💱 PriceDisplay (SKIP): ${price} → ${currencySymbol}${displayPrice}`);
+  } else if (toConvert && toConvert !== 1 && toConvert > 0) {
+    // Apply conversion
     displayPrice = Math.ceil(displayPrice * toConvert);
     console.log(`💱 PriceDisplay (CONVERTED): ${price} × ${toConvert} = ${displayPrice} ${currencySymbol}`);
-  } else if (skipConversion && toConvert && toConvert !== 1 && toConvert > 0) {
-    // ✅ Even with skipConversion, check if price looks unconverted
-    // If price > 100 and toConvert < 0.1, it's likely not converted
-    if (displayPrice > 100 && toConvert < 0.1) {
-      displayPrice = Math.ceil(displayPrice * toConvert);
-      console.log(`💱 PriceDisplay (RE-CONVERTED despite skipConversion): ${price} × ${toConvert} = ${displayPrice} ${currencySymbol}`);
-    } else {
-      console.log(`💱 PriceDisplay (SKIPPED): ${price} → ${currencySymbol}${displayPrice} (currency: ${currency}, rate: ${toConvert}, skipConversion: ${skipConversion})`);
-    }
   } else {
-    console.log(`💱 PriceDisplay: ${price} → ${currencySymbol}${displayPrice} (currency: ${currency}, rate: ${toConvert}, skipConversion: ${skipConversion})`);
+    console.log(`💱 PriceDisplay: ${price} → ${currencySymbol}${displayPrice} (no conversion needed)`);
   }
 
   return <p className={className}>{currencySymbol}{displayPrice}</p>;
