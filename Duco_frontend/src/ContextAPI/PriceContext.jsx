@@ -12,31 +12,34 @@ export const PriceProvider = ({ children }) => {
   const [resolvedLocation, setResolvedLocation] = useState(null); // e.g. India
   const [location, setLocation] = useState(null); // detected country
 
-  /* 🌍 Auto-detect location on mount using IP-based geolocation (VPN-aware) */
+  /* 🌍 Auto-detect location on mount using backend endpoint */
   useEffect(() => {
     const detectLocation = async () => {
       try {
-        // Remove hardcoded testing location
+        // ✅ Check localStorage first for cached location
+        const cached = JSON.parse(localStorage.getItem("locationPricing"));
+        if (cached && cached.location) {
+          console.log("💾 Using cached location from localStorage:", cached.location);
+          setLocation(cached.location);
+          return;
+        }
+
+        // ✅ Use backend endpoint for geolocation (no CORS issues)
+        console.log("🌍 Detecting location via backend...");
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+        const response = await axios.get(`${API_BASE}/api/geolocation`, {
+          timeout: 5000
+        });
+        const data = response.data;
         
-        // ✅ Use IP-based geolocation (works with VPN)
-        console.log("🌍 Detecting location via IP...");
-        const ipResponse = await axios.get("https://ipapi.co/json/");
-        const data = ipResponse.data;
-        
-        console.log("📍 IP Geolocation Data:", {
-          country: data.country_name,
-          countryCode: data.country_code,
+        console.log("📍 Geolocation Data:", {
+          country: data.country,
+          countryCode: data.countryCode,
           city: data.city,
-          continent: data.continent_code,
           ip: data.ip
         });
 
-        // ✅ FIXED: Use actual country names from database, not continent mappings
-        // Database has entries like "India", "United States", etc.
-        const countryCode = data.country_code || data.country;
-        const countryName = data.country_name || "Unknown";
-        
-        // Map country codes to database location names
+        // ✅ Map country codes to database location names
         const countryToLocationMap = {
           "IN": "India",
           "US": "United States",
@@ -57,70 +60,34 @@ export const PriceProvider = ({ children }) => {
           "SA": "Saudi Arabia",
         };
         
-        const mappedLocation = countryToLocationMap[countryCode] || countryName || "Unknown";
+        const countryCode = data.countryCode || "IN";
+        const mappedLocation = countryToLocationMap[countryCode] || data.country || "India";
         
         console.log("🗺️ Mapped location:", {
           countryCode,
-          countryName: data.country_name,
+          country: data.country,
           mappedTo: mappedLocation
         });
 
         setLocation(mappedLocation);
       } catch (err) {
-        console.error("❌ IP-based location detection failed:", err);
-        console.log("🔄 Falling back to GPS geolocation...");
+        console.error("❌ Location detection failed:", err.message);
         
-        // Fallback to GPS geolocation if IP detection fails
-        if (!navigator.geolocation) {
-          console.warn("❌ Geolocation not supported.");
-          setLocation("Asia"); // Default fallback
-          return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            try {
-              const { latitude, longitude } = pos.coords;
-              const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
-              if (!apiKey) {
-                console.error("❌ Missing Google API Key. Check your .env file.");
-                setLocation("Asia"); // Default fallback
-                return;
-              }
-
-              const geoURL = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`;
-              const res = await axios.get(geoURL);
-              const results = res.data.results || [];
-
-              let country = null;
-
-              for (const result of results) {
-                for (const comp of result.address_components) {
-                  if (comp.types.includes("country")) {
-                    country = comp.long_name;
-                    break;
-                  }
-                }
-                if (country) break;
-              }
-
-              if (country) {
-                console.log("🌍 GPS Detected country:", country);
-                setLocation(country);
-              } else {
-                console.warn("⚠️ No country found. Setting fallback: Asia");
-                setLocation("Asia");
-              }
-            } catch (err) {
-              console.error("❌ GPS Location detection failed:", err);
-              setLocation("Asia");
-            }
-          },
-          (err) => {
-            console.warn("❌ Geolocation error:", err.message);
-            setLocation("Asia");
+        // ✅ Fallback: Check localStorage for cached location
+        try {
+          const cached = JSON.parse(localStorage.getItem("locationPricing"));
+          if (cached && cached.location) {
+            console.log("💾 Fallback: Using cached location from localStorage:", cached.location);
+            setLocation(cached.location);
+            return;
           }
-        );
+        } catch (e) {
+          console.warn("⚠️ Could not read localStorage:", e);
+        }
+        
+        console.log("🔄 Using default location: India");
+        // ✅ Default to India if detection fails
+        setLocation("India");
       }
     };
 

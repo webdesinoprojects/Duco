@@ -35,6 +35,21 @@ const Products = ({ gender }) => {
     currencySymbol
   });
 
+  // ✅ FIXED: Price calculation function with correct formula
+  const calculatePrice = (basePrice) => {
+    if (!basePrice) return 0;
+    
+    // Default values if context not ready
+    const markup = priceIncrease || 0;
+    const rate = toConvert && toConvert > 0 ? toConvert : 1;
+    
+    // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
+    const withMarkup = basePrice + (basePrice * markup / 100);
+    const finalPrice = Math.round(withMarkup * rate);
+    
+    return finalPrice;
+  };
+
   // Normalize gender value
   const normalizeGender = (g) => g?.toLowerCase().trim();
 
@@ -276,15 +291,7 @@ const Products = ({ gender }) => {
                     </h3>
                     <p className="text-sm font-bold mt-2">
                       {product.pricing?.[0]?.price_per
-                        ? (() => {
-                            const basePrice = Number(product.pricing[0].price_per);
-                            // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
-                            const markup = priceIncrease || 0;
-                            const rate = toConvert && toConvert > 0 ? toConvert : 1;
-                            const withMarkup = basePrice + (basePrice * markup / 100);
-                            const finalPrice = withMarkup * rate;
-                            return `${currencySymbol}${Math.round(finalPrice).toLocaleString('en-IN')}`;
-                          })()
+                        ? `${currencySymbol}${calculatePrice(product.pricing[0].price_per).toLocaleString('en-IN')}`
                         : `${currencySymbol}N/A`}
                     </p>
                   </div>                </Link>
