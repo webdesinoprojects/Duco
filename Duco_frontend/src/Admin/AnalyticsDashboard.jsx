@@ -17,6 +17,8 @@ import {
 } from "recharts";
 
 import { API_BASE_URL } from "../config/api.js";
+import AdminInvoiceViewer from "../Admin/Components/AdminInvoiceViewer";
+import { fetchAndNormalizeInvoice } from "../Admin/utils/invoiceNormalizer";
 
 const API_BASE = `${API_BASE_URL}/`; // Backend API URL
 
@@ -399,6 +401,7 @@ export default function AnalyticsDashboard() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [invoiceData, setInvoiceData] = useState(null);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   function handleEdit(orderId) {
     // Navigate to order management page
@@ -469,336 +472,14 @@ export default function AnalyticsDashboard() {
 
   async function viewInvoice(orderId) {
     try {
-      const response = await fetch(`${API_BASE}api/invoice/${orderId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || 'Invoice not found');
-      }
-
-      const { invoice, totals } = await response.json();
-      
-      // Generate invoice HTML (same format as OderSection)
-      const currency = invoice.currency || 'INR';
-      const currencySymbol = currencySymbols[currency] || '₹';
-      const currencyName = currencyNames[currency] || "Rupees";
-      
-      const company = invoice.company || {};
-      const invoiceInfo = invoice.invoice || {};
-      const billTo = invoice.billTo || {};
-      const shipTo = invoice.shipTo || {};
-      const items = invoice.items || [];
-      const charges = invoice.charges || {};
-      const tax = invoice.tax || {};
-      const terms = invoice.terms || [];
-      const forCompany = invoice.forCompany || company.name || '';
-      
-      // Calculate subtotal from items if not provided
-      let subtotal = totals?.subtotal || 0;
-      if (subtotal === 0 && items.length > 0) {
-        subtotal = items.reduce((sum, item) => sum + (Number(item.qty || 0) * Number(item.price || 0)), 0);
-      }
-      const total = totals?.grandTotal || 0;
-
-      const numberToWords = (num) => {
-        const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
-        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-        const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-
-        if (num === 0) return 'Zero';
-        if (num < 10) return ones[num];
-        if (num < 20) return teens[num - 10];
-        if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + ones[num % 10] : '');
-        if (num < 1000) return ones[Math.floor(num / 100)] + ' Hundred' + (num % 100 !== 0 ? ' ' + numberToWords(num % 100) : '');
-        if (num < 100000) return numberToWords(Math.floor(num / 1000)) + ' Thousand' + (num % 1000 !== 0 ? ' ' + numberToWords(num % 1000) : '');
-        if (num < 10000000) return numberToWords(Math.floor(num / 100000)) + ' Lakh' + (num % 100000 !== 0 ? ' ' + numberToWords(num % 100000) : '');
-        return numberToWords(Math.floor(num / 10000000)) + ' Crore' + (num % 10000000 !== 0 ? ' ' + numberToWords(num % 10000000) : '');
-      };
-
-      const totalInWords = numberToWords(Math.round(total));
-
-      const invoiceHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Invoice ${invoiceInfo.number || ''}</title>
-          <style>
-            body { font-family: Arial, sans-serif; color: #000; background-color: #fff; padding: 20px; width: 210mm; min-height: 297mm; margin: 0 auto; border: 2px solid #000; box-sizing: border-box; }
-            @media print { body { border: none; } .print-btn { display: none; } }
-            .print-btn { background: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; font-size: 11px; }
-            th, td { border: 1px solid #000; padding: 6px; }
-            th { background-color: #f5f5f5; }
-          </style>
-        </head>
-        <body>
-          <button class="print-btn" onclick="window.print()">🖨️ Print Invoice</button>
-          
-          <!-- HEADER -->
-          <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 10px;">
-            <div style="font-size: 12px; font-weight: bold;">GSTIN : ${company.gstin || ''}</div>
-            <div style="font-size: 12px; font-weight: bold; text-align: right;">${invoiceInfo.copyType || 'Original Copy'}</div>
-          </div>
-
-          <!-- COMPANY NAME -->
-          <div style="text-align: center; margin-bottom: 15px;">
-            <h1 style="font-size: 24px; font-weight: bold; margin: 0 0 5px 0;">${company.name || ''}</h1>
-            <p style="font-size: 11px; margin: 2px 0;">${company.address || ''}</p>
-            <p style="font-size: 11px; margin: 2px 0;">CIN : ${company.cin || 'U52601CT2020PTC010997'}</p>
-            <p style="font-size: 11px; margin: 2px 0;">email : ${company.email || ''}</p>
-          </div>
-
-          <div style="border: 1px solid #000; margin-bottom: 0;"></div>
-
-          <!-- INVOICE DETAILS & PLACE OF SUPPLY -->
-          <div style="display: flex; border-bottom: 1px solid #000;">
-            <div style="flex: 1; padding: 8px; border-right: 1px solid #000;">
-              <p style="margin: 2px 0; font-size: 11px;"><span>Invoice No.</span><span style="margin-left: 20px;">: ${invoiceInfo.number || ''}</span></p>
-              <p style="margin: 2px 0; font-size: 11px;"><span>Dated</span><span style="margin-left: 52px;">: ${invoiceInfo.date || ''}</span></p>
-            </div>
-            <div style="flex: 1; padding: 8px;">
-              <p style="margin: 2px 0; font-size: 11px;"><span>Place of Supply</span><span style="margin-left: 10px;">: ${invoiceInfo.placeOfSupply || ''}</span></p>
-              <p style="margin: 2px 0; font-size: 11px;"><span>Reverse Charge</span><span style="margin-left: 10px;">: N</span></p>
-            </div>
-          </div>
-
-          <!-- BILLED TO & SHIPPED TO -->
-          <div style="display: flex; border-bottom: 1px solid #000;">
-            <div style="flex: 1; padding: 8px; border-right: 1px solid #000; min-height: 100px;">
-              <p style="margin: 0 0 5px 0; font-size: 11px; font-weight: bold;">Billed to :</p>
-              <p style="margin: 2px 0; font-size: 11px; font-weight: bold;">${billTo.name || ''}</p>
-              <p style="margin: 2px 0; font-size: 11px;">${billTo.address || ''}</p>
-              ${billTo.gstin ? `<p style="margin: 5px 0 0 0; font-size: 11px;">GSTIN / UIN : ${billTo.gstin}</p>` : ''}
-            </div>
-            <div style="flex: 1; padding: 8px; min-height: 100px;">
-              <p style="margin: 0 0 5px 0; font-size: 11px; font-weight: bold;">Shipped to :</p>
-              <p style="margin: 2px 0; font-size: 11px; font-weight: bold;">${shipTo?.name || billTo.name || ''}</p>
-              <p style="margin: 2px 0; font-size: 11px;">${shipTo?.address || billTo.address || ''}</p>
-            </div>
-          </div>
-
-          <!-- ITEMS TABLE -->
-          <table>
-            <thead>
-              <tr style="background-color: #f5f5f5;">
-                <th style="text-align: left; width: 30px;">S.N.</th>
-                <th style="text-align: left;">Description of Goods</th>
-                <th style="text-align: center; width: 60px;">HSN</th>
-                <th style="text-align: center; width: 80px;">Qty. Unit</th>
-                <th style="text-align: right; width: 70px;">Price</th>
-                <th style="text-align: right; width: 90px;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map((item, i) => `
-                <tr>
-                  <td style="text-align: center;">${i + 1}</td>
-                  <td>${item.description || ''}${item.printSides ? ` (${item.printSides} sides printing)` : ''}</td>
-                  <td style="text-align: center;">${item.hsn || '4901101'}</td>
-                  <td style="text-align: center;">${item.qty || 0} ${item.unit || 'Pcs.'}</td>
-                  <td style="text-align: right;">${Number(item.price || 0).toFixed(2)}</td>
-                  <td style="text-align: right;">${(Number(item.qty || 0) * Number(item.price || 0)).toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <!-- TAX SUMMARY -->
-          <div style="display: flex; border-top: 1px solid #000;">
-            <div style="flex: 1;"></div>
-            <div style="width: 350px;">
-              <table style="width: 100%; font-size: 11px; border: none;">
-                <thead>
-                  <tr>
-                    <th style="padding: 4px; text-align: left; border: none;"></th>
-                    <th style="padding: 4px; text-align: center; border: none; font-weight: bold;">Total Tax</th>
-                    <th style="padding: 4px; text-align: right; border: none; font-weight: bold;">Total Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style="padding: 4px; border: none;">Sub Total</td>
-                    <td style="padding: 4px; text-align: center; border: none;">-</td>
-                    <td style="padding: 4px; text-align: right; font-weight: bold; border: none;">${subtotal.toFixed(2)}</td>
-                  </tr>
-                  
-                  ${(charges?.pf || 0) > 0 ? `
-                    <tr>
-                      <td style="padding: 4px; border: none;">P&F Charges</td>
-                      <td style="padding: 4px; text-align: center; border: none;">-</td>
-                      <td style="padding: 4px; text-align: right; border: none;">${(charges?.pf || 0).toFixed(2)}</td>
-                    </tr>
-                  ` : ''}
-                  
-                  ${(charges?.printing || 0) > 0 ? `
-                    <tr>
-                      <td style="padding: 4px; border: none;">Printing</td>
-                      <td style="padding: 4px; text-align: center; border: none;">-</td>
-                      <td style="padding: 4px; text-align: right; border: none;">${(charges?.printing || 0).toFixed(2)}</td>
-                    </tr>
-                  ` : ''}
-                  
-                  ${tax.cgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : CGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.cgstAmount || 0).toFixed(2)}</td></tr>` : ''}
-                  ${tax.sgstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : SGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.sgstAmount || 0).toFixed(2)}</td></tr>` : ''}
-                  ${tax.igstRate > 0 ? `<tr><td style="padding: 4px; border: none;">Add : IGST</td><td style="padding: 4px; text-align: center; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${(tax.igstAmount || 0).toFixed(2)}</td></tr>` : ''}
-                  
-                  ${Math.abs(Math.ceil(total) - total) > 0.01 ? `<tr><td style="padding: 4px; border: none;">Round Off</td><td style="padding: 4px; text-align: center; border: none;">+${(Math.ceil(total) - total).toFixed(2)}</td><td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td></tr>` : ''}
-                  <tr style="border-top: 1px solid #000; font-weight: bold;">
-                    <td style="padding: 4px; border: none;">Grand Total</td>
-                    <td style="padding: 4px; text-align: center; border: none;">${items.reduce((sum, it) => sum + Number(it.qty || 0), 0)} ${items[0]?.unit || 'Pcs.'}.</td>
-                    <td style="padding: 4px; text-align: right; border: none;">${Math.ceil(total).toFixed(2)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-<!-- FOUR SUMMARY BOXES -->
-<div
-  style="
-    margin-top: 12px;
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    font-size: 11px;
-  "
->
-  <!-- Box 1: Taxable Amount -->
-  <div
-    style="
-      flex: 0 0 160px;
-      border: 1px solid #000;
-      padding: 6px 10px;
-      text-align: center;
-    "
-  >
-    <div style="font-weight: bold; margin-bottom: 4px;">Taxable Amount</div>
-    <div style="text-align: right;">
-      ${(
-        subtotal +
-        (charges?.pf || 0) +
-        (charges?.printing || 0)
-      ).toFixed(2)}
-    </div>
-  </div>
-
-  <!-- Box 2: Total Tax -->
-  <div
-    style="
-      flex: 0 0 160px;
-      border: 1px solid #000;
-      padding: 6px 10px;
-      text-align: center;
-    "
-  >
-    <div style="font-weight: bold; margin-bottom: 4px;">Total Tax</div>
-    <div style="text-align: right;">
-      ${(Number(tax.type === 'INTERNATIONAL'
-        ? (tax.taxAmount || 0)
-        : (totals?.totalTaxAmt || 0)
-      )).toFixed(2)}
-    </div>
-  </div>
-
-  <!-- Box 3: Round Off -->
-  <div
-    style="
-      flex: 0 0 160px;
-      border: 1px solid #000;
-      padding: 6px 10px;
-      text-align: center;
-    "
-  >
-    <div style="font-weight: bold; margin-bottom: 4px;">Round Off</div>
-    <div style="text-align: right;">
-      ${(
-        Math.abs(Math.ceil(total) - total) > 0.01
-          ? (Math.ceil(total) - total)
-          : 0
-      ).toFixed(2)}
-    </div>
-  </div>
-
-  <!-- Box 4: Grand Total -->
-  <div
-    style="
-      flex: 0 0 160px;
-      border: 1px solid #000;
-      padding: 6px 10px;
-      text-align: center;
-      background-color: #f5f5f5;
-    "
-  >
-    <div style="font-weight: bold; margin-bottom: 4px;">Grand Total</div>
-    <div style="text-align: right;">
-      ${Math.ceil(total).toFixed(2)}
-    </div>
-  </div>
-</div>
-
-          <!-- ✅ 50% ADVANCE PAYMENT SECTION -->
-          ${invoice.paymentmode === '50%' ? `
-            <div style="margin-top: 12px; border: 2px solid #FF9800; padding: 10px; background-color: #FFF3E0;">
-              <div style="font-weight: bold; color: #FF6F00; margin-bottom: 8px; font-size: 12px;">💰 50% ADVANCE PAYMENT</div>
-              <div style="display: flex; justify-content: space-around; font-size: 11px;">
-                <div style="text-align: center;">
-                  <div style="color: #666; margin-bottom: 4px;">Amount Paid</div>
-                  <div style="font-weight: bold; color: #2E7D32; font-size: 13px;">₹${(Math.ceil(total) / 2).toFixed(2)}</div>
-                </div>
-                <div style="border-left: 1px solid #FF9800;"></div>
-                <div style="text-align: center;">
-                  <div style="color: #666; margin-bottom: 4px;">Amount Due</div>
-                  <div style="font-weight: bold; color: #D32F2F; font-size: 13px;">₹${(Math.ceil(total) / 2).toFixed(2)}</div>
-                </div>
-                <div style="border-left: 1px solid #FF9800;"></div>
-                <div style="text-align: center;">
-                  <div style="color: #666; margin-bottom: 4px;">Payment Status</div>
-                  <div style="font-weight: bold; color: #1976D2; font-size: 13px;">${invoice.paymentStatus || 'Pending'}</div>
-                </div>
-              </div>
-              <div style="margin-top: 8px; font-size: 10px; color: #666; text-align: center;">
-                Remaining 50% payment due before delivery
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- AMOUNT IN WORDS -->
-          <div style="margin-top: 10px; font-size: 11px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 10px;">
-            ${currencyName} ${totalInWords} Only
-          </div>
-
-          <!-- TERMS & SIGNATURE -->
-          <div style="display: flex; margin-top: 10px; min-height: 120px;">
-            <div style="flex: 1; font-size: 10px; padding-right: 10px;">
-              <p style="font-weight: bold; margin-bottom: 5px;">Terms & Conditions</p>
-              <p style="margin: 2px 0;">E.& O.E.</p>
-              ${terms.map((t, i) => `<p style="margin: 2px 0;">${i + 1}. ${t}</p>`).join('')}
-            </div>
-            <div style="width: 250px; text-align: right; padding-top: 60px;">
-              <p style="font-size: 11px; font-weight: bold; margin-bottom: 5px;">For ${forCompany}</p>
-              <p style="font-size: 10px; margin-top: 30px;">Authorised Signatory</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
-      const invoiceWindow = window.open('', '_blank');
-      if (!invoiceWindow) {
-        alert('Please allow popups to view invoice');
-        return;
-      }
-
-      invoiceWindow.document.write(invoiceHTML);
-      invoiceWindow.document.close();
+      const normalized = await fetchAndNormalizeInvoice(orderId, API_BASE);
+      setInvoiceData(normalized);
+      setShowInvoiceModal(true);
     } catch (error) {
       alert(`Failed to fetch invoice: ${error.message}`);
     }
   }
+
 
   // X-axis label formatter for dates like "2025-09-29" or ISO strings
   const xTickFormatter = (val) => {
@@ -1799,6 +1480,13 @@ export default function AnalyticsDashboard() {
             </div>
           </div>
         )}
+
+        {/* ✅ Standardized Invoice Viewer Modal */}
+        <AdminInvoiceViewer 
+          invoiceData={invoiceData}
+          showModal={showInvoiceModal}
+          onClose={() => setShowInvoiceModal(false)}
+        />
       </div>
     </div>
   );
