@@ -137,19 +137,13 @@ export const InvoiceTemplate = ({ data }) => {
         </div>
       </div>
 
-      {/* ✅ PAYMENT CURRENCY AND LOCATION INFO */}
+      {/* ✅ PAYMENT CURRENCY AND LOCATION INFO - WITHOUT CONVERSION RATE */}
       {(paymentCurrency !== 'INR' || (customerCountry && customerCountry !== 'India')) && (
         <div style={{ marginBottom: "8px", padding: "6px", backgroundColor: "#f0f0f0", border: "1px solid #999", fontSize: "10px" }}>
           <div style={{ display: "flex", marginBottom: "2px" }}>
             <span style={{ fontWeight: "bold", marginRight: "10px" }}>Payment Currency:</span>
             <span>{paymentCurrency}</span>
           </div>
-          {conversionRate && conversionRate !== 1 && (
-            <div style={{ display: "flex", marginBottom: "2px" }}>
-              <span style={{ fontWeight: "bold", marginRight: "10px" }}>Conversion Rate:</span>
-              <span>1 INR = {conversionRate.toFixed(4)} {paymentCurrency}</span>
-            </div>
-          )}
           {customerCountry && customerCountry !== 'India' && (
             <div style={{ display: "flex" }}>
               <span style={{ fontWeight: "bold", marginRight: "10px" }}>Payment From:</span>

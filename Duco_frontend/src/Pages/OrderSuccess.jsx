@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getInvoiceByOrder } from "../Service/APIservice";
 import { useCart } from "../ContextAPI/CartContext";
@@ -63,21 +63,48 @@ export default function OrderSuccess() {
       : paymentMeta.mode === "50%"
       ? "50% Advance Payment"
       : "Pay Online";
-  const isB2B = paymentMeta?.isCorporate || false;
-
-  // ✅ Get currency symbol
-  const currencySymbol = currencySymbols[currency] || "₹";
-  const isINR = currency === 'INR' || !currency;
   
-  // ✅ Get payment currency and location from state or stored meta
+  // ✅ Determine B2B from invoice data (more reliable than paymentMeta)
+  // Check if invoice has B2B indicators: tax type, GST number, bulk quantity, etc.
+  const isB2B = useMemo(() => {
+    if (!invoiceData) return paymentMeta?.isCorporate || false;
+    
+    // ✅ Check multiple indicators for B2B
+    const hasGST = !!invoiceData.billTo?.gstin;
+    const isBulkQuantity = invoiceData.items?.some(item => {
+      const qty = safeNum(item.qty, 0);
+      return qty >= 50; // Bulk threshold
+    });
+    const isInternationalTax = invoiceData.tax?.type === 'INTERNATIONAL';
+    const hasInterstateTax = invoiceData.tax?.type === 'INTERSTATE' || invoiceData.tax?.type === 'INTRASTATE_CGST_SGST';
+    
+    console.log('🔍 B2B Detection:', {
+      hasGST,
+      isBulkQuantity,
+      isInternationalTax,
+      hasInterstateTax,
+      paymentMetaIsCorporate: paymentMeta?.isCorporate,
+      invoiceTaxType: invoiceData.tax?.type,
+    });
+    
+    // B2B if: has GST OR bulk quantity OR has tax (not B2C_NO_TAX)
+    return hasGST || isBulkQuantity || hasInterstateTax || isInternationalTax || paymentMeta?.isCorporate;
+  }, [invoiceData, paymentMeta]);
+
+  // ✅ Get currency and conversion info from state or stored meta
   const paymentCurrency = location.state?.paymentCurrency || storedMeta?.paymentCurrency || currency || 'INR';
+  const conversionRate = location.state?.conversionRate || storedMeta?.conversionRate || toConvert || 1;
+  const currencySymbol = currencySymbols[paymentCurrency] || "₹";
+  const isINR = paymentCurrency === 'INR' || !paymentCurrency;
+  
+  // ✅ Get payment location from state or stored meta
   const customerCountry = location.state?.customerCountry || storedMeta?.customerCountry || 'India';
   const customerCity = location.state?.customerCity || storedMeta?.customerCity || '';
   const customerState = location.state?.customerState || storedMeta?.customerState || '';
 
   console.log("💳 Payment Mode:", paymentMethod);
   console.log("🏢 Order Type:", isB2B ? "B2B" : "B2C");
-  console.log("💱 Currency:", currency, "Symbol:", currencySymbol, "IsINR:", isINR);
+  console.log("💱 Currency:", paymentCurrency, "Symbol:", currencySymbol, "IsINR:", isINR, "ConversionRate:", conversionRate);
   console.log("🌍 Payment Location:", { paymentCurrency, customerCountry, customerCity, customerState });
 
   /* ✅ FIXED INVOICE LOGIC: accurate charges + gst like cart + side printing info */
@@ -101,7 +128,7 @@ export default function OrderSuccess() {
           printSides: it.printSides || it.sides || 0,
         })) || [];
 
-        // ✅ Calculate subtotal from items
+        // ✅ Calculate subtotal from items (convert if needed)
         const subtotal = items.reduce(
           (sum, item) => sum + safeNum(item.qty, 0) * safeNum(item.price, 0),
           0
@@ -111,7 +138,7 @@ export default function OrderSuccess() {
         let pf = safeNum(inv.charges?.pf ?? inv.pfCharges ?? inv.order?.pf ?? 0);
         let printing = safeNum(inv.charges?.printing ?? inv.printingCharges ?? inv.order?.printing ?? 0);
         
-        console.log('💰 Invoice Charges Debug:', {
+        console.log('💰 Invoice Charges Debug (INR):', {
           invCharges: inv.charges,
           pf,
           printing,
@@ -147,27 +174,69 @@ export default function OrderSuccess() {
         // ✅ Calculate taxable amount (subtotal + charges)
         const taxableAmount = subtotal + pf + printing;
 
-        const formatted = {
-          ...inv,
-          items,
-          charges: { pf, printing },
-          tax: taxInfo,
-          subtotal: safeNum(subtotal),
-          taxableAmount: safeNum(taxableAmount),
-          totalTax: safeNum(totalTax),
-          total: safeNum(total),
-          currency: currency || 'INR',
-          currencySymbol: currencySymbol,
-          conversionRate: safeNum(inv.conversionRate ?? toConvert ?? 1),
-          paymentmode: inv.paymentmode || paymentMeta.mode || 'online',
-          amountPaid: safeNum(inv.amountPaid ?? 0),
-          paymentCurrency: inv.paymentCurrency || paymentCurrency,
-          customerCountry: inv.customerCountry || customerCountry,
-          customerCity: inv.customerCity || customerCity,
-          customerState: inv.customerState || customerState,
+        // ✅ CONVERT ALL AMOUNTS TO TARGET CURRENCY
+        const convertAmount = (inrAmount) => {
+          if (conversionRate === 1 || !conversionRate) return inrAmount;
+          return inrAmount * conversionRate;
         };
 
-        console.log("🧾 Normalized Invoice for Success Page:", {
+        // ✅ Recalculate tax amounts based on converted taxable amount
+        const convertedTaxableAmount = convertAmount(taxableAmount);
+        const taxRate = taxInfo.type === 'INTERNATIONAL' ? 0.01 : 
+                       taxInfo.type === 'INTRASTATE_CGST_SGST' ? 0.05 :
+                       taxInfo.type === 'INTERSTATE' ? 0.05 : 0;
+        
+        let convertedCgstAmount = 0;
+        let convertedSgstAmount = 0;
+        let convertedIgstAmount = 0;
+        let convertedTaxAmount = 0;
+        
+        if (taxInfo.type === 'INTRASTATE_CGST_SGST') {
+          // 2.5% CGST + 2.5% SGST = 5% total
+          convertedCgstAmount = (convertedTaxableAmount * 0.025);
+          convertedSgstAmount = (convertedTaxableAmount * 0.025);
+        } else if (taxInfo.type === 'INTERSTATE') {
+          // 5% IGST
+          convertedIgstAmount = (convertedTaxableAmount * 0.05);
+        } else if (taxInfo.type === 'INTERNATIONAL') {
+          // 1% TAX
+          convertedTaxAmount = (convertedTaxableAmount * 0.01);
+        }
+
+        const formatted = {
+          ...inv,
+          items: items.map(item => ({
+            ...item,
+            price: convertAmount(safeNum(item.price)),
+            qty: safeNum(item.qty),
+          })),
+          charges: { 
+            pf: convertAmount(pf), 
+            printing: convertAmount(printing) 
+          },
+          tax: {
+            ...taxInfo,
+            cgstAmount: convertedCgstAmount,
+            sgstAmount: convertedSgstAmount,
+            igstAmount: convertedIgstAmount,
+            taxAmount: convertedTaxAmount,
+          },
+          subtotal: convertAmount(subtotal),
+          taxableAmount: convertedTaxableAmount,
+          totalTax: convertedCgstAmount + convertedSgstAmount + convertedIgstAmount + convertedTaxAmount,
+          total: convertAmount(total),
+          currency: paymentCurrency,
+          currencySymbol: currencySymbol,
+          conversionRate: conversionRate,
+          paymentmode: inv.paymentmode || paymentMeta.mode || 'online',
+          amountPaid: convertAmount(safeNum(inv.amountPaid ?? 0)),
+          paymentCurrency: paymentCurrency,
+          customerCountry: customerCountry,
+          customerCity: customerCity,
+          customerState: customerState,
+        };
+
+        console.log("🧾 Normalized Invoice for Success Page (Converted):", {
           subtotal: formatted.subtotal,
           pf: formatted.charges.pf,
           printing: formatted.charges.printing,
@@ -175,6 +244,8 @@ export default function OrderSuccess() {
           totalTax: formatted.totalTax,
           total: formatted.total,
           taxType: formatted.tax?.type,
+          conversionRate: conversionRate,
+          currency: paymentCurrency,
         });
         
         if (isMounted) {
@@ -194,7 +265,7 @@ export default function OrderSuccess() {
     return () => {
       isMounted = false;
     };
-  }, [orderId]); // Only depend on orderId
+  }, [orderId, conversionRate, paymentCurrency]);
 
   // ✅ PDF DOWNLOAD
   const downloadPDF = async () => {
@@ -260,7 +331,7 @@ export default function OrderSuccess() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Order Type:</span>
-                <span className="font-semibold text-gray-800">{isB2B ? "Corporate (B2B)" : "Retail (B2C)"}</span>
+                <span className="font-semibold text-gray-800">{isB2B ? "Bulk Order" : "Retail Order"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Currency:</span>

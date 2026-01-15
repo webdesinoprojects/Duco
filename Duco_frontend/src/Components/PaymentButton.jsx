@@ -165,37 +165,53 @@ const PaymentButton = ({ orderData }) => {
       // ✅ Detect if international order
       const isInternational = !['India', 'india', 'IN', 'IND', 'Bharat', 'bharat'].includes(customerCountry);
       
+      // ✅ Get currency from orderData or detect from country
+      const paymentCurrency = orderData.displayCurrency || displayCurrency || 'INR';
+      
+      // ✅ For 50% payments, calculate half of amount
+      const paymentAmount = orderData.isHalfPayment 
+        ? Math.ceil(orderData.totalPay / 2)
+        : orderData.totalPay;
+      
       console.log('🌍 Payment request:', {
         country: customerCountry,
         city: customerCity,
         state: customerState,
         isInternational,
-        amount: orderData.totalPay,
-        displayCurrency
+        amount: paymentAmount,
+        currency: paymentCurrency, // ✅ Send actual currency (EUR, USD, etc.)
+        displayCurrency: paymentCurrency,
+        isHalfPayment: orderData.isHalfPayment,
       });
       
       const { data } = await axios.post(`${API_BASE}api/payment/create-order`, {
-        amount: orderData.totalPay, // totalPay in INR (backend will convert to paise)
-        half: false, // only full payment here
-        currency: 'INR', // ✅ Razorpay only accepts INR
+        amount: paymentAmount, // ✅ Amount in target currency
+        half: orderData.isHalfPayment || false, // ✅ Pass half flag for reference
+        // ✅ Send actual currency (Razorpay supports multiple currencies)
+        currency: paymentCurrency,
         customerCountry: customerCountry, // ✅ Pass country for international payment handling
         customerCity: customerCity,
         customerState: customerState,
-        displayCurrency: displayCurrency, // ✅ Pass display currency for invoice
+        displayCurrency: paymentCurrency, // ✅ Pass display currency for invoice
+        displayAmount: orderData.totalPayDisplay, // ✅ Pass converted amount for display
       });
 
       console.log("✅ Payment order created successfully:", data);
 
-      const { orderId, amount, paymentCurrency: returnedPaymentCurrency, customerCountry: returnedCountry, customerCity: returnedCity, customerState: returnedState } = data;
+      const { orderId, amount, paymentCurrency: returnedPaymentCurrency, displayCurrency: returnedDisplayCurrency, displayAmount: returnedDisplayAmount, customerCountry: returnedCountry, customerCity: returnedCity, customerState: returnedState } = data;
       
       // ✅ Use returned values from backend if available
-      const finalPaymentCurrency = returnedPaymentCurrency || displayCurrency;
+      const finalPaymentCurrency = returnedPaymentCurrency || paymentCurrency; // Use actual currency from backend
+      const finalDisplayCurrency = returnedDisplayCurrency || displayCurrency || paymentCurrency;
+      const finalDisplayAmount = returnedDisplayAmount || orderData.totalPayDisplay;
       const finalCustomerCountry = returnedCountry || customerCountry;
       const finalCustomerCity = returnedCity || customerCity;
       const finalCustomerState = returnedState || customerState;
       
       console.log('🌍 Payment info from backend:', {
         paymentCurrency: finalPaymentCurrency,
+        displayCurrency: finalDisplayCurrency,
+        displayAmount: finalDisplayAmount,
         country: finalCustomerCountry,
         city: finalCustomerCity,
         state: finalCustomerState
@@ -207,8 +223,8 @@ const PaymentButton = ({ orderData }) => {
       
       const options = {
         key: razorpayKey, // 🔑 your Razorpay key from environment
-        amount: amount, // in paise
-        currency: "INR",
+        amount: amount, // in smallest currency unit (paise for INR, cents for USD, etc.)
+        currency: finalPaymentCurrency, // ✅ Use actual currency (EUR, USD, INR, etc.)
         name: "Your Brand Name",
         description: "T-shirt Order",
         order_id: orderId,
@@ -243,7 +259,9 @@ const PaymentButton = ({ orderData }) => {
                   paymentmode: paymentMode, // ✅ "50%" for half payment, "online" for full
                   isHalfPayment: orderData.isHalfPayment || false,
                   originalTotal: orderData.originalTotal || orderData.totalPay,
-                  paymentCurrency: finalPaymentCurrency, // ✅ Add payment currency
+                  paymentCurrency: finalPaymentCurrency, // ✅ Actual payment currency
+                  displayCurrency: finalDisplayCurrency, // ✅ Display currency for user
+                  displayAmount: finalDisplayAmount, // ✅ Display amount for user
                   customerCountry: finalCustomerCountry, // ✅ Add customer country
                   customerCity: finalCustomerCity, // ✅ Add customer city
                   customerState: finalCustomerState, // ✅ Add customer state

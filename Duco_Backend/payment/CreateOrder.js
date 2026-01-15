@@ -54,22 +54,59 @@ const createRazorpayOrder = async (req, res) => {
 
     console.log('🔍 STEP 3: Creating Razorpay order...');
     
-    // ✅ Support international payments
-    const { currency = 'INR', customerCountry, customerCity, customerState, displayCurrency } = req.body;
+    // ✅ Razorpay supports multiple currencies (INR, USD, EUR, GBP, etc.)
+    const { currency = 'INR', customerCountry, customerCity, customerState, displayCurrency, displayAmount } = req.body;
     const isInternational = customerCountry && !['India', 'IN', 'IND'].includes(customerCountry);
+    
+    // ✅ Map supported currencies for Razorpay
+    const supportedCurrencies = {
+      'INR': 'INR',
+      'USD': 'USD',
+      'EUR': 'EUR',
+      'GBP': 'GBP',
+      'AED': 'AED',
+      'AUD': 'AUD',
+      'CAD': 'CAD',
+      'SGD': 'SGD',
+      'NZD': 'NZD',
+      'CHF': 'CHF',
+      'JPY': 'JPY',
+      'CNY': 'CNY',
+      'HKD': 'HKD',
+      'MYR': 'MYR',
+      'THB': 'THB',
+      'SAR': 'SAR',
+      'QAR': 'QAR',
+      'KWD': 'KWD',
+      'BHD': 'BHD',
+      'OMR': 'OMR',
+      'ZAR': 'ZAR',
+      'PKR': 'PKR',
+      'LKR': 'LKR',
+      'BDT': 'BDT',
+      'NPR': 'NPR',
+      'PHP': 'PHP',
+      'IDR': 'IDR',
+      'KRW': 'KRW',
+    };
+    
+    // ✅ Use requested currency if supported, otherwise default to INR
+    const razorpayCurrency = supportedCurrencies[currency] || 'INR';
     
     const orderData = {
       amount: amountInPaise,
-      currency: currency || 'INR', // Support multiple currencies
+      currency: razorpayCurrency, // ✅ Use requested currency (Razorpay supports multiple)
       receipt: `receipt_${Date.now()}`,
       payment_capture: 1,
       notes: {
-        // ✅ Store payment location and currency info in notes
+        // ✅ Store payment location and currency info in notes for reference
         customer_country: customerCountry || 'India',
         customer_city: customerCity || '',
         customer_state: customerState || '',
-        display_currency: displayCurrency || 'INR',
+        display_currency: displayCurrency || razorpayCurrency,
+        display_amount: displayAmount || finalAmount, // ✅ Store converted amount for display
         international_payment: isInternational,
+        requested_currency: currency,
       }
     };
     
@@ -78,7 +115,12 @@ const createRazorpayOrder = async (req, res) => {
       city: customerCity,
       state: customerState,
       displayCurrency,
-      isInternational
+      displayAmount,
+      isInternational,
+      razorpayAmount: amountInPaise,
+      razorpayCurrency: razorpayCurrency,
+      requestedCurrency: currency,
+      supported: !!supportedCurrencies[currency]
     });
 
     console.log('📤 Razorpay order data:', orderData);
@@ -97,8 +139,10 @@ const createRazorpayOrder = async (req, res) => {
       orderId: order.id, 
       amount: order.amount, 
       half,
-      // ✅ Return payment location and currency info
-      paymentCurrency: displayCurrency || 'INR',
+      // ✅ Return the actual currency used by Razorpay
+      paymentCurrency: razorpayCurrency,
+      displayCurrency: displayCurrency || razorpayCurrency,
+      displayAmount: displayAmount || finalAmount,
       customerCountry: customerCountry || 'India',
       customerCity: customerCity || '',
       customerState: customerState || '',

@@ -379,8 +379,17 @@ const Cart = () => {
   }, [printPerUnit, printingPerSide, totalQuantity, printingUnits]);
 
   const pfCost = useMemo(() => {
+    // ✅ Check if this is a B2B order
+    const isBulkOrder = products.some(item => item.isCorporate === true);
+    
+    // ✅ B2C Orders: NO P&F charges (set to 0)
+    if (!isBulkOrder) {
+      return 0;
+    }
+    
+    // ✅ B2B Orders: Use charge plan per-unit rate
     return safeNum(pfPerUnit) * safeNum(totalQuantity) + safeNum(pfFlat);
-  }, [pfPerUnit, pfFlat, totalQuantity]);
+  }, [pfPerUnit, pfFlat, totalQuantity, products]);
 
   const taxableAmount = useMemo(() => {
     return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
