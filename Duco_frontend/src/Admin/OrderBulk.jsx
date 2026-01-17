@@ -27,6 +27,18 @@ const currencySymbols = {
   SGD: "S$",
 };
 
+// ✅ Format price with proper currency formatting
+const formatPrice = (amount, currency = 'INR') => {
+  const symbol = currencySymbols[currency] || currency;
+  const num = Number(amount || 0);
+  
+  if (currency === 'INR') {
+    return `${symbol}${Math.round(num).toLocaleString('en-IN')}`;
+  } else {
+    return `${symbol}${num.toFixed(2)}`;
+  }
+};
+
 const OrderBulk = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -230,13 +242,10 @@ const OrderBulk = () => {
                       <p className="font-semibold text-lg">
                         {(() => {
                           const currency = order.currency || 'INR';
-                          const symbol = currencySymbols[currency] || '₹';
                           const baseAmount = order.paymentmode === '50%' 
                             ? Number(order.price || 0) * 2 
                             : Number(order.price || 0);
-                          return currency === 'INR' 
-                            ? `${symbol}${Math.round(baseAmount).toLocaleString('en-IN')}`
-                            : `${symbol}${baseAmount.toFixed(2)}`;
+                          return formatPrice(baseAmount, currency);
                         })()}
                       </p>
                     </div>
@@ -272,30 +281,9 @@ const OrderBulk = () => {
                             </span>
                           </div>
                           <div className="text-xs text-gray-700">
-                            <p>Total: {(() => {
-                              const currency = order.currency || 'INR';
-                              const symbol = currencySymbols[currency] || '₹';
-                              const totalAmount = Number(order.price || 0) * 2;
-                              return currency === 'INR' 
-                                ? `${symbol}${Math.round(totalAmount).toLocaleString('en-IN')}`
-                                : `${symbol}${totalAmount.toFixed(2)}`;
-                            })()}</p>
-                            <p className="text-orange-600 font-medium">Paid: {(() => {
-                              const currency = order.currency || 'INR';
-                              const symbol = currencySymbols[currency] || '₹';
-                              const paidAmount = Number(order.price || 0);
-                              return currency === 'INR' 
-                                ? `${symbol}${Math.round(paidAmount).toLocaleString('en-IN')}`
-                                : `${symbol}${paidAmount.toFixed(2)}`;
-                            })()}</p>
-                            <p className="text-orange-600 font-medium">Due: {(() => {
-                              const currency = order.currency || 'INR';
-                              const symbol = currencySymbols[currency] || '₹';
-                              const dueAmount = Number(order.price || 0);
-                              return currency === 'INR' 
-                                ? `${symbol}${Math.round(dueAmount).toLocaleString('en-IN')}`
-                                : `${symbol}${dueAmount.toFixed(2)}`;
-                            })()}</p>
+                            <p>Total: {formatPrice(Number(order.price || 0) * 2, order.currency || 'INR')}</p>
+                            <p className="text-orange-600 font-medium">Paid: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
+                            <p className="text-orange-600 font-medium">Due: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
                           </div>
                         </div>
                       ) : order.paymentmode === 'store_pickup' ? (
@@ -306,14 +294,7 @@ const OrderBulk = () => {
                             </span>
                           </div>
                           <div className="text-xs text-gray-700">
-                            <p>Payment Due: {(() => {
-                              const currency = order.currency || 'INR';
-                              const symbol = currencySymbols[currency] || '₹';
-                              const amount = Number(order.price || 0);
-                              return currency === 'INR' 
-                                ? `${symbol}${Math.round(amount).toLocaleString('en-IN')}`
-                                : `${symbol}${amount.toFixed(2)}`;
-                            })()}</p>
+                            <p>Payment Due: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
                             <p className="text-blue-600 text-xs">At pickup</p>
                           </div>
                         </div>

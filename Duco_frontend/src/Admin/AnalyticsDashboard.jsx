@@ -203,9 +203,10 @@ export default function AnalyticsDashboard() {
 
   // Auto-load on first mount
   useEffect(() => {
-    fetchAnalytics(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (from && to) {
+      fetchAnalytics(false);
+    }
+  }, [from, to]);
 
   // Auto-refresh on filter changes (debounced)
   useEffect(() => {
