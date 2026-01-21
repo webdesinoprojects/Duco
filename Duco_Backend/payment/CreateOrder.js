@@ -95,7 +95,7 @@ const createRazorpayOrder = async (req, res) => {
     
     const orderData = {
       amount: amountInPaise,
-      currency: 'INR', // ✅ CRITICAL: Always use INR for Razorpay (most reliable)
+      currency: razorpayCurrency, // ✅ Use requested currency (Razorpay supports multiple)
       receipt: `receipt_${Date.now()}`,
       payment_capture: 1,
       notes: {
@@ -107,7 +107,6 @@ const createRazorpayOrder = async (req, res) => {
         display_amount: displayAmount || finalAmount, // ✅ Store converted amount for display
         international_payment: isInternational,
         requested_currency: currency,
-        payment_currency: 'INR', // ✅ Always INR for Razorpay
       }
     };
     
@@ -140,9 +139,9 @@ const createRazorpayOrder = async (req, res) => {
       orderId: order.id, 
       amount: order.amount, 
       half,
-      // ✅ CRITICAL: Always return INR as payment currency (what Razorpay actually uses)
-      paymentCurrency: 'INR',
-      displayCurrency: displayCurrency || 'INR',
+      // ✅ Return the actual currency used by Razorpay
+      paymentCurrency: razorpayCurrency,
+      displayCurrency: displayCurrency || razorpayCurrency,
       displayAmount: displayAmount || finalAmount,
       customerCountry: customerCountry || 'India',
       customerCity: customerCity || '',
