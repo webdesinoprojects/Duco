@@ -7,7 +7,7 @@ const { getOrCreateSingleton } = require('../Router/DataRoutes');
 const { createTransaction } = require('./walletController');
 const { calculateOrderTotal } = require('../Service/TaxCalculationService');
 const LZString = require('lz-string'); // ✅ added for decompression
-const { uploadDesignPreviewImages } = require('../Utils/cloudinaryUpload'); // ✅ Cloudinary upload
+const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload'); // ✅ Cloudinary upload
 
 // --- Razorpay client ---
 const razorpay = new Razorpay({

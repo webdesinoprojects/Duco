@@ -1,5 +1,5 @@
 // Service/DesignUploadService.js
-const { uploadDesignPreviewImages } = require('../Utils/cloudinaryUpload');
+const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload');
 
 /**
  * Extract design images from order products and upload to Cloudinary
