@@ -143,7 +143,25 @@ const OrderSchema = new Schema(
         url: String  // Cloudinary URL if uploaded
       }],
       default: []
-    }
+    },
+
+    // ===== Shiprocket logistics fields =====
+    shiprocket: {
+      shipmentId: { type: String },
+      awbCode: { type: String },
+      courierName: { type: String },
+      status: {
+        type: String,
+        enum: [
+          "CREATED",
+          "FAILED",
+          "PENDING_MANUAL",
+          "SHIPPED"
+        ],
+        default: "PENDING_MANUAL"
+      },
+      errorMessage: { type: String }
+    },
   },
   { timestamps: true }
 );

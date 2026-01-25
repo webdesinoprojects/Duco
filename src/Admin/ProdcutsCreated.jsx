@@ -12,7 +12,7 @@ const ProductsCreated = () => {
     const getSubCategories = async () => {
       try {
         const res = await axios.get(
-          "https://duco-67o5.onrender.com/subcategory/getallsubctg"
+          "http://localhost:3002/subcategory/getallsubctg"
         );
         setSubcategories(res.data.subCategory || []);
       } catch (err) {
@@ -26,7 +26,7 @@ const ProductsCreated = () => {
   useEffect(() => {
     const fetchPrintroveCatalog = async () => {
       try {
-        const res = await axios.get("https://duco-67o5.onrender.com/api/printrove/sync");
+        const res = await axios.get("http://localhost:3002/api/printrove/sync");
         setPrintroveProducts(res.data.products || []);
       } catch (err) {
         console.error("Error fetching Printrove catalog:", err);

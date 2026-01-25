@@ -61,7 +61,7 @@ const Products = ({ gender }) => {
     const fetchProducts = async () => {
       try {
         console.log("🛍️ Fetching products...");
-        const res = await axios.get("https://duco-67o5.onrender.com/products/get");
+        const res = await axios.get("http://localhost:3002/products/get");
         let allProducts = res.data || [];
         console.log("📦 Products fetched:", allProducts.length);
 

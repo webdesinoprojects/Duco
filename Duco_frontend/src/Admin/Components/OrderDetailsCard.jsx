@@ -74,7 +74,7 @@ const OrderDetailsCard = ({ orderId }) => {
     setOrder((prev) => ({ ...prev, status: newStatus }));
     try {
       await fetch(
-        `https://duco-67o5.onrender.com/api/order/update/${orderId}`,
+        `http://localhost:3002/api/order/update/${orderId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

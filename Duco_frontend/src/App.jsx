@@ -68,6 +68,7 @@ import BlogPost from "./Pages/BlogPost.jsx";
 import BlogManager from "./Admin/BlogManager.jsx";
 import PrivateRoute from "./Components/PrivateRoute.jsx";
 import About from "./Pages/About.jsx";
+import WhatsAppButton from "./components/WhatsAppButton.jsx";
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -115,6 +116,7 @@ const App = () => {
         theme="light" // or "dark"
       />
       <ScrollToTop />
+      <WhatsAppButton />
       <Routes>
         <Route
           path="/"

@@ -1,0 +1,95 @@
+{
+  "info": {
+    "name": "Shiprocket Integration Testing",
+    "description": "Test Shiprocket API integration for Duco",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "1. Test Shiprocket Auth",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"developer.os404@gmail.com\",\n  \"password\": \"Krishna@2006\"\n}"
+        },
+        "url": {
+          "raw": "https://apiv2.shiprocket.in/v1/external/auth/login",
+          "protocol": "https",
+          "host": ["apiv2", "shiprocket", "in"],
+          "path": ["v1", "external", "auth", "login"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user\": \"REPLACE_WITH_USER_ID\",\n  \"items\": [\n    {\n      \"productId\": \"REPLACE_WITH_PRODUCT_ID\",\n      \"qty\": 1,\n      \"size\": \"M\",\n      \"color\": \"Red\",\n      \"price\": 500\n    }\n  ],\n  \"amount\": 500,\n  \"paymentStatus\": \"Paid\",\n  \"paymentmode\": \"Prepaid\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/orders/create",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "orders", "create"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Update Order Status to Processing (TRIGGER SHIPROCKET)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"Processing\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/orders/REPLACE_WITH_ORDER_ID/status",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "orders", "REPLACE_WITH_ORDER_ID", "status"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Order Details (Verify Shiprocket Data)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/orders/REPLACE_WITH_ORDER_ID",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "orders", "REPLACE_WITH_ORDER_ID"]
+        }
+      },
+      "response": []
+    }
+  ]
+}

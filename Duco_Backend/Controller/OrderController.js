@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Order = require('../DataBase/Models/OrderModel');
 const Product = require('../DataBase/Models/ProductsModel');
 const Design = require('../DataBase/Models/DesignModel');
+const { createShiprocketOrder } = require("../Services/shiprocketService");
 
 // ================================================================
 // 🧩 Helper – Flatten base64 or nested design objects
@@ -323,9 +324,34 @@ exports.updateOrderStatus = async (req, res) => {
   const { id } = req.params;
   const { status, paymentmode, deliveryExpectedDate } = req.body || {};
 
+  console.log('🔥 updateOrderStatus HIT', req.body);
+
   try {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid order ID' });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // ⛔ STOP if shipment already created
+    if (status === 'Processing' && order.shiprocket?.shipmentId) {
+      console.log('⛔ Shiprocket already created for this order');
+      return res.json({
+        message: 'Shipment already exists',
+        order,
+      });
+    }
+
+    // ⛔ Status already Processing, skip Shiprocket
+    if (order.status === 'Processing' && status === 'Processing') {
+      console.log('⛔ Status already Processing, skipping Shiprocket');
+      return res.json({
+        message: 'Order already in Processing',
+        order,
+      });
     }
 
     const patch = {};
@@ -352,8 +378,7 @@ exports.updateOrderStatus = async (req, res) => {
       patch.paymentmode = paymentmode;
     }
 
-    // ✅ Allow updating delivery expected date
-    if (typeof deliveryExpectedDate !== 'undefined' && deliveryExpectedDate) {
+    if (deliveryExpectedDate) {
       const deliveryDate = new Date(deliveryExpectedDate);
       if (isNaN(deliveryDate.getTime())) {
         return res.status(400).json({ error: 'Invalid delivery date format' });
@@ -361,24 +386,49 @@ exports.updateOrderStatus = async (req, res) => {
       patch.deliveryExpectedDate = deliveryDate;
     }
 
+    // =====================================================
+    // 🚚 SHIPROCKET INTEGRATION (WITH FALLBACK)
+    // =====================================================
+    if (status === 'Processing' && !order.shiprocket?.shipmentId) {
+      console.log('🚀 Attempting Shiprocket for order:', order.orderId);
+
+      const shiprocketResult = await createShiprocketOrder(order);
+
+      if (shiprocketResult.success) {
+        patch.shiprocket = {
+          shipmentId: shiprocketResult.data.shipment_id,
+          awbCode: shiprocketResult.data.awb_code,
+          courierName: shiprocketResult.data.courier_name,
+          status: 'CREATED'
+        };
+
+        console.log('✅ Shiprocket shipment created:', shiprocketResult.data.shipment_id);
+
+      } else {
+        // ✅ FALLBACK MODE - Order proceeds with manual fulfillment
+        patch.shiprocket = {
+          status: 'PENDING_MANUAL',
+          errorMessage: shiprocketResult.error
+        };
+
+        console.warn('⚠️ Shiprocket fallback activated:', shiprocketResult.error);
+      }
+    }
+
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ error: 'Nothing to update' });
     }
 
-    const order = await Order.findByIdAndUpdate(
+    const updatedOrder = await Order.findByIdAndUpdate(
       id,
       { $set: patch },
       { new: true, runValidators: true }
     ).lean();
 
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
     res.json({
       message: 'Order updated successfully',
       updatedFields: Object.keys(patch),
-      order,
+      order: updatedOrder,
     });
   } catch (err) {
     console.error('Error updating order:', err);

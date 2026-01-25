@@ -6,7 +6,7 @@ import LZString from "lz-string"; // ✅ added for compression
 
 const PaymentButton = ({ orderData }) => {
   const navigate = useNavigate();
-  const API_BASE = "https://duco-67o5.onrender.com/";
+  const API_BASE = "http://localhost:3002/";
 
   // ✅ Load Razorpay SDK
   const loadScript = (src) => {

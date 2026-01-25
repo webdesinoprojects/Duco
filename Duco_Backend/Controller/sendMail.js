@@ -2,9 +2,27 @@
 const { Resend } = require("resend");
 require("dotenv").config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// ✅ Initialize Resend with API key if available
+let resend = null;
+if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== "re_placeholder_add_your_key_here") {
+  resend = new Resend(process.env.RESEND_API_KEY);
+} else {
+  console.warn("⚠️  RESEND_API_KEY not set. Email sending will be disabled.");
+}
 
 async function sendOtpEmail(to, otp) {
+  // ✅ Return mock response if Resend is not configured
+  if (!resend) {
+    console.log(`⚠️  Email sending disabled. OTP would be sent to: ${to}, OTP: ${otp}`);
+    return {
+      id: "mock_" + Date.now(),
+      from: process.env.RESEND_FROM || "Duco <no-reply@ducoart.com>",
+      to,
+      subject: "Your OTP for Login",
+      status: "mock_success"
+    };
+  }
+
   const from = process.env.RESEND_FROM || "Duco <no-reply@ducoart.com>";
 
   const html = `

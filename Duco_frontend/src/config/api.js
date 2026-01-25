@@ -2,7 +2,7 @@
 const getApiBaseUrl = () => {
     // Check if we're in development or production
     if (import.meta.env.DEV) {
-        return import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+        return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
     }
 
     // In production, use environment variable or fallback to relative URL

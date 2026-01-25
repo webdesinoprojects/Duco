@@ -11,7 +11,7 @@ const Category = () => {
   // Fetch categories from API
   const getCategories = async () => {
     try {
-      const res = await axios.get('https://duco-67o5.onrender.com/category/getall');
+      const res = await axios.get('http://localhost:3002/category/getall');
       setCategories(res.data.category || []);
     } catch (err) {
       console.error('Error fetching categories:', err);
@@ -22,7 +22,7 @@ const Category = () => {
   const getSubCategories = async () => {
     try {
       const res = await axios.get(
-        'https://duco-67o5.onrender.com/subcategory/getallsubctg'
+        'http://localhost:3002/subcategory/getallsubctg'
       );
       setSubcategories(res.data.subCategory || []);
     } catch (err) {
@@ -40,7 +40,7 @@ const Category = () => {
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('https://duco-67o5.onrender.com/category/create', { category });
+      await axios.post('http://localhost:3002/category/create', { category });
       setCategory('');
       getCategories();
     } catch (err) {
@@ -52,7 +52,7 @@ const Category = () => {
   const handleSubCategorySubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('https://duco-67o5.onrender.com/subcategory/create', {
+      await axios.post('http://localhost:3002/subcategory/create', {
         subcatogry,
         categoryId: [selectedCategoryId], // Assuming categoryId is an array
       });

@@ -17,7 +17,7 @@ const UserInfo = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get("https://duco-67o5.onrender.com/user/get?limit=100");
+        const res = await axios.get("http://localhost:3002/user/get?limit=100");
         
         if (Array.isArray(res.data)) {
           setUser(res.data);
