@@ -10,7 +10,7 @@ const Home = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get("http://localhost:3002/products/get");
+        const res = await axios.get("https://duco-67o5.onrender.com/products/get");
         setProducts(res.data); // ✅ use res.data
       } catch (err) {
         console.error("Failed to fetch products:", err);
@@ -23,7 +23,7 @@ const Home = () => {
   // Additional state or functions from previous updates can go here
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`http://localhost:3002/products/delete/${id}`);
+      await axios.delete(`https://duco-67o5.onrender.com/products/delete/${id}`);
       setProducts((prev) => prev.filter((p) => p._id !== id));
       console.log("Deleted product:", id);
     } catch (err) {

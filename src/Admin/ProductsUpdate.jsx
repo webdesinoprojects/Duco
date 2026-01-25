@@ -34,7 +34,7 @@ const ProductsUpdate = () => {
     const getSubCategories = async () => {
       try {
         const res = await axios.get(
-          "http://localhost:3002/subcategory/getallsubctg"
+          "https://duco-67o5.onrender.com/subcategory/getallsubctg"
         );
         setSubcategories(res.data.subCategory || []);
       } catch (err) {
@@ -139,7 +139,7 @@ const ProductsUpdate = () => {
     try {
       const id = productData?._id;
       const res = await axios.put(
-        `http://localhost:3002/products/update/${id}`,
+        `https://duco-67o5.onrender.com/products/update/${id}`,
         formData
       );
       alert(res?.data?.message || "Product updated successfully");

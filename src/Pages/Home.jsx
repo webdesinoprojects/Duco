@@ -39,7 +39,7 @@ const Home = () => {
     const fetchBanner = async () => {
       try {
         const res = await axios.get(
-          "http://localhost:3002/api/banners"
+          "https://duco-67o5.onrender.com/api/banners"
         );
         setBanner(res.data.banners?.[0]?.link || "");
       } catch (err) {

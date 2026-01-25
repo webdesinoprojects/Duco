@@ -25,7 +25,7 @@ const OrderBulk = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://localhost:3002/api/order");
+      const res = await fetch("https://duco-67o5.onrender.com/api/order");
       const data = await res.json();
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {

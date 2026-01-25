@@ -29,7 +29,7 @@ const ProductsUpdate = () => {
   useEffect(() => {
     const getSubCategories = async () => {
       try {
-        const res = await axios.get("http://localhost:3002/subcategory/getallsubctg");
+        const res = await axios.get("https://duco-67o5.onrender.com/subcategory/getallsubctg");
         setSubcategories(res.data.subCategory || []);
       } catch (err) {
         console.error("Error fetching subcategories:", err);
