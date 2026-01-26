@@ -1,5 +1,7 @@
 // src/api/logisticsApi.js
-const API_BASE = "https://duco-67o5.onrender.com/"; // Backend Base URL
+import { API_BASE_URL } from "../config/api";
+
+const API_BASE = API_BASE_URL;
 
 const jsonHeaders = { "Content-Type": "application/json" };
 

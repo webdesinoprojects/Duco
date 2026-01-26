@@ -1,14 +1,12 @@
-// server.js (or app.js)
+// index.js
 const express = require('express');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
+const compression = require('compression');
 require('dotenv').config();
 
-//this is for fast loading of backend files...
-const compression = require('compression');
-
 const EmployeesAcc = require('./DataBase/Models/EmployessAcc');
-const conntectDb = require('./DataBase/DBConnection');
+const connectDb = require('./DataBase/DBConnection');
 
 // Routers
 const UserRoute = require('./Router/userRoute.js');
@@ -21,133 +19,89 @@ const DesignRoute = require('./Router/DesignRoutes.js');
 const paymentRoute = require('./Router/paymentRoutes.js');
 const completedorderRoutes = require('./Router/CompletedOrderRoutes.js');
 const orderRoutes = require('./Router/orderRoutes.js');
-const analyticsRouter = require('./Router/analytics'); // exposes GET /sales
+const analyticsRouter = require('./Router/analytics');
 const { router: dataRouter } = require('./Router/DataRoutes.js');
 const InvoiceRoutes = require('./Router/InvoiceRoutes.js');
 const BannerRoutes = require('./Router/BannerRoutes.js');
 const walletRoutes = require('./Router/walletRoutes.js');
-const adminForgotPasswordRoutes = require('./Router/adminForgotPasswordRoutes.js');
 const blogRoutes = require('./Router/blogRoutes.js');
 const landingPageRoutes = require('./Router/LandingPageRoutes.js');
 const geolocationRoutes = require('./Router/geolocationRoutes.js');
 
-// App + config
 const app = express();
 const port = process.env.PORT || 3000;
 
-// If deploying behind a proxy (e.g., Render/Heroku), keep real IPs for rate/logging if you add later
+/* =========================
+   TRUST PROXY (Render)
+   ========================= */
 app.set('trust proxy', 1);
 
-app.use(compression()); //this is for compression
+/* =========================
+   COMPRESSION
+   ========================= */
+app.use(compression());
 
-// Core middleware
+/* =========================
+   ✅ FINAL CORS (PRODUCTION SAFE)
+   ========================= */
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'https://duco-67o5.onrender.com',
+  'https://ducoart.com',
+  'https://www.ducoart.com'
+];
+
 app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'https://duco-67o5.onrender.com', 
-      'https://duco-frontend.vercel.app',
-      'https://ducoart.com',
-      'https://www.ducoart.com'
-    ];
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
+  origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    
-    console.log('🌐 CORS request from origin:', origin);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('✅ Origin allowed:', origin);
-      callback(null, true);
-    } else {
-      console.log('❌ Origin blocked:', origin);
-      callback(new Error('Not allowed by CORS'));
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+
+    console.error('❌ Blocked by CORS:', origin);
+    return callback(new Error('CORS blocked'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-})); // Allow specific origins and methods
-app.use(express.json({ limit: '50mb' })); // Increased limit for design images
-app.use(express.urlencoded({ limit: '50mb', extended: true })); // Support URL-encoded data
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Handle preflight requests
-app.options('*', (req, res) => {
-  console.log('🔄 Preflight request for:', req.path);
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
+app.options('*', cors());
+
+/* =========================
+   BODY PARSERS
+   ========================= */
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+/* =========================
+   DATABASE
+   ========================= */
+connectDb();
+
+/* =========================
+   HEALTH CHECK
+   ========================= */
+app.get('/health', (_req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
-// DB connect
-conntectDb();
-
-// Health check endpoint
-app.get('/health', async (req, res) => {
-  try {
-    const health = {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
-      services: {
-        database: 'connected',
-        printrove: 'unknown', // Will be updated by actual API call if needed
-      },
-    };
-
-    // Check database connection
-    try {
-      const mongoose = require('mongoose');
-      health.services.database =
-        mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-    } catch (error) {
-      health.services.database = 'error';
-    }
-
-    // Check Printrove API (optional - only if needed)
-    if (req.query.checkPrintrove === 'true') {
-      try {
-        const {
-          testPrintroveConnection,
-        } = require('./Controller/printroveHelper');
-        const printroveStatus = await testPrintroveConnection();
-        health.services.printrove = printroveStatus.success
-          ? 'connected'
-          : 'error';
-        health.services.printroveDetails = printroveStatus;
-      } catch (error) {
-        health.services.printrove = 'error';
-        health.services.printroveError = error.message;
-      }
-    }
-
-    const statusCode = health.services.database === 'connected' ? 200 : 503;
-    res.status(statusCode).json(health);
-  } catch (error) {
-    res.status(503).json({
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
-      error: error.message,
-    });
-  }
-});
-
-// Root
+/* =========================
+   ROOT
+   ========================= */
 app.get('/', (_req, res) => {
   res.send('Duco Backend Server is running!');
 });
 
-// Simple test route
-app.get('/test', (req, res) => {
-  res.json({ message: 'Test route working', timestamp: new Date().toISOString() });
-});
-
-// ======= Routes =======
+/* =========================
+   ROUTES
+   ========================= */
 app.use('/user', UserRoute);
 app.use('/products', ProdcutsRoute);
 app.use('/subcategory', SubCategoryRoute);
@@ -160,9 +114,6 @@ app.use('/api/payment', paymentRoute);
 app.use('/api', completedorderRoutes);
 app.use('/api', orderRoutes);
 
-// 🔹 Analytics mounted on BOTH paths so both endpoints work:
-//    - /api/analytics/sales
-//    - /api/sales
 app.use('/api/analytics', analyticsRouter);
 app.use('/api', analyticsRouter);
 
@@ -176,75 +127,63 @@ app.use('/api', BannerRoutes);
 app.use('/data', dataRouter);
 app.use('/api', InvoiceRoutes);
 app.use('/api', walletRoutes);
-app.use('/api', require('./Router/adminForgotPasswordRoutes'));
 app.use('/api/blogs', blogRoutes);
 app.use('/api', landingPageRoutes);
 app.use('/api', geolocationRoutes);
 
-// ======= Admin login (hardcoded credentials from .env) =======
+/* =========================
+   ADMIN LOGIN
+   ========================= */
 app.post('/api/admin/check', async (req, res) => {
   const { userid, password } = req.body || {};
 
   if (!userid || !password) {
-    return res
-      .status(400)
-      .json({ ok: false, message: 'userid and password are required' });
+    return res.status(400).json({ ok: false, message: 'userid and password required' });
   }
 
-  // Hardcoded admin credentials from environment
-  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'developerduco@gmail.com';
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Duco@1234';
-
-  // Check hardcoded credentials first
-  if (userid === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-    console.log('✅ Admin authenticated with hardcoded credentials');
-    return res.status(200).json({ ok: true, message: 'Admin authenticated' });
+  // Env-based admin
+  if (
+    userid === process.env.ADMIN_EMAIL &&
+    password === process.env.ADMIN_PASSWORD
+  ) {
+    return res.status(200).json({ ok: true });
   }
 
-  // Fallback: Check database for employee accounts with admin role
+  // Employee fallback
   try {
     const user = await EmployeesAcc.findOne({ employeeid: userid });
-    if (!user) {
-      return res
-        .status(401)
-        .json({ ok: false, message: 'Invalid credentials' });
-    }
+    if (!user) return res.status(401).json({ ok: false });
 
     const ok = await bcrypt.compare(password, user.password);
-    if (ok) {
-      console.log('✅ Admin authenticated via employee account:', userid);
-      return res.status(200).json({ ok: true, message: 'Admin authenticated' });
-    }
-    return res.status(401).json({ ok: false, message: 'Invalid credentials' });
+    return ok
+      ? res.json({ ok: true })
+      : res.status(401).json({ ok: false });
   } catch (err) {
-    console.error('❌ Admin login error:', err);
-    return res.status(500).json({ ok: false, message: 'Server error' });
+    return res.status(500).json({ ok: false });
   }
 });
 
-// ======= 404 fallback (keep after all routes) =======
-app.use((req, res, _next) => {
+/* =========================
+   404 HANDLER
+   ========================= */
+app.use((_req, res) => {
   res.status(404).json({ ok: false, message: 'Route not found' });
 });
 
-// ======= Minimal error handler =======
+/* =========================
+   ERROR HANDLER
+   ========================= */
 app.use((err, _req, res, _next) => {
   console.error('Unhandled error:', err);
-  res
-    .status(err.status || 500)
-    .json({ ok: false, message: err.message || 'Server error' });
+  res.status(500).json({
+    ok: false,
+    message: err.message || 'Server error'
+  });
 });
 
-// Initialize tracking sync job
-try {
-  require('./jobs/trackingSync');
-  console.log('🕐 Tracking sync job initialized');
-} catch (error) {
-  console.warn('⚠️ Could not initialize tracking sync job:', error.message);
-}
-
-// Start
+/* =========================
+   START SERVER
+   ========================= */
 app.listen(port, () => {
-  console.log(`Connected Express on port ${port}`);
+  console.log(`✅ Backend running on port ${port}`);
 });
-

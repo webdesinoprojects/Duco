@@ -3,34 +3,52 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 // Debug environment variables
-console.log('🔍 Environment Variables Debug:', {
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const isTestMode = RAZORPAY_KEY_ID && RAZORPAY_KEY_ID.includes('test');
+const isLiveMode = RAZORPAY_KEY_ID && RAZORPAY_KEY_ID.includes('live');
+
+console.log('🔍 Razorpay Environment Configuration:', {
   NODE_ENV: process.env.NODE_ENV,
-  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
-  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+  KEY_ID_PREFIX: RAZORPAY_KEY_ID ? RAZORPAY_KEY_ID.substring(0, 15) + '...' : 'NOT SET',
+  KEY_MODE: isTestMode ? '🧪 TEST MODE' : isLiveMode ? '💰 LIVE MODE' : '❌ UNKNOWN MODE',
+  HAS_KEY_SECRET: !!RAZORPAY_KEY_SECRET,
+  PRODUCTION_ENV: process.env.NODE_ENV === 'production'
 });
 
+// ✅ CRITICAL: Validate Razorpay keys are set for production
+if (process.env.NODE_ENV === 'production') {
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    console.error('❌ CRITICAL: Razorpay keys not configured for PRODUCTION!');
+    console.error('   Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment variables');
+  }
+  if (isTestMode) {
+    console.error('❌ WARNING: Using TEST Razorpay keys in PRODUCTION environment!');
+    console.error('   This will NOT process real payments. Use live keys instead.');
+  }
+}
+
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+  key_id: RAZORPAY_KEY_ID,
+  key_secret: RAZORPAY_KEY_SECRET,
 });
 
 // Create Razorpay order with partial payment support
 const createRazorpayOrder = async (req, res) => {
   console.group('💳 BACKEND: Creating Razorpay Order');
   console.log('⏰ Request received at:', new Date().toISOString());
+  console.log('🔑 Razorpay Mode:', isTestMode ? '🧪 TEST' : isLiveMode ? '💰 LIVE' : '❌ UNKNOWN');
+  console.log('🌐 Environment:', process.env.NODE_ENV);
 
   try {
     console.log('🔍 STEP 1: Validating request body...');
     let { amount, half = false } = req.body;
 
     console.log('📥 Request body:', { amount, half });
-    console.log('🔑 Razorpay credentials check:', {
-      hasKeyId: !!process.env.RAZORPAY_KEY_ID,
-      hasKeySecret: !!process.env.RAZORPAY_KEY_SECRET,
-      keyId: process.env.RAZORPAY_KEY_ID?.substring(0, 15) + '...',
-      keySecret: process.env.RAZORPAY_KEY_SECRET?.substring(0, 8) + '...',
-      fullKeyId: process.env.RAZORPAY_KEY_ID,
-      fullKeySecret: process.env.RAZORPAY_KEY_SECRET,
+    console.log('🔑 Razorpay Configuration Check:', {
+      keySet: !!RAZORPAY_KEY_ID,
+      secretSet: !!RAZORPAY_KEY_SECRET,
+      mode: isTestMode ? '🧪 TEST' : isLiveMode ? '💰 LIVE' : 'UNKNOWN',
     });
 
     if (!amount || isNaN(amount)) {
@@ -128,11 +146,12 @@ const createRazorpayOrder = async (req, res) => {
     const order = await razorpay.orders.create(orderData);
 
     console.log('✅ Razorpay order created successfully');
-    console.log('📥 Order response:', {
+    console.log('� Order Details:', {
       id: order.id,
       amount: order.amount,
       currency: order.currency,
       status: order.status,
+      mode: isTestMode ? '🧪 TEST' : '💰 LIVE',
     });
 
     const response = { 
@@ -146,8 +165,14 @@ const createRazorpayOrder = async (req, res) => {
       customerCountry: customerCountry || 'India',
       customerCity: customerCity || '',
       customerState: customerState || '',
+      razorpayMode: isTestMode ? 'test' : 'live', // ✅ Return mode info to frontend
     };
-    console.log('📤 Sending response to frontend:', response);
+    console.log('📤 Response Summary:', {
+      orderId: response.orderId,
+      amount: response.amount,
+      mode: response.razorpayMode,
+      currency: response.paymentCurrency,
+    });
     console.groupEnd();
 
     res.json(response);
@@ -197,6 +222,10 @@ const verifyPayment = async (req, res) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
       req.body;
 
+    console.group('💳 BACKEND: Verifying Razorpay Payment');
+    console.log('⏰ Request received at:', new Date().toISOString());
+    console.log('🔑 Razorpay Mode:', isTestMode ? '🧪 TEST' : isLiveMode ? '💰 LIVE' : '❌ UNKNOWN');
+    
     console.log('🔍 STEP 1: Validating verification data...');
     console.log('📥 Verification request:', {
       razorpay_order_id,

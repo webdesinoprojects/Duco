@@ -1,6 +1,7 @@
 import axios from "axios";
+import { API_BASE_URL } from "../config/api";
 
-const API_BASE = "https://duco-67o5.onrender.com/"; // Backend Base URL
+const API_BASE = API_BASE_URL;
 
 /* --------------------------- MONEY MANAGEMENT --------------------------- */
 export const fetchAllPrices = async () => {

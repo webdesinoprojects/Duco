@@ -92,6 +92,24 @@ const pickSlab = (plan, qty) => {
   );
 };
 
+// ✅ Determine if order is B2B: true only if ALL products have isCorporate=true
+const isOrderB2B = (cartItems = [], productsList = []) => {
+  // If cart is empty, default to B2C
+  if (!Array.isArray(cartItems) || cartItems.length === 0) {
+    return false;
+  }
+  
+  // Check if ALL products are corporate (B2B)
+  const allB2B = cartItems.every((cartItem) => {
+    // Try to find product in the products list
+    const product = productsList.find((p) => p?._id === cartItem?.id);
+    // Return true only if isCorporate is explicitly true
+    return product?.isCorporate === true || cartItem?.isCorporate === true;
+  });
+  
+  return allB2B;
+};
+
 /* ----------------- Invoice UI ----------------- */
 const InvoiceDucoTailwind = ({ data }) => {
   const barcodeRef = useRef(null);
@@ -574,6 +592,11 @@ const Cart = () => {
       ),
     [actualData]
   );
+
+  // ✅ Determine if order is B2B - true only if ALL products are corporate
+  const isB2BOrder = useMemo(() => {
+    return isOrderB2B(cart, products);
+  }, [cart, products]);
 
   const printingUnits = useMemo(() => {
     return actualData.reduce((acc, item) => {
@@ -1257,8 +1280,8 @@ const Cart = () => {
               <span className="font-bold">{formatCurrency(Math.ceil(grandTotal))}</span>
             </div>
 
-            {/* Estimated Delivery Date */}
-            {estimatedDeliveryDate && (
+            {/* Estimated Delivery Date - B2B ONLY */}
+            {isB2BOrder && estimatedDeliveryDate && (
               <div className="mb-6 p-4 bg-blue-900/30 border border-blue-500 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1266,7 +1289,7 @@ const Cart = () => {
                     <div>
                       <p className="text-sm text-gray-400">Estimated Delivery</p>
                       <p className="text-lg font-semibold text-blue-300">
-                        {estimatedDeliveryDate.toLocaleDateString('en-US', { 
+                        {estimatedDeliveryDate && estimatedDeliveryDate.toLocaleDateString('en-US', { 
                           weekday: 'short', 
                           year: 'numeric', 
                           month: 'short', 
@@ -1278,7 +1301,7 @@ const Cart = () => {
                   <div className="text-right text-xs text-gray-400">
                     <p>Delivery in</p>
                     <p className="text-sm font-semibold text-blue-300">
-                      {Math.ceil((estimatedDeliveryDate - new Date()) / (1000 * 60 * 60 * 24))} days
+                      {estimatedDeliveryDate && Math.ceil((estimatedDeliveryDate - new Date()) / (1000 * 60 * 60 * 24))} days
                     </p>
                   </div>
                 </div>

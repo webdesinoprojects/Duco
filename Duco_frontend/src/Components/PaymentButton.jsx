@@ -2,328 +2,136 @@
 import React from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import LZString from "lz-string"; // ✅ added for compression
+import LZString from "lz-string";
 import { API_BASE_URL } from "../config/api.js";
 
 const PaymentButton = ({ orderData }) => {
   const navigate = useNavigate();
   const API_BASE = `${API_BASE_URL}/`;
 
-  // ✅ Load Razorpay SDK with better error handling
-  const loadScript = (src) => {
-    return new Promise((resolve) => {
-      // Check if script is already loaded
+  // Load Razorpay SDK safely
+  const loadScript = (src) =>
+    new Promise((resolve) => {
       if (document.querySelector(`script[src="${src}"]`)) {
-        console.log("📥 Razorpay SDK already loaded");
         resolve(true);
         return;
       }
-
       const script = document.createElement("script");
       script.src = src;
-      script.async = true;
-      script.onload = () => {
-        console.log("✅ Razorpay SDK loaded successfully");
-        resolve(true);
-      };
-      script.onerror = (error) => {
-        console.error("❌ Failed to load Razorpay SDK:", error);
-        resolve(false);
-      };
-      
-      // Add timeout
-      setTimeout(() => {
-        if (!script.onload) {
-          console.error("⏰ Razorpay SDK loading timeout");
-          resolve(false);
-        }
-      }, 10000); // 10 second timeout
-      
-      document.head.appendChild(script);
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
     });
-  };
 
   const handlePayment = async () => {
-    // ✅ Debug: Check orderData structure
-    console.group("💳 FRONTEND: Payment Button Debug");
-    console.log("📦 OrderData received:", {
-      totalPay: orderData.totalPay,
-      totalPayDisplay: orderData.totalPayDisplay,
-      displayCurrency: orderData.displayCurrency,
-      totals: orderData.totals,
-      hasItems: !!orderData.items,
-      itemCount: orderData.items?.length || 0
-    });
-    
-    // ✅ Detect customer location and currency
-    const customerCountry = orderData?.address?.country || orderData?.addresses?.billing?.country || 'India';
-    const customerCity = orderData?.address?.city || orderData?.addresses?.billing?.city || '';
-    const customerState = orderData?.address?.state || orderData?.addresses?.billing?.state || '';
-    
-    // ✅ Map country to currency (for display purposes)
-    const countryToCurrency = {
-      'India': 'INR',
-      'United States': 'USD',
-      'USA': 'USD',
-      'France': 'EUR',
-      'Germany': 'EUR',
-      'United Kingdom': 'GBP',
-      'UK': 'GBP',
-      'Australia': 'AUD',
-      'Canada': 'CAD',
-      'Singapore': 'SGD',
-      'United Arab Emirates': 'AED',
-      'UAE': 'AED',
-    };
-    
-    const displayCurrency = countryToCurrency[customerCountry] || 'INR';
-    
-    console.log('🌍 Customer Location:', {
-      country: customerCountry,
-      city: customerCity,
-      state: customerState,
-      displayCurrency
-    });
-    
-    // ✅ Show user what they're paying in INR
-    if (displayCurrency && displayCurrency !== 'INR') {
-      console.log('💱 International payment conversion:', {
-        displayAmount: `${displayCurrency} ${orderData.totalPayDisplay}`,
-        razorpayAmount: `INR ₹${orderData.totalPay}`,
-        note: 'Razorpay only accepts INR, amount has been converted'
-      });
-    }
-
-    // ✅ Debug: Check individual items and their prices
-    console.log("🛍️ Individual items breakdown:");
-    orderData.items?.forEach((item, index) => {
-      console.log(`Item ${index + 1}:`, {
-        name: item.products_name || item.name,
-        price: item.price,
-        quantity: item.quantity,
-        total: typeof item.quantity === 'object' 
-          ? Object.values(item.quantity).reduce((sum, qty) => sum + (qty * item.price), 0)
-          : (item.quantity * item.price),
-        id: item.id,
-        createdAt: item.createdAt || 'Unknown'
-      });
-    });
-
-    // ✅ Debug: Check if there are old items in localStorage
-    const localStorageCart = JSON.parse(localStorage.getItem('cart') || '[]');
-    console.log("💾 LocalStorage cart:", localStorageCart.length, "items");
-    if (localStorageCart.length > 0) {
-      console.log("💾 LocalStorage items:", localStorageCart.map(item => ({
-        name: item.products_name || item.name,
-        price: item.price,
-        id: item.id,
-        timestamp: item.timestamp || 'Unknown'
-      })));
-    }
-
-    if (!orderData.totalPay || orderData.totalPay <= 0) {
-      console.error("❌ Invalid totalPay:", orderData.totalPay);
-      alert("Invalid payment amount. Please check your cart total.");
-      console.groupEnd();
+    if (!orderData?.totalPay || orderData.totalPay <= 0) {
+      alert("Invalid payment amount");
       return;
     }
 
-    console.log("✅ Payment amount validated:", orderData.totalPay);
-    console.log("🌐 API Base URL:", API_BASE);
-    console.log("🔑 Environment variables check:", {
-      razorpayKey: import.meta.env.VITE_RAZORPAY_KEY_ID ? 'Set' : 'Not set',
-      nodeEnv: import.meta.env.NODE_ENV,
-      mode: import.meta.env.MODE
-    });
-    console.groupEnd();
+    const razorpayKey = "rzp_live_S3KJGyRC23sO17"; // ✅ LIVE KEY (matches backend)
 
-    console.log("📥 Loading Razorpay SDK...");
-    const isScriptLoaded = await loadScript(
+    const sdkLoaded = await loadScript(
       "https://checkout.razorpay.com/v1/checkout.js"
     );
 
-    if (!isScriptLoaded) {
-      console.error("❌ Failed to load Razorpay SDK");
-      alert("Failed to load Razorpay SDK. Please check your internet connection and try again.");
-      return;
-    }
-
-    console.log("✅ Razorpay SDK loaded successfully");
-
-    // Check if Razorpay is available
-    if (typeof window.Razorpay === 'undefined') {
-      console.error("❌ Razorpay object not found after loading SDK");
-      alert("Razorpay payment system is not available. Please try again.");
+    if (!sdkLoaded || !window.Razorpay) {
+      alert("Razorpay SDK failed to load");
       return;
     }
 
     try {
-      // ✅ 1. Create Razorpay Order from backend
-      console.log("📤 Sending payment request with amount:", orderData.totalPay);
-      console.log("🌐 Making request to:", `${API_BASE}api/payment/create-order`);
-      
-      // ✅ Detect if international order
-      const isInternational = !['India', 'india', 'IN', 'IND', 'Bharat', 'bharat'].includes(customerCountry);
-      
-      // ✅ Get currency from orderData or detect from country
-      const paymentCurrency = orderData.displayCurrency || displayCurrency || 'INR';
-      
-      // ✅ For 50% payments, calculate half of amount
-      const paymentAmount = orderData.isHalfPayment 
-        ? Math.ceil(orderData.totalPay / 2)
-        : orderData.totalPay;
-      
-      console.log('🌍 Payment request:', {
-        country: customerCountry,
-        city: customerCity,
-        state: customerState,
-        isInternational,
-        amount: paymentAmount,
-        currency: paymentCurrency, // ✅ Send actual currency (EUR, USD, etc.)
-        displayCurrency: paymentCurrency,
-        isHalfPayment: orderData.isHalfPayment,
-      });
-      
-      const { data } = await axios.post(`${API_BASE}api/payment/create-order`, {
-        amount: paymentAmount, // ✅ Amount in target currency
-        half: orderData.isHalfPayment || false, // ✅ Pass half flag for reference
-        // ✅ Send actual currency (Razorpay supports multiple currencies)
-        currency: paymentCurrency,
-        customerCountry: customerCountry, // ✅ Pass country for international payment handling
-        customerCity: customerCity,
-        customerState: customerState,
-        displayCurrency: paymentCurrency, // ✅ Pass display currency for invoice
-        displayAmount: orderData.totalPayDisplay, // ✅ Pass converted amount for display
-      });
+      // 1️⃣ Create order on backend
+      const { data } = await axios.post(
+        `${API_BASE}api/payment/create-order`,
+        {
+          amount: orderData.isHalfPayment
+            ? Math.ceil(orderData.totalPay / 2)
+            : orderData.totalPay,
+          currency: "INR",
+          half: orderData.isHalfPayment || false,
+        }
+      );
 
-      console.log("✅ Payment order created successfully:", data);
+      const { orderId, amount } = data;
 
-      const { orderId, amount, paymentCurrency: returnedPaymentCurrency, displayCurrency: returnedDisplayCurrency, displayAmount: returnedDisplayAmount, customerCountry: returnedCountry, customerCity: returnedCity, customerState: returnedState } = data;
-      
-      // ✅ Use returned values from backend if available
-      const finalPaymentCurrency = returnedPaymentCurrency || paymentCurrency; // Use actual currency from backend
-      const finalDisplayCurrency = returnedDisplayCurrency || displayCurrency || paymentCurrency;
-      const finalDisplayAmount = returnedDisplayAmount || orderData.totalPayDisplay;
-      const finalCustomerCountry = returnedCountry || customerCountry;
-      const finalCustomerCity = returnedCity || customerCity;
-      const finalCustomerState = returnedState || customerState;
-      
-      console.log('🌍 Payment info from backend:', {
-        paymentCurrency: finalPaymentCurrency,
-        displayCurrency: finalDisplayCurrency,
-        displayAmount: finalDisplayAmount,
-        country: finalCustomerCountry,
-        city: finalCustomerCity,
-        state: finalCustomerState
-      });
-
-      // ✅ 2. Configure Razorpay options
-      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_RKkNoqkW7sQisX";
-      console.log("🔑 Using Razorpay Key:", razorpayKey);
-      
+      // 2️⃣ Razorpay checkout options
       const options = {
-        key: razorpayKey, // 🔑 your Razorpay key from environment
-        amount: amount, // in smallest currency unit (paise for INR, cents for USD, etc.)
-        currency: finalPaymentCurrency, // ✅ Use actual currency (EUR, USD, INR, etc.)
-        name: "Your Brand Name",
-        description: "T-shirt Order",
+        key: razorpayKey,
+        amount,
+        currency: "INR",
+        name: "Duco Art",
+        description: "Order Payment",
         order_id: orderId,
-        handler: async function (response) {
-          const { razorpay_payment_id, razorpay_order_id, razorpay_signature } =
-            response;
 
+        handler: async (response) => {
           try {
-            // ✅ 3. Verify payment with backend
-            const verifyRes = await axios.post(`${API_BASE}api/payment/verify`, {
-              razorpay_order_id,
-              razorpay_payment_id,
-              razorpay_signature,
-            });
+            const verify = await axios.post(
+              `${API_BASE}api/payment/verify`,
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }
+            );
 
-            if (verifyRes.data.success) {
-              // ✅ 4. Compress orderData before sending
-              const compressedOrder = LZString.compressToBase64(
-                JSON.stringify(orderData)
-              );
-
-              // ✅ 5. Determine payment mode based on isHalfPayment flag
-              const paymentMode = orderData.isHalfPayment ? "50%" : "online";
-              console.log("💳 Payment mode:", paymentMode, "isHalfPayment:", orderData.isHalfPayment);
-
-              // ✅ 6. Redirect to order-processing with compressed data
-              navigate("/order-processing", {
-                state: {
-                  paymentId: razorpay_payment_id,
-                  orderData: compressedOrder, // compressed payload
-                  compressed: true, // flag for backend
-                  paymentmode: paymentMode, // ✅ "50%" for half payment, "online" for full
-                  isHalfPayment: orderData.isHalfPayment || false,
-                  originalTotal: orderData.originalTotal || orderData.totalPay,
-                  paymentCurrency: finalPaymentCurrency, // ✅ Actual payment currency
-                  displayCurrency: finalDisplayCurrency, // ✅ Display currency for user
-                  displayAmount: finalDisplayAmount, // ✅ Display amount for user
-                  customerCountry: finalCustomerCountry, // ✅ Add customer country
-                  customerCity: finalCustomerCity, // ✅ Add customer city
-                  customerState: finalCustomerState, // ✅ Add customer state
-                },
-              });
-            } else {
-              alert("Payment verification failed. Please try again.");
+            if (!verify.data.success) {
+              alert("Payment verification failed");
+              return;
             }
-          } catch (err) {
-            console.error("Verification Error:", err);
-            alert("Verification request failed.");
+
+            const compressedOrder = LZString.compressToBase64(
+              JSON.stringify(orderData)
+            );
+
+            navigate("/order-processing", {
+              state: {
+                paymentId: response.razorpay_payment_id,
+                orderData: compressedOrder,
+                compressed: true,
+                paymentmode: orderData.isHalfPayment ? "50%" : "online",
+                isHalfPayment: orderData.isHalfPayment || false,
+              },
+            });
+          } catch {
+            alert("Payment verification error");
           }
         },
-        // ✅ Prefill with fallback (address if user email/phone missing)
+
         prefill: {
           name:
             orderData?.user?.name ||
             orderData?.address?.fullName ||
-            "Guest User",
-          contact:
-            orderData?.user?.phone ||
-            orderData?.address?.mobileNumber ||
-            "",
+            "Customer",
           email:
             orderData?.user?.email ||
             orderData?.address?.email ||
             "",
+          contact:
+            orderData?.user?.phone ||
+            orderData?.address?.mobileNumber ||
+            "",
         },
-        theme: {
-          color: "#E5C870",
-        },
+
+        theme: { color: "#E5C870" },
       };
 
-      // ✅ 6. Open Razorpay Checkout
-      console.log("🚀 Opening Razorpay checkout with options:", {
-        key: options.key,
-        amount: options.amount,
-        currency: options.currency,
-        order_id: options.order_id
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (err) => {
+        alert(err.error.description || "Payment failed");
       });
 
-      try {
-        const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', function (response) {
-          console.error("💳 Payment failed:", response.error);
-          alert(`Payment failed: ${response.error.description}`);
-        });
-        rzp.open();
-      } catch (razorpayError) {
-        console.error("❌ Error opening Razorpay checkout:", razorpayError);
-        alert("Failed to open payment gateway. Please try again.");
-      }
-    } catch (error) {
-      console.error("Payment Error", error);
-      alert("Something went wrong. Try again.");
+      rzp.open();
+    } catch (err) {
+      console.error("Payment Error:", err);
+      alert("Unable to start payment");
     }
   };
 
   return (
     <button
-      className="bg-[#E5C870] text-black px-4 py-2 rounded font-semibold w-full"
       onClick={handlePayment}
+      className="bg-[#E5C870] text-black px-4 py-2 rounded font-semibold w-full"
     >
       Pay Now
     </button>
