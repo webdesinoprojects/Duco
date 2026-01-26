@@ -291,7 +291,7 @@ const MoneySet = () => {
           <li>• <strong>Frontend</strong> detects user's location via IP geolocation (returns country name like "India", "United States")</li>
           <li>• <strong>Location Name</strong> should match the detected country name exactly (e.g., "India", "United States", "Germany")</li>
           <li>• <strong>Aliases</strong> are alternative names for the same location (e.g., "USA", "US" for "United States")</li>
-          <li>• <strong>Conversion Rate</strong> is how much 1 INR equals in that currency (e.g., 1 INR = 0.012 USD)</li>
+          <li>• <strong>Conversion Rate</strong> is how much 1 INR equals in that currency (e.g., 1 INR = 0.012 USD). <strong>Important:</strong> If 238 INR = 1 OMR, enter 0.00420 (not 238)</li>
           <li>• <strong>Price Increase %</strong> is the markup applied to base prices for that location</li>
         </ul>
       </div>
@@ -410,7 +410,9 @@ const MoneySet = () => {
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                How much 1 INR equals in this currency (e.g., 1 INR = 0.012 USD)
+                How much 1 INR equals in this currency (e.g., 1 INR = 0.012 USD). 
+                <br />
+                <strong>Example:</strong> If 238 INR = 1 OMR, then enter 0.00420 (which is 1÷238)
               </p>
             </div>
           </div>

@@ -15,8 +15,8 @@ function normalizeRange(raw, label) {
   if (minqty < 1) throw new Error(`${label}.minqty must be >= 1`);
   if (maxqty < minqty) throw new Error(`${label}.maxqty must be >= minqty`);
 
-  // ✅ If this is GST, use percent (required for GST)
-  if (raw.percent != null || label.includes('gst')) {
+  // ✅ If this is GST, convert cost to percent (frontend sends cost, backend stores as percent)
+  if (label.includes('gst')) {
     const percent = toNum(raw.percent ?? raw.cost ?? 0, `${label}.percent`);
     if (percent < 0) throw new Error(`${label}.percent must be >= 0`);
     return { minqty, maxqty, percent };

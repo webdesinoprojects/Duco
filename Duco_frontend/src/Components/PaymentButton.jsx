@@ -29,7 +29,7 @@ const PaymentButton = ({ orderData }) => {
       return;
     }
 
-    const razorpayKey = "rzp_live_S3KJGyRC23sO17"; // ✅ LIVE KEY (matches backend)
+    const razorpayKey = "rzp_test_RKkNoqkW7sQisX"; // ✅ LIVE KEY (matches backend)
 
     const sdkLoaded = await loadScript(
       "https://checkout.razorpay.com/v1/checkout.js"
