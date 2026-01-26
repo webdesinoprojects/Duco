@@ -1,3 +1,4 @@
+// App.jsx
 import React, { Component } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./Layout.jsx";
@@ -47,7 +48,6 @@ import ForgotPassword from "./Admin/ForgotPassword.jsx";
 import LogisticsManager from "./Admin/LogisticsManager.jsx";
 import TrackOrder from "./Pages/TrackOrder.jsx";
 import ChargePlanManager from "./Admin/ChargePlanManager.jsx";
-
 import BankDetailsManager from "./Admin/BankDetailsManager.jsx";
 import TrackingManager from "./Admin/TrackingManager.jsx";
 import EmployessLayout from "./Admin/EmployessLayout.jsx";
@@ -55,7 +55,6 @@ import EmployeesAccManager from "./Admin/EmployeesAccManager.jsx";
 import EmployeeLogin from "./Admin/Components/EmployeeLogin.jsx";
 import EmployeePrivateRoute from "./Admin/Components/EmployeePrivateRoute.jsx";
 import CorporateSettings from "./Admin/CorporateSettings.jsx";
-
 import Invoice from "./Admin/Invoice.jsx";
 import InvoiceSet from "./Pages/InvoiceSet.jsx";
 import WalletPage from "./Pages/WalletPage.jsx";
@@ -66,11 +65,10 @@ import CategoryPage from "./Pages/CategoryPage.jsx";
 import Blog from "./Pages/Blog.jsx";
 import BlogPost from "./Pages/BlogPost.jsx";
 import BlogManager from "./Admin/BlogManager.jsx";
-import PrivateRoute from "./Components/PrivateRoute.jsx";
 import About from "./Pages/About.jsx";
 import WhatsAppButton from "./components/WhatsAppButton.jsx";
 
-// Error Boundary Component
+/* ---------------- ERROR BOUNDARY ---------------- */
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -88,12 +86,10 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: "20px", color: "white", backgroundColor: "#0A0A0A", minHeight: "100vh" }}>
+        <div style={{ padding: 20 }}>
           <h1>Something went wrong.</h1>
-          <pre style={{ color: "red" }}>{this.state.error?.toString()}</pre>
-          <button onClick={() => window.location.reload()} style={{ marginTop: "10px", padding: "10px", cursor: "pointer" }}>
-            Reload Page
-          </button>
+          <pre>{this.state.error?.toString()}</pre>
+          <button onClick={() => window.location.reload()}>Reload</button>
         </div>
       );
     }
@@ -104,92 +100,44 @@ class ErrorBoundary extends Component {
 const App = () => {
   return (
     <ErrorBoundary>
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light" // or "dark"
-      />
+      <ToastContainer position="top-right" autoClose={3000} />
       <ScrollToTop />
-      <WhatsAppButton />
+
       <Routes>
+        {/* ================= USER WEBSITE ================= */}
         <Route
           path="/"
           element={
             <PriceProvider>
-              {" "}
               <CartProvider>
-                {" "}
                 <UserProvider>
-                  {" "}
-                  <Layout />{" "}
-                </UserProvider>{" "}
-              </CartProvider>{" "}
+                  <>
+                    <Layout />
+                    <WhatsAppButton /> {/* ✅ USER SIDE ONLY */}
+                  </>
+                </UserProvider>
+              </CartProvider>
             </PriceProvider>
           }
         >
-          <Route index path="" element={<Home />} />
-          <Route index path="/home" element={<Home />} />
-          <Route path="/men" element={<Prodcuts gender="Male" />} />
-          <Route path="/women" element={<Prodcuts gender="Female" />} />
-          <Route path="/kid" element={<Prodcuts gender="Kids" />} />
-          <Route path="/kids" element={<Prodcuts gender="Kids" />} />
-          <Route path="/corporate" element={<Prodcuts />} />
-          
-          {/* Category slug routes - specific mappings */}
-          <Route path="/mensclothing" element={<Prodcuts gender="Male" />} />
-          <Route path="/mensapparel" element={<Prodcuts gender="Male" />} />
-          <Route path="/menswear" element={<Prodcuts gender="Male" />} />
-          <Route path="/womensclothing" element={<Prodcuts gender="Female" />} />
-          <Route path="/womensapparel" element={<Prodcuts gender="Female" />} />
-          <Route path="/womenswear" element={<Prodcuts gender="Female" />} />
-          <Route path="/kidsclothing" element={<Prodcuts gender="Kids" />} />
-          <Route path="/kidsapparel" element={<Prodcuts gender="Kids" />} />
-          <Route path="/kidswear" element={<Prodcuts gender="Kids" />} />
-          <Route path="/corporatetshirt" element={<Prodcuts />} />
-          <Route path="/corporatewear" element={<Prodcuts />} />
-          <Route path="/bulkorder" element={<Prodcuts />} />
-          
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/products/:id" element={<ProductRouter />} />
-          <Route path="/getbulk" element={<GetBulk />} />
-          <Route path="/order" element={<Order />} />
-          <Route path="/get/logistics/:id" element={<TrackOrder />} />
-          <Route path="/design/:proid/:color" element={<TShirtDesigner />} />
-          <Route path="/profile" element={<ProfilePanel />} />
-          <Route path="/payment" element={<PaymentPage />} />
-          <Route path="/order-processing" element={<OrderProcessing />} />
-          <Route path="/order-success/:orderId" element={<OrderSuccess />} />
-          <Route path="/search" element={<SearchResults />} />
-
-          <Route
-            path="/products/subcategory/:id/:catogory_name"
-            element={<SaerchingPage />}
-          />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route
-            path="/refund-return-policy"
-            element={<RefundReturnPolicy />}
-          />
-          <Route path="/shipping-policy" element={<ShippingPolicy />} />
-          <Route path="/terms-and-conditions" element={<TermsConditions />} />
-          <Route path="/get_size/:id" element={<SizeChange />} />
-          <Route path="/wallet/:userId" element={<WalletPage />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/blog/:slug" element={<BlogPost />} />
-          
-          {/* Dynamic category route - catches any category slug */}
-          <Route path="/:slug" element={<CategoryPage />} />
+          <Route index element={<Home />} />
+          <Route path="home" element={<Home />} />
+          <Route path="men" element={<Prodcuts gender="Male" />} />
+          <Route path="women" element={<Prodcuts gender="Female" />} />
+          <Route path="kids" element={<Prodcuts gender="Kids" />} />
+          <Route path="contact" element={<Contact />} />
+          <Route path="about" element={<About />} />
+          <Route path="cart" element={<Cart />} />
+          <Route path="products/:id" element={<ProductRouter />} />
+          <Route path="payment" element={<PaymentPage />} />
+          <Route path="order-processing" element={<OrderProcessing />} />
+          <Route path="order-success/:orderId" element={<OrderSuccess />} />
+          <Route path="blog" element={<Blog />} />
+          <Route path="blog/:slug" element={<BlogPost />} />
+          <Route path=":slug" element={<CategoryPage />} />
         </Route>
-        <Route path="/invoice/:id" element={<InvoiceSet />} />
 
+        {/* ================= ADMIN ================= */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
@@ -199,63 +147,10 @@ const App = () => {
             <Route path="products" element={<ProdcutsCreated />} />
             <Route path="category" element={<Category />} />
             <Route path="moneyset" element={<MoneySet />} />
-            <Route path="edit/:id" element={<ProductsUpdate />} />
             <Route path="order" element={<OrderSection />} />
-            <Route path="bulkorder" element={<OrderBulk />} />
             <Route path="sales" element={<AnalyticsDashboard />} />
             <Route path="users" element={<UserInfo />} />
-            <Route path="bannersetup" element={<Banner />} />
-            <Route path="landing-page" element={<LandingPageManager />} />
-            <Route path="logistic" element={<LogisticsManager />} />
-            <Route path="charges" element={<ChargePlanManager />} />
-            <Route path="bankdetails" element={<BankDetailsManager />} />
-            <Route path="employees" element={<EmployeesAccManager />} />
-            <Route path="corporate-settings" element={<CorporateSettings />} />
-            <Route path="tracking" element={<TrackingManager />} />
-            <Route path="invoice" element={<Invoice />} />
             <Route path="blog" element={<BlogManager />} />
-          </Route>
-        </Route>
-
-        <Route path="/employee-login" element={<EmployeeLogin />} />
-        <Route path="/employee-debug" element={<EmployeeDebug />} />
-        
-        {/* URL-based employee authentication */}
-        <Route path="/auth/:section" element={<EmployeeAuthRequired />} />
-
-        {/* Protected group - main employee dashboard */}
-        <Route path="/employees" element={<EmployeePrivateRoute />}>
-          <Route element={<EmployessLayout />}>
-            <Route index element={<Navigate to="/employees/inventory" replace />} />
-            
-            {/* Graphic Designer Routes */}
-            <Route path="inventory" element={<Adminhome />} />
-            <Route path="categories" element={<Category />} />
-            <Route path="products" element={<ProdcutsCreated />} />
-            <Route path="banner" element={<Banner />} />
-            <Route path="blog" element={<BlogManager />} />
-            
-            {/* Order Manager Routes */}
-            <Route path="bulkorder" element={<OrderBulk />} />
-            <Route path="order" element={<OrderSection />} />
-            <Route path="logistics" element={<LogisticsManager />} />
-            <Route path="moneyset" element={<MoneySet />} />
-            <Route path="charges" element={<ChargePlanManager />} />
-            <Route path="corporate-settings" element={<CorporateSettings />} />
-            
-            {/* Accounting and Management Routes */}
-            <Route path="bankdetails" element={<BankDetailsManager />} />
-            <Route path="employees" element={<EmployeesAccManager />} />
-            <Route path="users" element={<UserInfo />} />
-            <Route path="invoice" element={<Invoice />} />
-            <Route path="sales" element={<AnalyticsDashboard />} />
-            
-            {/* Legacy routes for backward compatibility */}
-            <Route path="banners" element={<Banner />} />
-            <Route path="category" element={<Category />} />
-            
-            {/* Dynamic section route - catches any other sections */}
-            <Route path=":section" element={<EmployeeSection />} />
           </Route>
         </Route>
       </Routes>
