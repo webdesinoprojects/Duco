@@ -1167,7 +1167,7 @@ const Cart = () => {
                   return (
                     <div className="flex justify-between text-gray-400 text-sm italic">
                       <span>Tax</span>
-                      <span>No tax (B2C)</span>
+                      <span></span>
                     </div>
                   );
                 }

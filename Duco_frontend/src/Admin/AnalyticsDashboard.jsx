@@ -429,10 +429,14 @@ export default function AnalyticsDashboard() {
         console.log('📊 Invoice totals:', data.totals);
         setInvoiceData(data.invoice);
       } else {
-        console.warn('No invoice found for order:', order._id);
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('No invoice found for order:', order._id, errorData);
+        // Don't set error, just continue without invoice data
+        // The bill breakdown will use fallback calculation
       }
     } catch (error) {
       console.error('Error fetching invoice:', error);
+      // Don't set error, just continue without invoice data
     } finally {
       setLoadingInvoice(false);
     }
@@ -477,7 +481,9 @@ export default function AnalyticsDashboard() {
       setInvoiceData(normalized);
       setShowInvoiceModal(true);
     } catch (error) {
-      alert(`Failed to fetch invoice: ${error.message}`);
+      console.warn('Invoice not available:', error.message);
+      // Don't show alert - invoice is optional
+      // The order details modal already shows bill breakdown
     }
   }
 
@@ -693,6 +699,7 @@ export default function AnalyticsDashboard() {
             <table className="w-full text-left text-sm">
               <thead className="bg-[#0B0B0B] text-gray-300">
                 <tr>
+                  <th className="px-4 py-3">Type</th>
                   <th className="px-4 py-3">Date (IST)</th>
                   <th className="px-4 py-3">Order ID</th>
                   <th className="px-4 py-3">Customer Info</th>
@@ -732,6 +739,15 @@ export default function AnalyticsDashboard() {
                         className="border-t border-[#222] hover:bg-[#0B0B0B]"
                       >
                         <td className="px-4 py-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap inline-block ${
+                            o?.orderType === 'B2B' 
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50' 
+                              : 'bg-purple-500/20 text-purple-300 border border-purple-500/50'
+                          }`}>
+                            {o?.orderType === 'B2B' ? '🏢 B2B' : '👤 B2C'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
                           {o?.createdAt
                             ? new Date(o.createdAt).toLocaleString("en-IN", {
                               timeZone: "Asia/Kolkata",
@@ -770,11 +786,11 @@ export default function AnalyticsDashboard() {
                         <td className="px-4 py-3">
                           <div className="space-y-1">
                             <div className="font-semibold">
-                              {formatPrice(o?.displayPrice || o?.price, o?.currency)}
+                              {formatPrice(o?.displayPrice || o?.price, o?.paymentCurrency || o?.currency || 'INR')}
                             </div>
-                            {o?.currency && o?.currency !== 'INR' && (
+                            {o?.paymentCurrency && o?.paymentCurrency !== 'INR' && (
                               <div className="text-xs text-blue-400">
-                                ({o?.currency})
+                                ({o?.paymentCurrency})
                                 {o?.conversionRate && o?.conversionRate !== 1 && (
                                   <span className="ml-1">• ₹{o?.price?.toFixed(2)} INR</span>
                                 )}
@@ -791,13 +807,13 @@ export default function AnalyticsDashboard() {
                               </div>
                               <div className="text-xs space-y-1">
                                 <div className="text-gray-300">
-                                  Total: {formatPrice(o?.displayPrice || o?.price, o?.currency)}
+                                  Total: {formatPrice(o?.displayPrice || o?.price, o?.paymentCurrency || o?.currency || 'INR')}
                                 </div>
                                 <div className="text-green-400">
-                                  Paid: {formatPrice((o?.displayPrice || o?.price) / 2, o?.currency)}
+                                  Paid: {formatPrice((o?.displayPrice || o?.price) / 2, o?.paymentCurrency || o?.currency || 'INR')}
                                 </div>
                                 <div className="text-orange-400">
-                                  Due: {formatPrice((o?.displayPrice || o?.price) / 2, o?.currency)}
+                                  Due: {formatPrice((o?.displayPrice || o?.price) / 2, o?.paymentCurrency || o?.currency || 'INR')}
                                 </div>
                               </div>
                             </div>
@@ -864,7 +880,7 @@ export default function AnalyticsDashboard() {
                 ) : (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-4 py-6 text-center text-gray-400"
                     >
                       No orders for selected filters.
@@ -1082,18 +1098,18 @@ export default function AnalyticsDashboard() {
                         const grandTotal = taxable + totalTax;
                         
                         return (
-                          <>
+                          <div className="space-y-3">
                             {/* Items Subtotal */}
                             <div className="bg-[#111] rounded p-3">
                               <div className="flex justify-between items-center mb-2">
                                 <span className="text-white font-semibold">Items Subtotal</span>
-                                <span className="text-white font-semibold">₹{subtotal.toFixed(2)}</span>
+                                <span className="text-white font-semibold">{formatPrice(subtotal, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                               </div>
                               <div className="text-xs text-gray-400 space-y-1">
                                 {items.map((item, idx) => (
                                   <div key={idx} className="flex justify-between">
                                     <span>{item.description} × {item.qty}</span>
-                                    <span>₹{(Number(item.qty) * Number(item.price)).toFixed(2)}</span>
+                                    <span>{formatPrice(Number(item.qty) * Number(item.price), invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                                   </div>
                                 ))}
                               </div>
@@ -1103,18 +1119,18 @@ export default function AnalyticsDashboard() {
                             <div className="space-y-2 text-sm">
                               <div className="flex justify-between">
                                 <span className="text-gray-400">P&F (Packing & Forwarding) Charges:</span>
-                                <span className="text-white">₹{pf.toFixed(2)}</span>
+                                <span className="text-white">{formatPrice(pf, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-gray-400">Printing Charges:</span>
-                                <span className="text-white">₹{printing.toFixed(2)}</span>
+                                <span className="text-white">{formatPrice(printing, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                               </div>
                             </div>
 
                             {/* Taxable Amount */}
                             <div className="flex justify-between pt-2 border-t border-[#333]">
                               <span className="text-white font-semibold">Taxable Amount:</span>
-                              <span className="text-white font-semibold">₹{taxable.toFixed(2)}</span>
+                              <span className="text-white font-semibold">{formatPrice(taxable, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                             </div>
 
                             {/* Tax Breakdown */}
@@ -1123,34 +1139,34 @@ export default function AnalyticsDashboard() {
                               {cgst > 0 && (
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">CGST @ {invoiceData.tax?.cgstRate || 0}%:</span>
-                                  <span className="text-white">₹{cgst.toFixed(2)}</span>
+                                  <span className="text-white">{formatPrice(cgst, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                                 </div>
                               )}
                               {sgst > 0 && (
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">SGST @ {invoiceData.tax?.sgstRate || 0}%:</span>
-                                  <span className="text-white">₹{sgst.toFixed(2)}</span>
+                                  <span className="text-white">{formatPrice(sgst, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                                 </div>
                               )}
                               {igst > 0 && (
                                 <div className="flex justify-between">
                                   <span className="text-gray-400">IGST @ {invoiceData.tax?.igstRate || 0}%:</span>
-                                  <span className="text-white">₹{igst.toFixed(2)}</span>
+                                  <span className="text-white">{formatPrice(igst, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                                 </div>
                               )}
                               {totalTax === 0 && (
-                                <div className="text-gray-500 text-xs italic">No tax applied</div>
+                                <div className="text-gray-500 text-xs italic"></div>
                               )}
                               {totalTax > 0 && (
                                 <div className="flex justify-between pt-2 border-t border-[#222]">
                                   <span className="text-white font-semibold">Total Tax:</span>
-                                  <span className="text-white font-semibold">₹{totalTax.toFixed(2)}</span>
+                                  <span className="text-white font-semibold">{formatPrice(totalTax, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                                 </div>
                               )}
                             </div>
 
                             {/* Currency Conversion */}
-                            {invoiceData.currency && invoiceData.currency !== 'INR' && (
+                            {invoiceData.paymentCurrency && invoiceData.paymentCurrency !== 'INR' && (
                               <div className="space-y-2 text-sm bg-blue-900/20 rounded p-3 border border-blue-500/30">
                                 <div className="text-blue-400 font-semibold mb-2">💱 International Order:</div>
                                 <div className="flex justify-between">
@@ -1159,7 +1175,7 @@ export default function AnalyticsDashboard() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-300">Currency:</span>
-                                  <span className="text-white">{invoiceData.currency}</span>
+                                  <span className="text-white">{invoiceData.paymentCurrency}</span>
                                 </div>
                               </div>
                             )}
@@ -1167,9 +1183,9 @@ export default function AnalyticsDashboard() {
                             {/* Grand Total */}
                             <div className="flex justify-between pt-3 border-t-2 border-[#E5C870]">
                               <span className="text-white font-bold text-lg">Grand Total:</span>
-                              <span className="text-[#E5C870] font-bold text-xl">₹{grandTotal.toFixed(2)}</span>
+                              <span className="text-[#E5C870] font-bold text-xl">{formatPrice(grandTotal, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
                             </div>
-                          </>
+                          </div>
                         );
                       })()}
                     </div>
@@ -1180,7 +1196,7 @@ export default function AnalyticsDashboard() {
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-white font-semibold">Items Subtotal</span>
                         <span className="text-white font-semibold">
-                          ₹{(() => {
+                          {formatPrice((() => {
                             // Calculate from products array
                             let itemsTotal = 0;
                             if (selectedOrder.products && selectedOrder.products.length > 0) {
@@ -1200,8 +1216,8 @@ export default function AnalyticsDashboard() {
                               itemsTotal = selectedOrder.price - charges - tax;
                             }
                             
-                            return Math.max(0, itemsTotal).toFixed(2);
-                          })()}
+                            return Math.max(0, itemsTotal);
+                          })(), selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}
                         </span>
                       </div>
                       <div className="text-xs text-gray-400 space-y-1">
@@ -1213,7 +1229,7 @@ export default function AnalyticsDashboard() {
                           return (
                             <div key={idx} className="flex justify-between">
                               <span>{product.products_name || product.name || 'Product'} × {qty}</span>
-                              <span>₹{(price * qty).toFixed(2)}</span>
+                              <span>{formatPrice(price * qty, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                             </div>
                           );
                         })}
@@ -1227,11 +1243,11 @@ export default function AnalyticsDashboard() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-400">P&F (Packing & Forwarding) Charges:</span>
-                        <span className="text-white">₹{(selectedOrder.pf || 0).toFixed(2)}</span>
+                        <span className="text-white">{formatPrice(selectedOrder.pf || 0, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Printing Charges:</span>
-                        <span className="text-white">₹{(selectedOrder.printing || 0).toFixed(2)}</span>
+                        <span className="text-white">{formatPrice(selectedOrder.printing || 0, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                       </div>
                       {(selectedOrder.pf === 0 && selectedOrder.printing === 0) && (
                         <div className="text-yellow-500 text-xs italic mt-2">
@@ -1244,7 +1260,7 @@ export default function AnalyticsDashboard() {
                     <div className="flex justify-between pt-2 border-t border-[#333]">
                       <span className="text-white font-semibold">Taxable Amount:</span>
                       <span className="text-white font-semibold">
-                        ₹{(() => {
+                        {formatPrice((() => {
                           // Calculate items total
                           let itemsTotal = 0;
                           if (selectedOrder.products && selectedOrder.products.length > 0) {
@@ -1265,8 +1281,8 @@ export default function AnalyticsDashboard() {
                           }
                           
                           const taxable = itemsTotal + (selectedOrder.pf || 0) + (selectedOrder.printing || 0);
-                          return Math.max(0, taxable).toFixed(2);
-                        })()}
+                          return Math.max(0, taxable);
+                        })(), selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}
                       </span>
                     </div>
 
@@ -1276,37 +1292,37 @@ export default function AnalyticsDashboard() {
                       {selectedOrder.cgst > 0 && (
                         <div className="flex justify-between">
                           <span className="text-gray-400">CGST @ {((selectedOrder.cgst / (selectedOrder.price - selectedOrder.gst)) * 100).toFixed(1)}%:</span>
-                          <span className="text-white">₹{selectedOrder.cgst?.toFixed(2)}</span>
+                          <span className="text-white">{formatPrice(selectedOrder.cgst, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                         </div>
                       )}
                       {selectedOrder.sgst > 0 && (
                         <div className="flex justify-between">
                           <span className="text-gray-400">SGST @ {((selectedOrder.sgst / (selectedOrder.price - selectedOrder.gst)) * 100).toFixed(1)}%:</span>
-                          <span className="text-white">₹{selectedOrder.sgst?.toFixed(2)}</span>
+                          <span className="text-white">{formatPrice(selectedOrder.sgst, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                         </div>
                       )}
                       {selectedOrder.igst > 0 && (
                         <div className="flex justify-between">
                           <span className="text-gray-400">IGST @ {((selectedOrder.igst / (selectedOrder.price - selectedOrder.gst)) * 100).toFixed(1)}%:</span>
-                          <span className="text-white">₹{selectedOrder.igst?.toFixed(2)}</span>
+                          <span className="text-white">{formatPrice(selectedOrder.igst, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                         </div>
                       )}
                       {selectedOrder.gst > 0 && !selectedOrder.cgst && !selectedOrder.sgst && !selectedOrder.igst && (
                         <div className="flex justify-between">
                           <span className="text-gray-400">GST @ 5%:</span>
-                          <span className="text-white">₹{selectedOrder.gst?.toFixed(2)}</span>
+                          <span className="text-white">{formatPrice(selectedOrder.gst, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                         </div>
                       )}
                       <div className="flex justify-between pt-2 border-t border-[#222]">
                         <span className="text-white font-semibold">Total Tax:</span>
                         <span className="text-white font-semibold">
-                          ₹{((selectedOrder.cgst || 0) + (selectedOrder.sgst || 0) + (selectedOrder.igst || 0) || selectedOrder.gst || 0).toFixed(2)}
+                          {formatPrice((selectedOrder.cgst || 0) + (selectedOrder.sgst || 0) + (selectedOrder.igst || 0) || selectedOrder.gst || 0, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}
                         </span>
                       </div>
                     </div>
 
                     {/* Currency Conversion (if international) */}
-                    {selectedOrder.currency && selectedOrder.currency !== 'INR' && (
+                    {selectedOrder.paymentCurrency && selectedOrder.paymentCurrency !== 'INR' && (
                       <div className="space-y-2 text-sm bg-blue-900/20 rounded p-3 border border-blue-500/30">
                         <div className="text-blue-400 font-semibold mb-2">💱 International Order:</div>
                         <div className="flex justify-between">
@@ -1315,12 +1331,12 @@ export default function AnalyticsDashboard() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-300">Conversion Rate:</span>
-                          <span className="text-white">1 INR = {(1 / (selectedOrder.conversionRate || 1)).toFixed(4)} {selectedOrder.currency}</span>
+                          <span className="text-white">1 INR = {(1 / (selectedOrder.conversionRate || 1)).toFixed(4)} {selectedOrder.paymentCurrency}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-300">Customer Pays ({selectedOrder.currency}):</span>
+                          <span className="text-gray-300">Customer Pays ({selectedOrder.paymentCurrency}):</span>
                           <span className="text-blue-400 font-semibold">
-                            {formatPrice(selectedOrder.displayPrice, selectedOrder.currency)}
+                            {formatPrice(selectedOrder.displayPrice, selectedOrder.paymentCurrency)}
                           </span>
                         </div>
                       </div>
@@ -1330,7 +1346,7 @@ export default function AnalyticsDashboard() {
                     <div className="flex justify-between pt-3 border-t-2 border-[#E5C870]">
                       <span className="text-white font-bold text-lg">Grand Total:</span>
                       <span className="text-[#E5C870] font-bold text-xl">
-                        ₹{(selectedOrder.totalPay || selectedOrder.price)?.toFixed(2)}
+                        {formatPrice(selectedOrder.totalPay || selectedOrder.price, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}
                       </span>
                     </div>
 
@@ -1366,11 +1382,11 @@ export default function AnalyticsDashboard() {
                             <div className="space-y-1 text-xs text-gray-300">
                               <div className="flex justify-between">
                                 <span>Amount Paid:</span>
-                                <span className="text-white font-mono">₹{Math.round((selectedOrder.price || 0) / 2).toLocaleString('en-IN')}</span>
+                                <span className="text-white font-mono">{formatPrice((selectedOrder.displayPrice || selectedOrder.price || 0) / 2, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span>Amount Due:</span>
-                                <span className="text-orange-300 font-mono">₹{Math.round((selectedOrder.price || 0) / 2).toLocaleString('en-IN')}</span>
+                                <span className="text-orange-300 font-mono">{formatPrice((selectedOrder.displayPrice || selectedOrder.price || 0) / 2, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                               </div>
                               <div className="text-orange-400 text-xs mt-1">⚠️ Remaining payment due before delivery</div>
                             </div>
@@ -1384,7 +1400,7 @@ export default function AnalyticsDashboard() {
                             <div className="space-y-1 text-xs text-gray-300">
                               <div className="flex justify-between">
                                 <span>Payment Due:</span>
-                                <span className="text-white font-mono">₹{(selectedOrder.price || 0).toLocaleString('en-IN')}</span>
+                                <span className="text-white font-mono">{formatPrice(selectedOrder.displayPrice || selectedOrder.price || 0, selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}</span>
                               </div>
                               <div className="text-blue-400 text-xs mt-1">ℹ️ Payment to be collected at pickup</div>
                             </div>

@@ -99,7 +99,9 @@ export const normalizeInvoiceData = (invoice, totals) => {
  */
 export const fetchAndNormalizeInvoice = async (orderId, apiBase) => {
   try {
-    const response = await fetch(`${apiBase}/api/invoice/${orderId}`, {
+    // Remove trailing slash from apiBase if present
+    const baseUrl = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+    const response = await fetch(`${baseUrl}/api/invoice/${orderId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

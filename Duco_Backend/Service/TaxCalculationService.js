@@ -103,7 +103,7 @@ function calculateTax(amount, customerState = '', customerCountry = '', isB2B = 
       sgstAmount: 0,
       igstAmount: 0,
       totalTax: 0,
-      label: 'No Tax (B2C)',
+      label: '',
       isSameState: false,
       isIndia: true,
       isB2B: false
