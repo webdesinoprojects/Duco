@@ -1,5 +1,4 @@
 // 📁 src/Components/PaymentButton.jsx
-import React from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import LZString from "lz-string"; // ✅ added for compression
@@ -139,6 +138,11 @@ const PaymentButton = ({ orderData }) => {
       console.log("💰 Amount (paise):", amount);
       console.log("📦 Order ID:", orderId);
 
+      // ✅ Detect if international order
+      const customerCountry = orderData?.address?.country || orderData?.addresses?.billing?.country || 'India';
+      const isInternational = customerCountry && customerCountry.toLowerCase() !== 'india';
+      console.log("🌍 International Order Detection:", { customerCountry, isInternational });
+
       const options = {
         key: razorpayKey, // 🔑 Fixed: Using TEST key (matches backend)
         amount: amount, // in paise
@@ -146,6 +150,16 @@ const PaymentButton = ({ orderData }) => {
         name: "Duco Art",
         description: `T-shirt Order - ${orderData.items.length} item(s)`,
         order_id: orderId,
+        // ✅ For international orders, show brand name in modal
+        ...(isInternational && {
+          brand_name: "Duco Art",
+        }),
+        // ✅ For international orders, make contact optional
+        ...(isInternational && {
+          readonly: {
+            contact: false, // Allow editing
+          },
+        }),
         handler: async function (response) {
           console.group("💳 PAYMENT HANDLER TRIGGERED");
           console.log("📥 Razorpay response:", response);
@@ -204,13 +218,16 @@ const PaymentButton = ({ orderData }) => {
           console.groupEnd();
         },
         // ✅ Prefill with fallback (address if user email/phone missing)
+        // ✅ For international orders, phone is optional
         prefill: {
           name:
             orderData?.user?.name ||
             orderData?.address?.fullName ||
             "Guest User",
           contact:
-            orderData?.user?.phone || orderData?.address?.mobileNumber || "",
+            isInternational 
+              ? (orderData?.user?.phone || orderData?.address?.mobileNumber || "")
+              : (orderData?.user?.phone || orderData?.address?.mobileNumber || ""),
           email: orderData?.user?.email || orderData?.address?.email || "",
         },
         theme: {

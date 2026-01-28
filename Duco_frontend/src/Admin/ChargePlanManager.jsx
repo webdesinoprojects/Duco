@@ -17,13 +17,13 @@ const toTierList = (x) => {
     return x.map((t) => ({
       minqty: String(t.minqty ?? t.minQty ?? 1),
       maxqty: String(t.maxqty ?? t.maxQty ?? t.minqty ?? t.minQty ?? 1),
-      cost:   String(t.cost ?? 0),
+      cost:   String(t.cost ?? t.percent ?? 0),
     }));
   }
   if (x && typeof x === "object" && ("minqty" in x || "minQty" in x)) {
     const minqty = x.minqty ?? x.minQty ?? 1;
     const maxqty = x.maxqty ?? x.maxQty ?? minqty;
-    const cost = x.cost ?? 0;
+    const cost = x.cost ?? x.percent ?? 0;
     return [{ minqty: String(minqty), maxqty: String(maxqty), cost: String(cost) }];
   }
   return [emptyTier()];
@@ -42,7 +42,7 @@ const num = (v) => {
 };
 
 const sanitizeTier = (t) => {
-  const mn = num(t.minqty), mx = num(t.maxqty), c = num(t.cost);
+  const mn = num(t.minqty), mx = num(t.maxqty), c = num(t.cost ?? t.percent);
   const minqty = Number.isFinite(mn) && mn >= 1 ? mn : 1;
   const maxqty = Number.isFinite(mx) && mx >= minqty ? mx : minqty;
   const cost   = Number.isFinite(c) && c >= 0 ? c : 0;
@@ -346,7 +346,7 @@ const simulate = async () => {
       const payload = {
         pakageingandforwarding: plan.pakageingandforwarding,
         printingcost:           plan.printingcost,
-        gst:                    plan.gst,
+        gst:                    plan.gst.map(t => ({ minqty: t.minqty, maxqty: t.maxqty, percent: t.cost })), // ✅ Convert cost to percent for GST
       };
       const res = await fetch(`${API_BASE}/api/chargeplan`, {
         method: "PATCH",
