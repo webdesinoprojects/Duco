@@ -115,10 +115,10 @@ async function getSalesAnalytics(req, res) {
     }
 
     // ===== ORDERS (no pagination) =====
-    // ✅ Include user, address, addresses, currency, display price, charges, and tax information
+    // ✅ Include user, address, addresses, paymentCurrency (actual paid currency), display price, charges, and tax information
     const orders = await Order.find(match)
       .sort({ createdAt: -1 })
-      .select("_id createdAt user price status razorpayPaymentId address addresses currency displayPrice conversionRate pf printing gst cgst sgst igst products orderId orderType paymentmode paymentStatus paymentMethod printroveOrderId printroveStatus printroveTrackingUrl totalPay")
+      .select("_id createdAt user price status razorpayPaymentId address addresses currency paymentCurrency displayPrice conversionRate pf printing gst cgst sgst igst products orderId orderType paymentmode paymentStatus paymentMethod printroveOrderId printroveStatus printroveTrackingUrl totalPay")
       .populate('user', 'name email phone') // ✅ Populate user details
       .lean();
 

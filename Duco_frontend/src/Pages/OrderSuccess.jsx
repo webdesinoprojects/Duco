@@ -383,7 +383,7 @@ export default function OrderSuccess() {
                   {invoiceData.tax.type === 'B2C_NO_TAX' ? (
                     <div className="flex justify-between text-green-600">
                       <span className="text-sm">Tax (B2C):</span>
-                      <span className="font-semibold">No Tax</span>
+                      <span className="font-semibold"></span>
                     </div>
                   ) : invoiceData.tax.type === 'INTERNATIONAL' ? (
                     <div className="flex justify-between">

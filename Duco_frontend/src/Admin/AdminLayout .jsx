@@ -26,7 +26,6 @@ const AdminLayout = () => {
     { label: "Invoice", path: "invoice" },
     { label: "Users", path: "users" },
     { label: "Sales Analysis", path: "sales" },
-    { label: "Banner", path: "bannersetup" },
     { label: "Landing Page", path: "landing-page" },
     { label: "Blog", path: "blog" },
   ];
