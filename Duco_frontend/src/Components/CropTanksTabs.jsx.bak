@@ -3,13 +3,39 @@ import React, { useEffect, useRef, useState } from "react";
 
 const TABS = [
   {
+    key: "desc",
+    label: "Description",
+    content: (
+      <div className="space-y-6 leading-7 text-slate-800">
+        <p>
+          Crop tanks are a comfortable summer staple for women. Start selling
+          crop tanks to increase your brand’s style quotient. Explore the option
+          to sell crop tanks with print-on-demand using your own brand name—no
+          inventory, printing, or logistics hassles. Qikink takes care of
+          printing and fulfilment. Get creative and design for your audience.
+          Our crop tanks are made of 180 GSM super-combed bio-washed fabric with
+          double-stitched seam and folded neck.
+        </p>
+        <p>
+          We maintain benchmark quality tanks your customers will appreciate.
+          They’re pre-shrunk with a regular fit and offer excellent color
+          fastness. Fabrics are specially made for direct-to-garment printing,
+          suitable for print-on-demand drop shipping. All mélange colors are 90%
+          cotton and 10% mélange mix. Available in trending color options.
+          Qikink also offers screen-printing options for crop tank printing with
+          drop-shipping options. Get in touch with us to know more.
+        </p>
+      </div>
+    ),
+  },
+  {
     key: "guide",
     label: "Design Guidelines",
     content: (
       <ul className="list-disc pl-6 space-y-2 text-slate-800">
-        <li>Recommended print size: 12  16 (300 DPI).</li>
+        <li>Recommended print size: 12″ × 16″ (300 DPI).</li>
         <li>Upload PNG with transparent background.</li>
-        <li>Keep key elements 0.25 inside the safe area.</li>
+        <li>Keep key elements 0.25″ inside the safe area.</li>
         <li>Convert texts to shapes to avoid font issues.</li>
       </ul>
     ),

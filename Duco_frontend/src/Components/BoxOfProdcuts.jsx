@@ -2,6 +2,7 @@ import React, { useContext, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { CartContext } from "../ContextAPI/CartContext";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import { toast } from "react-toastify";
 
 const currencySymbols = {
   INR: "₹",
@@ -36,7 +37,7 @@ const currencySymbols = {
 
 const BoxOfProducts = ({ price, title, id, image, description }) => {
   const colors = ["#FF0000", "#FF8A00", "#4A4AFF", "#FFFFFF", "#000000"];
-  const { addtocart } = useContext(CartContext);
+  const { addToCart } = useContext(CartContext);
   const { toConvert, priceIncrease, resolvedLocation, currency } =
     usePriceContext();
 
@@ -111,12 +112,20 @@ const BoxOfProducts = ({ price, title, id, image, description }) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              addtocart({
+              addToCart({
                 id,
+                productId: id,
+                products_name: title,
+                name: title,
                 design: [],
                 color: "white",
-                quantity: 1,
+                quantity: { S: 1 },
                 price: Number(finalPrice),
+                image: image,
+              });
+              toast.success(`${title || "Product"} added to cart!`, {
+                position: "top-right",
+                autoClose: 2000,
               });
             }}
             className="px-4 py-1.5 bg-[#E5C870] text-black text-sm font-medium rounded-full hover:bg-gray-800 hover:text-white transition"

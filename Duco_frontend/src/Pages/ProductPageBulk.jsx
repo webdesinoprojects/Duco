@@ -494,7 +494,7 @@ const validateMinimumQuantity = () => {
 
       </div>
        <PriceTiers tiers={priceTiers} currencySymbol={currencySymbol} />
-        <CropTankSizeChart/>
+        <CropTankSizeChart type="mensRoundNeck" />
        <CropTanksTabs/>
       
 

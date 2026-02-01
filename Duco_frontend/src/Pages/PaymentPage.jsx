@@ -384,6 +384,11 @@ const PaymentPage = () => {
 
       let normalizedPayload = {
         ...orderpayload,
+
+        // 🔥 BACKEND EXPECTS THIS
+        paymentmode: mode,
+
+        // keep meta separately
         paymentMeta,
       };
 
@@ -459,23 +464,38 @@ const PaymentPage = () => {
       }
 
       if (normalizedPayload.user && typeof normalizedPayload.user === "object") {
-        normalizedPayload.user = {
-          id: normalizedPayload.user.id || normalizedPayload.user._id,
-          name: normalizedPayload.user.name || "",
-          email: normalizedPayload.user.email || "",
-          phone: normalizedPayload.user.phone || "",
-        };
+        normalizedPayload.user = normalizedPayload.user.id || normalizedPayload.user._id;
+      }
+      
+      // ✅ Ensure user field exists (required by backend)
+      if (!normalizedPayload.user) {
+        console.error("❌ Missing user field in payload");
+        normalizedPayload.user = orderpayload?.user?.id || orderpayload?.user?._id || orderpayload?.user;
       }
 
       if (!normalizedPayload.items || !Array.isArray(normalizedPayload.items)) {
         normalizedPayload.items = cart || [];
       }
 
-      const paymentId = mode === "storepickup" ? null : "manualpayment";
+      // ✅ Add pickup details to payload if pickup from store
+      if (mode === "store_pickup" && paymentMeta?.pickup) {
+        normalizedPayload.pickupDetails = {
+          name: paymentMeta.pickup.name,
+          phone: paymentMeta.pickup.phone,
+          pickupAt: new Date(paymentMeta.pickup.at).toISOString(), // 🔥 Convert to ISO format
+          notes: paymentMeta.pickup.notes || "",
+        };
+      }
 
-      const res = await completeOrder(paymentId, mode, normalizedPayload);
+      const paymentId = mode === "store_pickup" ? null : "manualpayment";
+
+      console.log("🚨 PAYMENT MODE SENT TO BACKEND:", mode);
+      console.log("🧾 ORDER PAYLOAD", normalizedPayload);
+      console.log("✅ FINAL PAYMENTMODE IN BODY:", normalizedPayload.paymentmode);
+
+      const res = await completeOrder(paymentId, normalizedPayload.paymentmode, normalizedPayload);
       const order = res?.order || res?.data?.order;
-      const orderId = order?.id;
+      const orderId = order?.id || order?._id;
 
       if (orderId) {
         localStorage.setItem("lastOrderId", orderId);
@@ -526,7 +546,7 @@ const PaymentPage = () => {
         return;
       }
 
-      return placeOrder("storepickup", "Pickup order placed successfully!", {
+      return placeOrder("store_pickup", "Pickup order placed successfully!", {
         pickup: {
           name: pickupName.trim(),
           phone: pickupPhone,

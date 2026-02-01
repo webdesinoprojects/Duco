@@ -129,6 +129,7 @@ export default function AnalyticsDashboard() {
   const [groupBy, setGroupBy] = useState("day"); // "day" | "month" | "none"
   const [includeCancelled, setIncludeCancelled] = useState(false);
   const [statusFilter, setStatusFilter] = useState(["Delivered", "Shipped"]); // sensible default
+  const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -695,6 +696,15 @@ export default function AnalyticsDashboard() {
 
         {/* Orders Table */}
         <div className="bg-[#111] border border-[#222] rounded-2xl">
+          <div className="p-4 border-b border-[#222]">
+            <input
+              type="text"
+              placeholder="Search by order ID, customer name, or product..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border border-[#333] bg-[#0B0B0B] text-white px-4 py-2 rounded-lg w-full md:w-96 focus:outline-none focus:border-[#E5C870]"
+            />
+          </div>
           <div className="p-0 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#0B0B0B] text-gray-300">
@@ -713,7 +723,31 @@ export default function AnalyticsDashboard() {
               </thead>
               <tbody>
                 {data.orders?.length ? (
-                  data.orders.map((o) => {
+                  data.orders
+                    .filter((o) => {
+                      if (!search) return true;
+                      const q = search.toLowerCase();
+                      
+                      // Search by Order ID
+                      const orderId = String(o?._id || "").toLowerCase();
+                      if (orderId.includes(q)) return true;
+                      
+                      // Search by Customer Name
+                      const userObj = typeof o?.user === "object" ? o.user : null;
+                      const customerName = (userObj?.name || userObj?.fullName || "").toLowerCase();
+                      if (customerName.includes(q)) return true;
+                      
+                      // Search by Product Name
+                      const products = Array.isArray(o?.products) ? o.products : [];
+                      const hasMatchingProduct = products.some((p) => {
+                        const productName = (p?.name || p?.productName || "").toLowerCase();
+                        return productName.includes(q);
+                      });
+                      if (hasMatchingProduct) return true;
+                      
+                      return false;
+                    })
+                    .map((o) => {
                     // Extract user info (supports both populated and non-populated)
                     const userObj = typeof o?.user === "object" ? o.user : null;
                     const userName = userObj?.name || userObj?.fullName || "-";

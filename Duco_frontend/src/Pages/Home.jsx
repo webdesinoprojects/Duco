@@ -3,6 +3,7 @@ import SectionHome1 from '../Components/SectionHome1.jsx';
 import SectionHome2 from '../Components/SectionHome2.jsx';
 import SectionHome3 from '../Components/SectionHome3.jsx';
 import TrendingHome from '../Components/TrendingHome.jsx';
+import ShopNowHome from '../Components/ShopNowHome.jsx';
 import BannerHome from '../Components/BannerHome.jsx';
 import axios from 'axios';
 import { usePriceContext } from '../ContextAPI/PriceContext.jsx';
@@ -178,6 +179,7 @@ const Home = () => {
         isAnimating={isAnimating}
         sideCards={landingPageData?.sideCards}
       />
+      <ShopNowHome />
       <SectionHome2 />
       <BannerHome link={landingPageData?.middleBanner?.image || "https://ik.imagekit.io/vuavxn05l/5213288.jpg?updatedAt=1757162698605"} />
       <TrendingHome />

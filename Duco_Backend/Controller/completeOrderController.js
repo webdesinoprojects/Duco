@@ -360,6 +360,9 @@ const processingCache = new Map();
 const completeOrder = async (req, res) => {
   let { paymentId, orderData, paymentmode, compressed, paymentCurrency, customerCountry, customerCity, customerState } = req.body || {};
 
+  // 🧾 Log payment mode received from frontend
+  console.log('🧾 PAYMENT MODE RECEIVED:', paymentmode);
+
   // ✅ Prevent duplicate processing for the same payment ID
   if (paymentId && paymentId !== 'manual_payment') {
     const cacheKey = `${paymentId}_${paymentmode}`;
@@ -588,7 +591,7 @@ const completeOrder = async (req, res) => {
     // ✅ Keep paymentmode as enum value, create readableMode for display only
     // ================================================================
     let readableMode = paymentmode;
-    if (paymentmode === 'store_pickup') readableMode = 'Pay on Store';
+    if (paymentmode === 'store_pickup' || paymentmode === 'pickup') readableMode = 'Pay on Store';
     else if (paymentmode === 'netbanking') readableMode = 'Paid via Netbanking';
     else if (paymentmode === '50%') readableMode = '50% Advance Payment';
     else if (paymentmode === 'online') readableMode = 'Online Payment';
@@ -597,7 +600,7 @@ const completeOrder = async (req, res) => {
     // ================================================================
     // VALIDATION: Store Pickup is ONLY for B2B Orders
     // ================================================================
-    if (paymentmode === 'store_pickup' && !isCorporateOrder) {
+    if ((paymentmode === 'store_pickup' || paymentmode === 'pickup') && !isCorporateOrder) {
       console.error('❌ Store Pickup payment method is only available for B2B orders');
       return res.status(403).json({
         success: false,
@@ -608,7 +611,7 @@ const completeOrder = async (req, res) => {
     // ================================================================
     // CASE 1 – STORE PICKUP (NEW)
     // ================================================================
-    if (paymentmode === 'store_pickup') {
+    if (paymentmode === 'store_pickup' || paymentmode === 'pickup') {
       try {
         // ✅ Get estimated delivery date from settings
         const deliveryExpectedDate = await getEstimatedDeliveryDate();
