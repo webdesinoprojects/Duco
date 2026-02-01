@@ -34,7 +34,7 @@ const currencySymbols = {
   KRW: "₩",
 };
 
-const BoxOfProducts = ({ price, title, id, image }) => {
+const BoxOfProducts = ({ price, title, id, image, description }) => {
   const colors = ["#FF0000", "#FF8A00", "#4A4AFF", "#FFFFFF", "#000000"];
   const { addtocart } = useContext(CartContext);
   const { toConvert, priceIncrease, resolvedLocation, currency } =
@@ -42,61 +42,26 @@ const BoxOfProducts = ({ price, title, id, image }) => {
 
   const currencySymbol = currencySymbols[currency] || "₹";
 
-  // ✅ Corrected price calculation
   const finalPrice = useMemo(() => {
     let base = Number(price) || 0;
 
-    console.log('💰 BoxOfProducts Price Calculation:', {
-      basePrice: base,
-      toConvert,
-      priceIncrease,
-      currency,
-      resolvedLocation,
-      hasToConvert: toConvert != null,
-      hasPriceIncrease: priceIncrease != null
-    });
-
-    // ✅ If conversion rate is not ready, use base price
-    if (toConvert == null || priceIncrease == null) {
-      console.log('⚠️ Conversion not ready, using base price:', base);
-      return Math.round(base);
+    if (priceIncrease) {
+      base += (base * Number(priceIncrease)) / 100;
     }
 
-    // ✅ Ensure conversion rate is valid (> 0)
-    if (toConvert <= 0) {
-      console.warn('⚠️ Invalid conversion rate:', toConvert, '- using base price');
-      return Math.round(base);
+    if (toConvert && toConvert !== 1) {
+      base *= Number(toConvert);
     }
 
-    // ✅ Step 1: Apply markup percentage
-    let increased = base + (base * Number(priceIncrease)) / 100;
-
-    // ✅ Step 2: CRITICAL FIX - Multiply by conversion rate, NOT divide
-    // Conversion rate represents: 1 INR = X target_currency
-    // Example: 1 INR = 0.011 EUR, so 500 INR = 500 * 0.011 = 5.5 EUR ✅
-    // NOT: 500 / 0.011 = 45,454 EUR ❌ WRONG
-    let converted = increased * Number(toConvert);
-
-    console.log('✅ Price converted:', {
-      basePrice: base,
-      priceIncrease,
-      afterMarkup: increased,
-      toConvert,
-      finalPrice: Math.round(converted),
-      currency
-    });
-
-    return Math.round(converted);
-  }, [price, toConvert, priceIncrease, currency]);
+    return Math.round(base);
+  }, [price, toConvert, priceIncrease]);
 
   return (
     <Link
       to={`/products/${id}`}
       className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow duration-300 ease-in-out"
     >
-      {/* 🖼️ Image & Color Swatches */}
       <div className="relative bg-[#F9F5EB] flex justify-center items-end rounded-t-3xl">
-        {/* 🎨 Color Circles */}
         <div className="absolute top-4 left-4 flex flex-col gap-3 z-10">
           {colors.map((color) => (
             <span
@@ -107,7 +72,6 @@ const BoxOfProducts = ({ price, title, id, image }) => {
           ))}
         </div>
 
-        {/* Product Image */}
         {image ? (
           <img
             src={image}
@@ -121,13 +85,13 @@ const BoxOfProducts = ({ price, title, id, image }) => {
         )}
       </div>
 
-      {/* 📄 Text Section */}
       <div className="px-5 pt-4 pb-6">
         <h3 className="text-xl font-semibold text-gray-800 mb-1 tracking-tight">
-          {title || "Classic Crew T-Shirt"}
+          {title || "Product"}
         </h3>
+
         <p className="text-sm text-gray-500 mb-4">
-          Soft cotton fabric, modern fit, and available in 5 elegant colors.
+          {description || "No description available"}
         </p>
 
         <div className="flex justify-between items-center">

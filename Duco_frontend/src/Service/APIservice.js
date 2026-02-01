@@ -1,7 +1,11 @@
 import axios from "axios";
 import { API_BASE_URL } from "../config/api.js";
 
-const API_BASE = `${API_BASE_URL}/`; // Backend Base URL
+// ✅ FIX: ensure backend base URL is always absolute (fallback for dev)
+const API_BASE =
+  (API_BASE_URL && API_BASE_URL.startsWith("http")
+    ? API_BASE_URL
+    : import.meta.env.VITE_API_BASE_URL) + "/";
 
 /* --------------------------- MONEY MANAGEMENT --------------------------- */
 export const fetchAllPrices = async () => {
@@ -418,10 +422,26 @@ export async function getBankDetails(signal) {
   return handle(res);
 }
 
-export async function getActiveBankDetails(signal) {
-  const data = await getBankDetails(signal);
-  const list = Array.isArray(data) ? data : data?.items || data?.data || [];
-  return list.find((x) => x?.isactive === true) || null;
+export async function getActiveBankDetails() {
+  try {
+    const res = await axios.get(`${API_BASE}api/bankdetails`);
+
+    const list = Array.isArray(res?.data?.data)
+      ? res.data.data
+      : [];
+
+    // ✅ FIX:
+    // 1. Prefer explicitly active bank
+    // 2. If none active AND only one record exists → use it
+    const active =
+      list.find((x) => x?.isactive === true) ||
+      (list.length === 1 ? list[0] : null);
+
+    return active;
+  } catch (err) {
+    console.error("❌ getActiveBankDetails failed:", err);
+    return null;
+  }
 }
 
 /* ------------------------------- INVOICE ------------------------------- */

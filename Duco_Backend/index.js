@@ -32,7 +32,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 /* =========================
-   TRUST PROXY (Render)
+   TRUST PROXY
    ========================= */
 app.set('trust proxy', 1);
 
@@ -42,33 +42,24 @@ app.set('trust proxy', 1);
 app.use(compression());
 
 /* =========================
-   ✅ FINAL CORS (PRODUCTION SAFE)
+   ✅ FIXED CORS (PATCH ENABLED)
    ========================= */
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:4173',
-  'https://duco-67o5.onrender.com',
-  'https://ducoart.com',
-  'https://www.ducoart.com'
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    console.error('❌ Blocked by CORS:', origin);
-    return callback(new Error('CORS blocked'));
-  },
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:4173',
+    'https://duco-67o5.onrender.com',
+    'https://ducoart.com',
+    'https://www.ducoart.com',
+  ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
+};
 
-app.options('*', cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // ✅ THIS LINE IS CRITICAL
 
 /* =========================
    BODY PARSERS
@@ -88,7 +79,6 @@ app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
   });
 });
 
@@ -115,8 +105,6 @@ app.use('/api', completedorderRoutes);
 app.use('/api', orderRoutes);
 
 app.use('/api/analytics', analyticsRouter);
-app.use('/api', analyticsRouter);
-
 app.use('/api', require('./Router/LogisticsRoutes'));
 app.use('/api', require('./Router/chargePlanRoutes'));
 app.use('/api', require('./Router/bankDetails'));
@@ -138,33 +126,29 @@ app.post('/api/admin/check', async (req, res) => {
   const { userid, password } = req.body || {};
 
   if (!userid || !password) {
-    return res.status(400).json({ ok: false, message: 'userid and password required' });
+    return res.status(400).json({ ok: false });
   }
 
-  // Env-based admin
   if (
     userid === process.env.ADMIN_EMAIL &&
     password === process.env.ADMIN_PASSWORD
   ) {
-    return res.status(200).json({ ok: true });
+    return res.json({ ok: true });
   }
 
-  // Employee fallback
   try {
     const user = await EmployeesAcc.findOne({ employeeid: userid });
     if (!user) return res.status(401).json({ ok: false });
 
     const ok = await bcrypt.compare(password, user.password);
-    return ok
-      ? res.json({ ok: true })
-      : res.status(401).json({ ok: false });
-  } catch (err) {
+    return ok ? res.json({ ok: true }) : res.status(401).json({ ok: false });
+  } catch {
     return res.status(500).json({ ok: false });
   }
 });
 
 /* =========================
-   404 HANDLER
+   404
    ========================= */
 app.use((_req, res) => {
   res.status(404).json({ ok: false, message: 'Route not found' });
@@ -174,11 +158,8 @@ app.use((_req, res) => {
    ERROR HANDLER
    ========================= */
 app.use((err, _req, res, _next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    ok: false,
-    message: err.message || 'Server error'
-  });
+  console.error('Server error:', err);
+  res.status(500).json({ ok: false, message: err.message });
 });
 
 /* =========================

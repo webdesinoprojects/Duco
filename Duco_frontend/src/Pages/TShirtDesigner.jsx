@@ -1356,21 +1356,7 @@ const TshirtDesigner = () => {
   // ======================== CONTROLS ========================
   const renderControls = () => (
     <div className="space-y-6">
-      {/* Upload Logo */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-800 mb-2">
-          Upload Logo
-        </h3>
-        <label className="flex flex-col items-center px-4 py-3 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 hover:bg-gray-100 cursor-pointer transition-all">
-          <span className="text-xs text-gray-600">Click to upload</span>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-          />
-        </label>
-      </div>
+      {/* Deleted Upload Logo */}
 
       {/* Additional Files */}
       <div>
@@ -1837,10 +1823,6 @@ const TshirtDesigner = () => {
                     </h3>
         {/* Mobile Bottom Bar */}
         <div className="flex-shrink-0 bg-gray-800 text-white flex justify-around py-1 border-t border-gray-700 lg:hidden">
-          <button onClick={() => setActiveTab("upload")} className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded text-xs ${activeTab === "upload" ? "bg-yellow-500 text-black" : "hover:bg-gray-700"}`}>
-            <FaUpload size={14} />
-            <span className="text-[10px]">Upload</span>
-          </button>
           <button onClick={() => setActiveTab("text")} className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded text-xs ${activeTab === "text" ? "bg-yellow-500 text-black" : "hover:bg-gray-700"}`}>
             <FaRegKeyboard size={14} />
             <span className="text-[10px]">Text</span>

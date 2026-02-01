@@ -1,6 +1,6 @@
 // App.jsx
 import React, { Component } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import Layout from "./Layout.jsx";
 import Home from "./Pages/Home.jsx";
 import "./App.css";
@@ -113,7 +113,7 @@ const App = () => {
                 <UserProvider>
                   <>
                     <Layout />
-                    <WhatsAppButton /> {/* ✅ USER SIDE ONLY */}
+                    <WhatsAppButton />
                   </>
                 </UserProvider>
               </CartProvider>
@@ -129,11 +129,16 @@ const App = () => {
           <Route path="about" element={<About />} />
           <Route path="cart" element={<Cart />} />
           <Route path="products/:id" element={<ProductRouter />} />
+
+          {/* ✅ FIXED: DESIGN ROUTE */}
+          <Route path="design/:proid/:color" element={<TShirtDesigner />} />
+
           <Route path="payment" element={<PaymentPage />} />
           <Route path="order-processing" element={<OrderProcessing />} />
           <Route path="order-success/:orderId" element={<OrderSuccess />} />
           <Route path="blog" element={<Blog />} />
           <Route path="blog/:slug" element={<BlogPost />} />
+          <Route path="wallet/:userId" element={<WalletPage />} />
           <Route path=":slug" element={<CategoryPage />} />
         </Route>
 
@@ -147,10 +152,22 @@ const App = () => {
             <Route path="products" element={<ProdcutsCreated />} />
             <Route path="category" element={<Category />} />
             <Route path="moneyset" element={<MoneySet />} />
+            <Route path="charges" element={<ChargePlanManager />} /> {/* ✅ FIX */}
             <Route path="order" element={<OrderSection />} />
             <Route path="sales" element={<AnalyticsDashboard />} />
             <Route path="users" element={<UserInfo />} />
             <Route path="blog" element={<BlogManager />} />
+          </Route>
+        </Route>
+
+        {/* ================= EMPLOYEE ================= */}
+        <Route path="/employee-login" element={<EmployeeLogin />} />
+
+        <Route element={<EmployeePrivateRoute />}>
+          <Route path="/employee" element={<EmployessLayout />}>
+            <Route index element={<EmployeeSection />} />
+            <Route path="orders" element={<OrderBulk />} />
+            <Route path="debug" element={<EmployeeDebug />} />
           </Route>
         </Route>
       </Routes>
