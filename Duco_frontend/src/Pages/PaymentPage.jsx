@@ -56,7 +56,6 @@ const validPhone10 = (s = "") => /^\d{10}$/.test(onlyDigits(s));
 const PaymentPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [showPayNow, setShowPayNow] = useState(false);
-  const [netbankingType, setNetbankingType] = useState("bank"); // ✅ default to "bank"
   const [showNetModal, setShowNetModal] = useState(false);
 
   // Netbanking (BANK) fields
@@ -65,11 +64,6 @@ const PaymentPage = () => {
   const [accountNumber, setAccountNumber] = useState("");
   const [ifsc, setIfsc] = useState("");
   const [utr, setUtr] = useState("");
-
-  // Netbanking (UPI) fields
-  const [upiId, setUpiId] = useState("");
-  const [payerName, setPayerName] = useState("");
-  const [upiRef, setUpiRef] = useState("");
 
   // Pickup from store fields
   const [pickupName, setPickupName] = useState("");
@@ -281,7 +275,7 @@ const PaymentPage = () => {
     setErrors({});
   };
 
-  // Reset netbanking/UPI fields when payment method changes
+  // Reset netbanking fields when payment method changes
   useEffect(() => {
     setBankName("");
     setAccountName("");
@@ -289,17 +283,12 @@ const PaymentPage = () => {
     setIfsc("");
     setUtr("");
 
-    setUpiId("");
-    setPayerName("");
-    setUpiRef("");
-
     setErrors({});
-    setNetbankingType("bank");
   }, [paymentMethod]);
 
   // Auto-fetch active bank details when Netbanking mode is selected
   useEffect(() => {
-    if (paymentMethod !== "Netbanking" && netbankingType !== "bank") return;
+    if (paymentMethod !== "Netbanking") return;
 
     let mounted = true;
 
@@ -331,34 +320,26 @@ const PaymentPage = () => {
     return () => {
       mounted = false;
     };
-  }, [paymentMethod, netbankingType]);
+  }, [paymentMethod]);
 
   /* ------------------------- validations & submit ------------------------- */
 
   const validateNetbanking = () => {
     const e = {};
-    if (netbankingType === "bank") {
-      if (!bankName?.trim()) e.bankName = "Select bank";
-      if (!accountName?.trim()) e.accountName = "Enter account holder name";
+    if (!bankName?.trim()) e.bankName = "Select bank";
+    if (!accountName?.trim()) e.accountName = "Enter account holder name";
 
-      const accDigits = onlyDigits(accountNumber);
-      if (!(accDigits.length >= 9 && accDigits.length <= 18)) {
-        e.accountNumber = "Enter a valid account number (9–18 digits)";
-      }
+    const accDigits = onlyDigits(accountNumber);
+    if (!(accDigits.length >= 9 && accDigits.length <= 18)) {
+      e.accountNumber = "Enter a valid account number (9–18 digits)";
+    }
 
-      if (!validIFSC(ifsc)) {
-        e.ifsc = "Enter valid IFSC (e.g., HDFC0001234)";
-      }
+    if (!validIFSC(ifsc)) {
+      e.ifsc = "Enter valid IFSC (e.g., HDFC0001234)";
+    }
 
-      if (utr && !/^[A-Za-z0-9\-]{6,20}$/.test(utr)) {
-        e.utr = "UTR looks invalid";
-      }
-    } else {
-      if (!validUPI(upiId)) e.upiId = "Enter valid UPI ID (e.g., name@bank)";
-      if (!payerName?.trim()) e.payerName = "Enter payer name";
-      if (upiRef && !/^[A-Za-z0-9\-]{6,20}$/.test(upiRef)) {
-        e.upiRef = "Reference/UTR looks invalid";
-      }
+    if (utr && !/^[A-Za-z0-9\-]{6,20}$/.test(utr)) {
+      e.utr = "UTR looks invalid";
     }
 
     setErrors(e);
@@ -571,28 +552,16 @@ const PaymentPage = () => {
         return;
       }
 
-      const meta =
-        netbankingType === "bank"
-          ? {
-              netbankingType,
-              bankName: bankName.trim(),
-              accountName: accountName.trim(),
-              accountNumberMasked: maskAccount(onlyDigits(accountNumber)),
-              ifsc: String(ifsc).toUpperCase(),
-              utr: utr?.trim(),
-              paymentType: "50advance",
-              amountPaid: halfPayAmount,
-              amountDue: halfPayAmount,
-            }
-          : {
-              netbankingType,
-              upiId: upiId.trim(),
-              payerName: payerName.trim(),
-              reference: upiRef?.trim(),
-              paymentType: "50advance",
-              amountPaid: halfPayAmount,
-              amountDue: halfPayAmount,
-            };
+      const meta = {
+        bankName: bankName.trim(),
+        accountName: accountName.trim(),
+        accountNumberMasked: maskAccount(onlyDigits(accountNumber)),
+        ifsc: String(ifsc).toUpperCase(),
+        utr: utr?.trim(),
+        paymentType: "50advance",
+        amountPaid: halfPayAmount,
+        amountDue: halfPayAmount,
+      };
 
       return placeOrder(
         "50",
@@ -605,22 +574,13 @@ const PaymentPage = () => {
   const handleNetConfirm = async () => {
     setShowNetModal(false);
 
-    const meta =
-      netbankingType === "bank"
-        ? {
-            netbankingType,
-            bankName: bankName.trim(),
-            accountName: accountName.trim(),
-            accountNumberMasked: maskAccount(onlyDigits(accountNumber)),
-            ifsc: String(ifsc).toUpperCase(),
-            utr: utr?.trim(),
-          }
-        : {
-            netbankingType,
-            upiId: upiId.trim(),
-            payerName: payerName.trim(),
-            reference: upiRef?.trim(),
-          };
+    const meta = {
+      bankName: bankName.trim(),
+      accountName: accountName.trim(),
+      accountNumberMasked: maskAccount(onlyDigits(accountNumber)),
+      ifsc: String(ifsc).toUpperCase(),
+      utr: utr?.trim(),
+    };
 
     return placeOrder(
       "netbanking",
@@ -669,157 +629,82 @@ const PaymentPage = () => {
                   {/* Netbanking inline form */}
                   {option === "Netbanking" && paymentMethod === "Netbanking" && (
                     <div className="mt-3 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">Pay via</span>
-                        <select
-                          value={netbankingType}
-                          onChange={(e) => {
-                            setNetbankingType(e.target.value);
-                            setErrors({});
-                          }}
-                          className="rounded-lg border border-gray-300 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E5C870]"
-                        >
-                          <option value="bank">
-                            Bank Transfer (NEFT/IMPS/RTGS)
-                          </option>
-                          <option value="upi">UPI</option>
-                        </select>
+                      {/* BANK FIELDS */}
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Bank Name
+                        </label>
+                        <input
+                          value={bankName}
+                          readOnly
+                          className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
+                            errors.bankName ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.bankName && (
+                          <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>
+                        )}
                       </div>
 
-                      {/* BANK FIELDS */}
-                      {netbankingType === "bank" && (
-                        <>
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              Bank Name
-                            </label>
-                            <input
-                              value={bankName}
-                              readOnly
-                              className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
-                                errors.bankName ? "border-red-500" : "border-gray-300"
-                              }`}
-                            />
-                            {errors.bankName && (
-                              <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>
-                            )}
-                          </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Account Holder Name
+                        </label>
+                        <input
+                          value={accountName}
+                          readOnly
+                          className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
+                            errors.accountName ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.accountName && (
+                          <p className="text-xs text-red-600 mt-1">{errors.accountName}</p>
+                        )}
+                      </div>
 
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              Account Holder Name
-                            </label>
-                            <input
-                              value={accountName}
-                              readOnly
-                              className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
-                                errors.accountName ? "border-red-500" : "border-gray-300"
-                              }`}
-                            />
-                            {errors.accountName && (
-                              <p className="text-xs text-red-600 mt-1">{errors.accountName}</p>
-                            )}
-                          </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          Account Number
+                        </label>
+                        <input
+                          value={accountNumber}
+                          readOnly
+                          className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
+                            errors.accountNumber ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.accountNumber && (
+                          <p className="text-xs text-red-600 mt-1">{errors.accountNumber}</p>
+                        )}
+                      </div>
 
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              Account Number
-                            </label>
-                            <input
-                              value={accountNumber}
-                              readOnly
-                              className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
-                                errors.accountNumber ? "border-red-500" : "border-gray-300"
-                              }`}
-                            />
-                            {errors.accountNumber && (
-                              <p className="text-xs text-red-600 mt-1">{errors.accountNumber}</p>
-                            )}
-                          </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          IFSC Code
+                        </label>
+                        <input
+                          value={ifsc}
+                          readOnly
+                          className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
+                            errors.ifsc ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.ifsc && (
+                          <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>
+                        )}
+                      </div>
 
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              IFSC Code
-                            </label>
-                            <input
-                              value={ifsc}
-                              readOnly
-                              className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
-                                errors.ifsc ? "border-red-500" : "border-gray-300"
-                              }`}
-                            />
-                            {errors.ifsc && (
-                              <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              UTR / Reference (optional)
-                            </label>
-                            <input
-                              value={utr}
-                              onChange={(e) => setUtr(e.target.value)}
-                              placeholder="If already paid, enter UTR"
-                              className="w-full rounded-lg border px-3 py-2 text-sm border-gray-300"
-                            />
-                          </div>
-                        </>
-                      )}
-
-                      {/* UPI FIELDS */}
-                      {netbankingType === "upi" && (
-                        <>
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              UPI ID
-                            </label>
-                            <input
-                              value={upiId}
-                              onChange={(e) => setUpiId(e.target.value)}
-                              placeholder="name@bank"
-                              className={`w-full rounded-lg border px-3 py-2 text-sm ${
-                                errors.upiId ? "border-red-500" : "border-gray-300"
-                              }`}
-                            />
-                            {errors.upiId && (
-                              <p className="text-xs text-red-600 mt-1">{errors.upiId}</p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              Payer Name
-                            </label>
-                            <input
-                              value={payerName}
-                              onChange={(e) => setPayerName(e.target.value)}
-                              placeholder="Your name on UPI"
-                              className={`w-full rounded-lg border px-3 py-2 text-sm ${
-                                errors.payerName ? "border-red-500" : "border-gray-300"
-                              }`}
-                            />
-                            {errors.payerName && (
-                              <p className="text-xs text-red-600 mt-1">{errors.payerName}</p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              Reference UTR (optional)
-                            </label>
-                            <input
-                              value={upiRef}
-                              onChange={(e) => setUpiRef(e.target.value)}
-                              placeholder="If already paid, enter UTR"
-                              className="w-full rounded-lg border px-3 py-2 text-sm border-gray-300"
-                            />
-                            {errors.upiRef && (
-                              <p className="text-xs text-red-600 mt-1">{errors.upiRef}</p>
-                            )}
-                          </div>
-                        </>
-                      )}
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          UTR / Reference (optional)
+                        </label>
+                        <input
+                          value={utr}
+                          onChange={(e) => setUtr(e.target.value)}
+                          placeholder="If already paid, enter UTR"
+                          className="w-full rounded-lg border px-3 py-2 text-sm border-gray-300"
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -839,157 +724,82 @@ const PaymentPage = () => {
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">Pay via</span>
-                          <select
-                            value={netbankingType}
-                            onChange={(e) => {
-                              setNetbankingType(e.target.value);
-                              setErrors({});
-                            }}
-                            className="rounded-lg border border-gray-300 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#E5C870]"
-                          >
-                            <option value="bank">
-                              Bank Transfer (NEFT/IMPS/RTGS)
-                            </option>
-                            <option value="upi">UPI</option>
-                          </select>
+                        {/* BANK FIELDS */}
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">
+                            Bank Name
+                          </label>
+                          <input
+                            value={bankName}
+                            readOnly
+                            className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
+                              errors.bankName ? "border-red-500" : "border-gray-300"
+                            }`}
+                          />
+                          {errors.bankName && (
+                            <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>
+                          )}
                         </div>
 
-                        {/* BANK FIELDS */}
-                        {netbankingType === "bank" && (
-                          <>
-                            <div>
-                              <label className="block text-sm text-gray-600 mb-1">
-                                Bank Name
-                              </label>
-                              <input
-                                value={bankName}
-                                readOnly
-                                className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
-                                  errors.bankName ? "border-red-500" : "border-gray-300"
-                                }`}
-                              />
-                              {errors.bankName && (
-                                <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>
-                              )}
-                            </div>
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">
+                            Account Holder Name
+                          </label>
+                          <input
+                            value={accountName}
+                            readOnly
+                            className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
+                              errors.accountName ? "border-red-500" : "border-gray-300"
+                            }`}
+                          />
+                          {errors.accountName && (
+                            <p className="text-xs text-red-600 mt-1">{errors.accountName}</p>
+                          )}
+                        </div>
 
-                            <div>
-                              <label className="block text-sm text-gray-600 mb-1">
-                                Account Holder Name
-                              </label>
-                              <input
-                                value={accountName}
-                                readOnly
-                                className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
-                                  errors.accountName ? "border-red-500" : "border-gray-300"
-                                }`}
-                              />
-                              {errors.accountName && (
-                                <p className="text-xs text-red-600 mt-1">{errors.accountName}</p>
-                              )}
-                            </div>
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">
+                            Account Number
+                          </label>
+                          <input
+                            value={accountNumber}
+                            readOnly
+                            className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
+                              errors.accountNumber ? "border-red-500" : "border-gray-300"
+                            }`}
+                          />
+                          {errors.accountNumber && (
+                            <p className="text-xs text-red-600 mt-1">{errors.accountNumber}</p>
+                          )}
+                        </div>
 
-                            <div>
-                              <label className="block text-sm text-gray-600 mb-1">
-                                Account Number
-                              </label>
-                              <input
-                                value={accountNumber}
-                                readOnly
-                                className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
-                                  errors.accountNumber ? "border-red-500" : "border-gray-300"
-                                }`}
-                              />
-                              {errors.accountNumber && (
-                                <p className="text-xs text-red-600 mt-1">{errors.accountNumber}</p>
-                              )}
-                            </div>
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">
+                            IFSC Code
+                          </label>
+                          <input
+                            value={ifsc}
+                            readOnly
+                            className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
+                              errors.ifsc ? "border-red-500" : "border-gray-300"
+                            }`}
+                          />
+                          {errors.ifsc && (
+                            <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>
+                          )}
+                        </div>
 
-                            <div>
-                              <label className="block text-sm text-gray-600 mb-1">
-                                IFSC Code
-                              </label>
-                              <input
-                                value={ifsc}
-                                readOnly
-                                className={`w-full rounded-lg border px-3 py-2 text-sm bg-gray-100 cursor-not-allowed ${
-                                  errors.ifsc ? "border-red-500" : "border-gray-300"
-                                }`}
-                              />
-                              {errors.ifsc && (
-                                <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="block text-sm text-gray-600 mb-1">
-                                UTR / Reference (optional)
-                              </label>
-                              <input
-                                value={utr}
-                                onChange={(e) => setUtr(e.target.value)}
-                                placeholder="If already paid, enter UTR"
-                                className="w-full rounded-lg border px-3 py-2 text-sm border-gray-300"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {/* UPI FIELDS */}
-                        {netbankingType === "upi" && (
-                          <>
-                            <div>
-                              <label className="block text-sm text-gray-600 mb-1">
-                                UPI ID
-                              </label>
-                              <input
-                                value={upiId}
-                                onChange={(e) => setUpiId(e.target.value)}
-                                placeholder="name@bank"
-                                className={`w-full rounded-lg border px-3 py-2 text-sm ${
-                                  errors.upiId ? "border-red-500" : "border-gray-300"
-                                }`}
-                              />
-                              {errors.upiId && (
-                                <p className="text-xs text-red-600 mt-1">{errors.upiId}</p>
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="block text-sm text-gray-600 mb-1">
-                                Payer Name
-                              </label>
-                              <input
-                                value={payerName}
-                                onChange={(e) => setPayerName(e.target.value)}
-                                placeholder="Your name on UPI"
-                                className={`w-full rounded-lg border px-3 py-2 text-sm ${
-                                  errors.payerName ? "border-red-500" : "border-gray-300"
-                                }`}
-                              />
-                              {errors.payerName && (
-                                <p className="text-xs text-red-600 mt-1">{errors.payerName}</p>
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="block text-sm text-gray-600 mb-1">
-                                Reference UTR (optional)
-                              </label>
-                              <input
-                                value={upiRef}
-                                onChange={(e) => setUpiRef(e.target.value)}
-                                placeholder="If already paid, enter UTR"
-                                className="w-full rounded-lg border px-3 py-2 text-sm border-gray-300"
-                              />
-                              {errors.upiRef && (
-                                <p className="text-xs text-red-600 mt-1">{errors.upiRef}</p>
-                              )}
-                            </div>
-                          </>
-                        )}
+                        <div>
+                          <label className="block text-sm text-gray-600 mb-1">
+                            UTR / Reference (optional)
+                          </label>
+                          <input
+                            value={utr}
+                            onChange={(e) => setUtr(e.target.value)}
+                            placeholder="If already paid, enter UTR"
+                            className="w-full rounded-lg border px-3 py-2 text-sm border-gray-300"
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -1288,37 +1098,23 @@ const PaymentPage = () => {
                 Confirm Netbanking Payment
               </h2>
 
-              {netbankingType === "bank" ? (
-                <div className="text-sm text-gray-800 space-y-1 mb-4">
-                  <div>
-                    <b>Bank:</b> {bankName || "-"}
-                  </div>
-                  <div>
-                    <b>Account Name:</b> {accountName || "-"}
-                  </div>
-                  <div>
-                    <b>Account No.:</b> {maskAccount(onlyDigits(accountNumber)) || "-"}
-                  </div>
-                  <div>
-                    <b>IFSC:</b> {String(ifsc).toUpperCase() || "-"}
-                  </div>
-                  <div>
-                    <b>UTR:</b> {utr || "-"}
-                  </div>
+              <div className="text-sm text-gray-800 space-y-1 mb-4">
+                <div>
+                  <b>Bank:</b> {bankName || "-"}
                 </div>
-              ) : (
-                <div className="text-sm text-gray-800 space-y-1 mb-4">
-                  <div>
-                    <b>UPI ID:</b> {upiId || "-"}
-                  </div>
-                  <div>
-                    <b>Payer Name:</b> {payerName || "-"}
-                  </div>
-                  <div>
-                    <b>Reference UTR:</b> {upiRef || "-"}
-                  </div>
+                <div>
+                  <b>Account Name:</b> {accountName || "-"}
                 </div>
-              )}
+                <div>
+                  <b>Account No.:</b> {maskAccount(onlyDigits(accountNumber)) || "-"}
+                </div>
+                <div>
+                  <b>IFSC:</b> {String(ifsc).toUpperCase() || "-"}
+                </div>
+                <div>
+                  <b>UTR:</b> {utr || "-"}
+                </div>
+              </div>
 
               <p className="text-sm text-gray-600 mb-4 text-center">
                 Please ensure your transfer is completed. Click confirm to place

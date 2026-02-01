@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import OrderCart from "../Components/OrderCart";
 import { FaShoppingBag, FaSync } from "react-icons/fa";
 import BoxOfProdcuts from "../Components/BoxOfProdcuts";
 import { fetchOrdersByUser } from "../Service/APIservice";
 import { getUserOrdersWithTracking, bulkSyncOrderStatuses } from "../Service/trackingApi";
+import { UserContext } from "../ContextAPI/UserContext.jsx";
 
 import watchphoto from "../assets/gloomy-young-black-model-clean-white-unlabeled-cotton-t-shirt-removebg-preview.png";
 
@@ -15,20 +16,16 @@ const sampleProduct = {
 
 const Order = () => {
   const [order, setOrder] = useState([]);
-  const [user, setUser] = useState(null);
+  const { user } = useContext(UserContext);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("user");
-    if (stored) {
-      setUser(JSON.parse(stored));
-    }
-  }, []);
-
-  useEffect(() => {
     const loadOrders = async () => {
-      if (!user?._id) return;
+      if (!user?._id) {
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         // Try to get enhanced tracking data first

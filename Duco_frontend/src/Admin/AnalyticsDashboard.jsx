@@ -106,7 +106,11 @@ function buildParams({ from, to, groupBy, includeCancelled, statusFilter }) {
 }
 
 async function tryFetch(url, controller) {
-  const res = await fetch(url, { signal: controller?.signal });
+  // Cache-busting via timestamp parameter in URL (no custom headers to avoid CORS issues)
+  const res = await fetch(url, { 
+    signal: controller?.signal,
+    cache: 'no-store' // Force fresh fetch, no caching
+  });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     throw new Error(txt || `Request failed (${res.status}) @ ${url}`);
@@ -115,7 +119,8 @@ async function tryFetch(url, controller) {
 }
 
 function summarizeClientSide(orders = []) {
-  const paid = orders.filter((o) => o?.razorpayPaymentId);
+  // Include all orders regardless of payment method (Razorpay, COD, store pickup, netbanking, etc.)
+  const paid = orders;
   const totalAmount = paid.reduce((sum, o) => sum + Number(o?.price || 0), 0);
   const totalOrders = paid.length;
   const avgOrderValue = totalOrders ? Math.round(totalAmount / totalOrders) : 0;
@@ -128,12 +133,13 @@ export default function AnalyticsDashboard() {
   const [to, setTo] = useState(_to);
   const [groupBy, setGroupBy] = useState("day"); // "day" | "month" | "none"
   const [includeCancelled, setIncludeCancelled] = useState(false);
-  const [statusFilter, setStatusFilter] = useState(["Delivered", "Shipped"]); // sensible default
+  const [statusFilter, setStatusFilter] = useState(["Pending", "Processing", "Shipped", "Delivered"]); // Show all non-cancelled by default
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState({ summary: null, breakdown: [], orders: [] });
+  const [lastFetched, setLastFetched] = useState(null);
 
   // === Query management ===
   const canQuery = useMemo(() => Boolean(from && to), [from, to]);
@@ -158,11 +164,10 @@ export default function AnalyticsDashboard() {
 
     // We’ll try these endpoints in order for maximum compatibility with your backend:
     const qs = useDebounced ? debouncedQueryString : queryString;
+    const cacheBuster = `&_t=${Date.now()}`;
     const candidates = [
-      `/api/sales?${qs}`,
-      `/api/analytics/sales?${qs}`,
-      `${API_BASE}api/sales?${qs}`,
-      `${API_BASE}api/analytics/sales?${qs}`,
+      `${API_BASE}api/analytics/sales?${qs}${cacheBuster}`,
+      `/api/analytics/sales?${qs}${cacheBuster}`,
     ];
 
     try {
@@ -189,11 +194,23 @@ export default function AnalyticsDashboard() {
           ? json.orders.items
           : [];
 
+      console.log('📊 Analytics Data Received:', {
+        totalOrders: orders.length,
+        orderIds: orders.map(o => o._id),
+        paymentMethods: orders.map(o => o.paymentmode || o.paymentMethod || 'unknown'),
+        statuses: orders.map(o => o.status)
+      });
+
+      console.log('📊 Setting state with orders array - length:', orders.length);
+
       setData({
         summary: summary || summarizeClientSide(orders),
         breakdown,
         orders,
       });
+      
+      setLastFetched(new Date());
+      console.log('📊 State update completed');
     } catch (e) {
       if (e?.name === "AbortError") return; // ignore
       setError(e?.message || "Failed to load analytics");
@@ -201,13 +218,6 @@ export default function AnalyticsDashboard() {
       setLoading(false);
     }
   }
-
-  // Auto-load on first mount
-  useEffect(() => {
-    if (from && to) {
-      fetchAnalytics(false);
-    }
-  }, [from, to]);
 
   // Auto-refresh on filter changes (debounced)
   useEffect(() => {
@@ -513,8 +523,13 @@ export default function AnalyticsDashboard() {
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">Sales Analytics</h1>
             <p className="text-sm text-gray-300">
-              Paid orders only (razorpayPaymentId ≠ null)
+              All orders (Online, COD, Store Pickup, Netbanking, etc.)
             </p>
+            {lastFetched && (
+              <p className="text-xs text-gray-500 mt-1">
+                Last updated: {lastFetched.toLocaleTimeString()} • {data.orders?.length || 0} orders
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -722,6 +737,11 @@ export default function AnalyticsDashboard() {
                 </tr>
               </thead>
               <tbody>
+                {(() => {
+                  console.log('🔍 Table Rendering - Total orders in state:', data.orders?.length);
+                  console.log('🔍 Order IDs in state:', data.orders?.map(o => o._id));
+                  return null;
+                })()}
                 {data.orders?.length ? (
                   data.orders
                     .filter((o) => {

@@ -622,6 +622,7 @@ const completeOrder = async (req, res) => {
           totalPay: totalPay,
           user,
           status: 'Pending',
+          paymentStatus: 'Pending', // ✅ Manual payment methods start as Pending
           paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: finalPfCharge,
           gst: safeNum(orderData.gst, 0),
@@ -658,6 +659,7 @@ const completeOrder = async (req, res) => {
             ...(addresses ? { addresses } : { address: legacyAddress }),
             user,
             status: 'Pending',
+            paymentStatus: 'Pending', // ✅ Manual payment methods start as Pending
             paymentmode: paymentmode, // ✅ Use enum value, not readableMode
             pf: finalPfCharge,
             gst: safeNum(orderData.gst, 0),
@@ -725,6 +727,7 @@ const completeOrder = async (req, res) => {
         user,
         razorpayPaymentId: paymentId || null,
         status: 'Pending',
+        paymentStatus: 'Pending', // ✅ Netbanking starts as Pending until bank confirms
         paymentmode: paymentmode, // ✅ Use enum value, not readableMode
         pf: finalPfCharge,
         printing: finalPrintingCharge,
@@ -789,6 +792,7 @@ const completeOrder = async (req, res) => {
           user,
           razorpayPaymentId: payment.id,
           status: 'Pending',
+          paymentStatus: 'Paid', // ✅ Online payments are immediately Paid
           paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: finalPfCharge,
           printing: finalPrintingCharge,
@@ -889,6 +893,7 @@ const completeOrder = async (req, res) => {
           user,
           razorpayPaymentId: payment.id,
           status: 'Pending',
+          paymentStatus: 'Paid', // ✅ 50% payment - advance paid via Razorpay
           paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: finalPfCharge,
           printing: finalPrintingCharge,
