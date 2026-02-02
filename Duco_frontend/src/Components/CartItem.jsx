@@ -9,8 +9,37 @@ import menstshirt from "../assets/men_s_white_polo_shirt_mockup-removebg-preview
 const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [displayImage, setDisplayImage] = useState(null);
+  const [availableStock, setAvailableStock] = useState({});
   const { toConvert, priceIncrease } = usePriceContext();
   const { getPreviewImages } = useContext(CartContext);
+
+  // ✅ Fetch available stock for this item
+  useEffect(() => {
+    const fetchStock = async () => {
+      try {
+        const productId = item.id || item.productId || item._id;
+        if (!productId) return;
+
+        const response = await fetch(`https://duco-67o5.onrender.com/api/stock/product/${productId}`);
+        const data = await response.json();
+        
+        if (data.success && data.variants) {
+          // Create stock map by color and size
+          const stockMap = {};
+          data.variants.forEach(variant => {
+            const key = `${variant.color}-${variant.size}`;
+            stockMap[key] = variant.stock;
+          });
+          setAvailableStock(stockMap);
+          console.log('📦 Stock fetched for', item.products_name || item.name, stockMap);
+        }
+      } catch (error) {
+        console.error('Error fetching stock:', error);
+      }
+    };
+
+    fetchStock();
+  }, [item.id, item.productId, item._id]);
 
   // ✅ Check if image is blank/empty by checking if it's a data URL with minimal content
   const isBlankImage = (src) => {
@@ -214,6 +243,20 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                           <span className="text-xs font-semibold">{count}</span>
                           <button
                             onClick={() => {
+                              // ✅ Check stock before increasing
+                              const stockKey = `${item.color}-${size}`;
+                              const maxStock = availableStock[stockKey] || 0;
+                              
+                              if (count >= maxStock) {
+                                import('react-toastify').then(({ toast }) => {
+                                  toast.error(`⚠️ Only ${maxStock} items available in stock for ${size}`, {
+                                    position: "top-right",
+                                    autoClose: 3000,
+                                  });
+                                });
+                                return;
+                              }
+                              
                               const newQty = { ...item.quantity };
                               newQty[size] = count + 1;
                               // updateQuantity is a wrapper that expects the new quantity as first param
@@ -225,6 +268,19 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                             +
                           </button>
                         </div>
+                        {/* Stock indicator */}
+                        {(() => {
+                          const stockKey = `${item.color}-${size}`;
+                          const maxStock = availableStock[stockKey];
+                          if (maxStock !== undefined && maxStock <= 10) {
+                            return (
+                              <span className={`text-xs ${maxStock === 0 ? 'text-red-400' : 'text-orange-400'}`}>
+                                {maxStock === 0 ? '❌ Out of stock' : `⚠️ Only ${maxStock} left`}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     ) : null
                   )}

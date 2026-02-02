@@ -1376,6 +1376,47 @@ const Cart = () => {
                   return;
                 }
 
+                // ✅ Validate stock before proceeding
+                try {
+                  console.log('🔍 Validating stock for cart items...');
+                  const stockCheckItems = actualData.map(item => ({
+                    productId: item.id || item.productId || item._id,
+                    product: item.id || item.productId || item._id,
+                    name: item.products_name || item.name,
+                    color: item.color,
+                    size: item.size,
+                    quantity: item.quantity,
+                    qty: Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0)
+                  }));
+
+                  const stockResponse = await fetch('https://duco-67o5.onrender.com/api/stock/bulk-check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: stockCheckItems })
+                  });
+
+                  const stockData = await stockResponse.json();
+                  console.log('📦 Stock check result:', stockData);
+
+                  if (!stockData.success || !stockData.allInStock) {
+                    // Show detailed error for out of stock items
+                    const outOfStockMessages = stockData.outOfStockItems?.map(item => 
+                      `${item.name} (${item.color}, ${item.size}): ${item.reason}${item.available !== undefined ? ` - Available: ${item.available}, Requested: ${item.requested}` : ''}`
+                    ).join('\n');
+
+                    toast.error(
+                      `⚠️ Some items are out of stock:\n${outOfStockMessages}`,
+                      { autoClose: 8000 }
+                    );
+                    return;
+                  }
+                  console.log('✅ Stock validation passed');
+                } catch (error) {
+                  console.error('❌ Stock validation error:', error);
+                  toast.error('⚠️ Unable to validate stock. Please try again.');
+                  return;
+                }
+
                 // ✅ Validate totalPay before proceeding
                 const finalTotal = Math.ceil(grandTotal);
                 if (!finalTotal || finalTotal <= 0 || isNaN(finalTotal)) {
