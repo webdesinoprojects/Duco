@@ -138,6 +138,12 @@ const BoxOfProducts = ({ price, title, id, image, description, stock }) => {
                 return;
               }
               
+              // Find first available size with stock
+              const firstAvailableSize = ["S", "M", "L", "XL", "2XL", "3XL"].find(size => {
+                const sizeStock = stock?.Stock?.find(s => s.size === size);
+                return sizeStock && sizeStock.minstock > 0;
+              }) || "M"; // Fallback to M if no stock info
+              
               addToCart({
                 id,
                 productId: id,
@@ -145,7 +151,7 @@ const BoxOfProducts = ({ price, title, id, image, description, stock }) => {
                 name: title,
                 design: [],
                 color: "white",
-                quantity: { S: 1 },
+                quantity: { [firstAvailableSize]: 1 },
                 price: Number(finalPrice),
                 image: image,
               });

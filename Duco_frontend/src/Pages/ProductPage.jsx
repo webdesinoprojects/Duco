@@ -79,6 +79,7 @@ const ProductPage = () => {
   const [iscount, setIscount] = useState(0);
   const [videoThumbnail, setVideoThumbnail] = useState(null);
   const videoRef = useRef(null);
+  const [availableStock, setAvailableStock] = useState({});
 
   // ✅ Check if image is blank (data URL < 5KB)
   const isBlankImage = (src) => {
@@ -273,6 +274,50 @@ const ProductPage = () => {
     loadDesigns();
   }, [id]);
 
+  // ✅ Fetch stock when product or color changes
+  useEffect(() => {
+    const fetchStock = async () => {
+      if (!product || !selectedColorCode) return;
+      
+      try {
+        const response = await fetch(`https://ducobackend.onrender.com/api/stock/product/${id}`);
+        const data = await response.json();
+        
+        if (data.success && data.variants) {
+          // Find stock for selected color - compare with colorCode (hex) not color (text)
+          const colorVariants = data.variants.filter(v => 
+            v.colorCode === selectedColorCode || 
+            v.colorCode === selectedColorCode.toUpperCase()
+          );
+          const stockMap = {};
+          
+          // Map frontend sizes to backend sizes (2XL -> XXL, 3XL -> XXXL)
+          const sizeMapping = {
+            'S': 'S',
+            'M': 'M',
+            'L': 'L',
+            'XL': 'XL',
+            '2XL': 'XXL',
+            '3XL': 'XXXL'
+          };
+          
+          SIZES.forEach(size => {
+            const backendSize = sizeMapping[size] || size;
+            const variant = colorVariants.find(v => v.size === backendSize);
+            stockMap[size] = variant ? variant.stock : 0;
+          });
+          
+          setAvailableStock(stockMap);
+          console.log('📦 Stock loaded for color:', selectedColorCode, stockMap);
+        }
+      } catch (error) {
+        console.error('Error fetching stock:', error);
+      }
+    };
+    
+    fetchStock();
+  }, [product, selectedColorCode, id]);
+
   const handleColorChange = (colorcode, colortext) => {
     const matched = product?.image_url?.find((c) => c.colorcode === colorcode);
     if (matched) {
@@ -288,6 +333,18 @@ const ProductPage = () => {
       0,
       Math.min(9999, Number(v.replace(/[^0-9]/g, "")) || 0)
     );
+    
+    // Validate against available stock
+    const stockForSize = availableStock[k] || 0;
+    if (n > stockForSize) {
+      toast.error(`Only ${stockForSize} ${k} size available in stock!`, {
+        position: "top-right",
+        autoClose: 2000,
+      });
+      setQty((p) => ({ ...p, [k]: stockForSize }));
+      return;
+    }
+    
     setQty((p) => ({ ...p, [k]: n }));
   };
 
@@ -501,6 +558,19 @@ const ProductPage = () => {
                     onChange={(e) => handleQty(s, e.target.value)}
                     placeholder="0"
                   />
+                  <span className="text-xs text-gray-400">
+                    {availableStock[s] !== undefined ? (
+                      availableStock[s] === 0 ? (
+                        <span className="text-red-500">Out</span>
+                      ) : availableStock[s] <= 10 ? (
+                        <span className="text-orange-400">{availableStock[s]} left</span>
+                      ) : (
+                        <span className="text-green-400">In stock</span>
+                      )
+                    ) : (
+                      <span>...</span>
+                    )}
+                  </span>
                 </label>
               ))}
             </div>
@@ -519,6 +589,26 @@ const ProductPage = () => {
                 toast.error("Please select at least one size");
                 return;
               }
+              
+              // Validate stock for each size before proceeding
+              const invalidSizes = [];
+              Object.entries(qty).forEach(([size, quantity]) => {
+                if (quantity > 0) {
+                  const stock = availableStock[size] || 0;
+                  if (quantity > stock) {
+                    invalidSizes.push(`${size}: ${quantity} requested but only ${stock} available`);
+                  }
+                }
+              });
+              
+              if (invalidSizes.length > 0) {
+                toast.error(`Stock exceeded:\\n${invalidSizes.join(', ')}`, {
+                  position: "top-right",
+                  autoClose: 4000,
+                });
+                return;
+              }
+              
               setShowModal(true);
             }}
             className="bg-[#E5C870] hover:bg-green-600 text-black w-full text-xl font-bold py-3 rounded"

@@ -20,14 +20,37 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         const productId = item.id || item.productId || item._id;
         if (!productId) return;
 
-        const response = await fetch(`https://duco-67o5.onrender.com/api/stock/product/${productId}`);
+        const response = await fetch(`https://ducobackend.onrender.com/api/stock/product/${productId}`);
         const data = await response.json();
         
         if (data.success && data.variants) {
-          // Create stock map by color and size
+          // Size mapping: frontend -> backend
+          const sizeMapping = {
+            'S': 'S',
+            'M': 'M',
+            'L': 'L',
+            'XL': 'XL',
+            '2XL': 'XXL',
+            '3XL': 'XXXL'
+          };
+          
+          // Reverse mapping: backend -> frontend
+          const reverseSizeMapping = {
+            'S': 'S',
+            'M': 'M',
+            'L': 'L',
+            'XL': 'XL',
+            'XXL': '2XL',
+            'XXXL': '3XL'
+          };
+          
+          // Create stock map by colorCode and frontend size
           const stockMap = {};
           data.variants.forEach(variant => {
-            const key = `${variant.color}-${variant.size}`;
+            // Map backend size to frontend size
+            const frontendSize = reverseSizeMapping[variant.size] || variant.size;
+            // Use colorCode for matching (hex value)
+            const key = `${variant.colorCode}-${frontendSize}`;
             stockMap[key] = variant.stock;
           });
           setAvailableStock(stockMap);
@@ -243,9 +266,11 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                           <span className="text-xs font-semibold">{count}</span>
                           <button
                             onClick={() => {
-                              // ✅ Check stock before increasing
+                              // ✅ Check stock before increasing (item.color is already colorCode/hex)
                               const stockKey = `${item.color}-${size}`;
                               const maxStock = availableStock[stockKey] || 0;
+                              
+                              console.log('🔍 Stock check:', { stockKey, maxStock, availableStock, itemColor: item.color, size });
                               
                               if (count >= maxStock) {
                                 import('react-toastify').then(({ toast }) => {

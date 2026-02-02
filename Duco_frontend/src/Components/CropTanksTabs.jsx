@@ -71,11 +71,6 @@ export default function CropTanksTabs() {
       className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-14"
       style={{ ["--accent"]: "#E5C870" }}
     >
-      {/* Title */}
-      <h1 className="text-center text-3xl md:text-5xl font-extrabold tracking-tight text-white">
-        Print On Demand
-      </h1>
-
       {/* Tabs */}
       <div className="mt-10">
         <div className="relative">
