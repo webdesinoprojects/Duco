@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import OrderDetailsCard from "../Admin/Components/OrderDetailsCard";
 import AdminInvoiceViewer from "../Admin/Components/AdminInvoiceViewer";
 import { fetchAndNormalizeInvoice } from "../Admin/utils/invoiceNormalizer";
@@ -40,6 +41,7 @@ const formatPrice = (amount, currency = 'INR') => {
 };
 
 const OderSection = () => {
+  const location = useLocation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
@@ -91,6 +93,19 @@ const OderSection = () => {
   useEffect(() => {
     fetchOrders(1);
   }, []);
+
+  // Check for orderId in URL query params and auto-select that order
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const orderIdFromUrl = params.get('orderId');
+    if (orderIdFromUrl) {
+      setSelectedOrderId(orderIdFromUrl);
+      // Scroll to modal after a short delay to ensure rendering
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [location.search]);
 
   if (loading) return <div className="text-center p-4">Loading orders...</div>;
 

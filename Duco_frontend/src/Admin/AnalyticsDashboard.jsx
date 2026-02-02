@@ -416,8 +416,8 @@ export default function AnalyticsDashboard() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   function handleEdit(orderId) {
-    // Navigate to order management page
-    window.location.href = `/admin/order`;
+    // Navigate to order management page with the specific order ID
+    window.location.href = `/admin/order?orderId=${orderId}`;
   }
 
   async function handleViewDetails(order) {

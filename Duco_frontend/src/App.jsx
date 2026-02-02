@@ -27,6 +27,13 @@ import WalletPage from "./Pages/WalletPage.jsx";
 import Blog from "./Pages/Blog.jsx";
 import BlogPost from "./Pages/BlogPost.jsx";
 import CategoryPage from "./Pages/CategoryPage.jsx";
+import Order from "./Pages/Order.jsx";
+import ProfilePanel from "./Pages/ProfilePanel.jsx";
+import PrivacyPolicy from "./Pages/PrivacyPolicy.jsx";
+import RefundReturnPolicy from "./Pages/RefundReturnPolicy.jsx";
+import ShippingPolicy from "./Pages/ShippingPolicy.jsx";
+import TermsConditions from "./Pages/TermsConditions.jsx";
+import ExportQuality from "./Pages/ExportQuality.jsx";
 
 /* ================= ADMIN ================= */
 import AdminLayout from "./Admin/AdminLayout .jsx";
@@ -36,6 +43,7 @@ import ForgotPassword from "./Admin/ForgotPassword.jsx";
 import AdminGuard from "./Admin/auth/AdminGuard.jsx";
 
 import ProdcutsCreated from "./Admin/ProdcutsCreated.jsx";
+import ProductsUpdate from "./Admin/ProductsUpdate.jsx";
 import Category from "./Admin/Category.jsx";
 import MoneySet from "./Admin/MoneySet.jsx";
 import OrderSection from "./Admin/OderSection.jsx";
@@ -124,6 +132,13 @@ const App = () => {
           <Route path="order-processing" element={<OrderProcessing />} />
           <Route path="order-success/:orderId" element={<OrderSuccess />} />
           <Route path="wallet/:userId" element={<WalletPage />} />
+          <Route path="order" element={<Order />} />
+          <Route path="profile" element={<ProfilePanel />} />
+          <Route path="privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="refund-return-policy" element={<RefundReturnPolicy />} />
+          <Route path="shipping-policy" element={<ShippingPolicy />} />
+          <Route path="terms-and-conditions" element={<TermsConditions />} />
+          <Route path="exportquality" element={<ExportQuality />} />
           <Route path="blog" element={<Blog />} />
           <Route path="blog/:slug" element={<BlogPost />} />
           <Route path=":slug" element={<CategoryPage />} />
@@ -138,6 +153,7 @@ const App = () => {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Adminhome />} />
             <Route path="products" element={<ProdcutsCreated />} />
+            <Route path="edit/:id" element={<ProductsUpdate />} />
             <Route path="category" element={<Category />} />
             <Route path="moneyset" element={<MoneySet />} />
             <Route path="charges" element={<ChargePlanManager />} />
