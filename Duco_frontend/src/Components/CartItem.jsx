@@ -7,6 +7,51 @@ import { CartContext } from "../ContextAPI/CartContext";
 import menstshirt from "../assets/men_s_white_polo_shirt_mockup-removebg-preview.png";
 import { API_BASE_URL } from "../config/api";
 
+const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}){1,2}$/i;
+
+const normalizeText = (value) => String(value || '').trim().toLowerCase();
+
+const resolveItemColorCode = (item) => {
+  const raw = item?.color;
+  if (HEX_COLOR_RE.test(raw)) return raw;
+
+  // Some cart items may store a separate colorCode
+  if (HEX_COLOR_RE.test(item?.colorCode)) return item.colorCode;
+
+  // Try to resolve from product image_url entries (they contain color + colorcode)
+  const desiredName = normalizeText(raw);
+  const imageUrls = Array.isArray(item?.image_url) ? item.image_url : [];
+  const match = imageUrls.find((img) => normalizeText(img?.color) === desiredName);
+
+  const candidate = match?.colorcode || match?.colorCode;
+  if (HEX_COLOR_RE.test(candidate)) return candidate;
+
+  // Handle hex without leading '#'
+  const trimmed = String(candidate || '').trim();
+  if (/^(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return `#${trimmed}`;
+
+  // Fallback: whatever was stored (can still be a valid CSS color like 'white')
+  return raw;
+};
+
+const getVariantStock = (availableStock, item, size) => {
+  const colorCode = resolveItemColorCode(item);
+  const rawColor = item?.color;
+
+  const candidates = [
+    `${colorCode}-${size}`,
+    `${rawColor}-${size}`,
+    `${normalizeText(rawColor)}-${size}`,
+  ].filter(Boolean);
+
+  for (const key of candidates) {
+    const value = availableStock?.[key];
+    if (value !== undefined) return { key, stock: Number(value) || 0 };
+  }
+
+  return { key: candidates[0] || `${colorCode}-${size}`, stock: 0 };
+};
+
 const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   const [previewImage, setPreviewImage] = useState(null);
   const [displayImage, setDisplayImage] = useState(null);
@@ -53,6 +98,12 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
             // Use colorCode for matching (hex value)
             const key = `${variant.colorCode}-${frontendSize}`;
             stockMap[key] = variant.stock;
+
+            // Also store aliases for color name (some cart items store color as name)
+            if (variant.color) {
+              stockMap[`${variant.color}-${frontendSize}`] = variant.stock;
+              stockMap[`${normalizeText(variant.color)}-${frontendSize}`] = variant.stock;
+            }
           });
           setAvailableStock(stockMap);
           console.log('📦 Stock fetched for', item.products_name || item.name, stockMap);
@@ -267,9 +318,8 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                           <span className="text-xs font-semibold">{count}</span>
                           <button
                             onClick={() => {
-                              // ✅ Check stock before increasing (item.color is already colorCode/hex)
-                              const stockKey = `${item.color}-${size}`;
-                              const maxStock = availableStock[stockKey] || 0;
+                              // ✅ Check stock before increasing (support cart color stored as name or hex)
+                              const { key: stockKey, stock: maxStock } = getVariantStock(availableStock, item, size);
                               
                               console.log('🔍 Stock check:', { stockKey, maxStock, availableStock, itemColor: item.color, size });
                               
@@ -296,8 +346,7 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                         </div>
                         {/* Stock indicator */}
                         {(() => {
-                          const stockKey = `${item.color}-${size}`;
-                          const maxStock = availableStock[stockKey];
+                          const { stock: maxStock } = getVariantStock(availableStock, item, size);
                           if (maxStock !== undefined && maxStock <= 10) {
                             return (
                               <span className={`text-xs ${maxStock === 0 ? 'text-red-400' : 'text-orange-400'}`}>
@@ -328,7 +377,7 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
               <span className="text-white font-medium mr-1">Color:</span>
               <span
                 className="inline-block w-4 h-4 rounded-full border border-white"
-                style={{ backgroundColor: item.color }}
+                style={{ backgroundColor: resolveItemColorCode(item) || item.color }}
               ></span>
             </p>
             <p>
