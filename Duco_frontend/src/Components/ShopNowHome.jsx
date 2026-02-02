@@ -44,6 +44,7 @@ const ShopNowHome = () => {
             price={item.pricing[0]?.price_per || 0}
             description={item.Desciptions?.[0]}
             image={item.image_url?.[0]?.url?.[0]}
+            stock={item.Stock || 0}
           />
         ))}
       </div>

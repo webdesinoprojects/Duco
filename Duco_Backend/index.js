@@ -27,6 +27,7 @@ const walletRoutes = require('./Router/walletRoutes.js');
 const blogRoutes = require('./Router/blogRoutes.js');
 const landingPageRoutes = require('./Router/LandingPageRoutes.js');
 const geolocationRoutes = require('./Router/geolocationRoutes.js');
+const stockRoutes = require('./Router/stockRoutes.js');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -119,6 +120,7 @@ app.use('/api', walletRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api', landingPageRoutes);
 app.use('/api', geolocationRoutes);
+app.use('/api', stockRoutes);
 
 /* =========================
    ADMIN LOGIN

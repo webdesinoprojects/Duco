@@ -35,13 +35,18 @@ const currencySymbols = {
   KRW: "₩",
 };
 
-const BoxOfProducts = ({ price, title, id, image, description }) => {
+const BoxOfProducts = ({ price, title, id, image, description, stock }) => {
   const colors = ["#FF0000", "#FF8A00", "#4A4AFF", "#FFFFFF", "#000000"];
   const { addToCart } = useContext(CartContext);
   const { toConvert, priceIncrease, resolvedLocation, currency } =
     usePriceContext();
 
   const currencySymbol = currencySymbols[currency] || "₹";
+  
+  // Determine stock status
+  const totalStock = stock || 0;
+  const isOutOfStock = totalStock === 0;
+  const isLowStock = totalStock > 0 && totalStock <= 5;
 
   const finalPrice = useMemo(() => {
     let base = Number(price) || 0;
@@ -72,6 +77,18 @@ const BoxOfProducts = ({ price, title, id, image, description }) => {
             />
           ))}
         </div>
+
+        {/* Stock Status Badge */}
+        {isOutOfStock && (
+          <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-semibold z-10">
+            OUT OF STOCK
+          </div>
+        )}
+        {isLowStock && (
+          <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold z-10">
+            Only {totalStock} left
+          </div>
+        )}
 
         {image ? (
           <img
@@ -112,6 +129,15 @@ const BoxOfProducts = ({ price, title, id, image, description }) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              
+              if (isOutOfStock) {
+                toast.error(`${title || "Product"} is out of stock!`, {
+                  position: "top-right",
+                  autoClose: 2000,
+                });
+                return;
+              }
+              
               addToCart({
                 id,
                 productId: id,
@@ -128,9 +154,14 @@ const BoxOfProducts = ({ price, title, id, image, description }) => {
                 autoClose: 2000,
               });
             }}
-            className="px-4 py-1.5 bg-[#E5C870] text-black text-sm font-medium rounded-full hover:bg-gray-800 hover:text-white transition"
+            disabled={isOutOfStock}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition ${
+              isOutOfStock
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-[#E5C870] text-black hover:bg-gray-800 hover:text-white"
+            }`}
           >
-            Add to Bag
+            {isOutOfStock ? "Out of Stock" : "Add to Bag"}
           </button>
         </div>
       </div>

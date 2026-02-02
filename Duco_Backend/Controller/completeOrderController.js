@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const Order = require('../DataBase/Models/OrderModel');
 const Design = require('../DataBase/Models/DesignModel');
+const Product = require('../DataBase/Models/ProductsModel');
 const CorporateSettings = require('../DataBase/Models/CorporateSettings');
 const { createInvoice } = require('./invoiceService');
 const { getOrCreateSingleton } = require('../Router/DataRoutes');
@@ -226,6 +227,145 @@ function formatDateDDMMYYYY(d = new Date()) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
+}
+
+// ✅ Stock Reduction Helper
+async function reduceProductStock(items) {
+  console.log('📦 Starting stock reduction for order items...');
+  
+  for (const item of items) {
+    try {
+      const productId = item.product || item.productId || item._id;
+      if (!productId) {
+        console.warn('⚠️ Skipping item - no product ID found:', item);
+        continue;
+      }
+
+      const product = await Product.findById(productId);
+      if (!product) {
+        console.warn(`⚠️ Product not found: ${productId}`);
+        continue;
+      }
+
+      const color = item.color;
+      const size = item.size;
+      const quantity = sumQuantity(item.quantity) || item.qty || 1;
+
+      console.log(`📦 Reducing stock for: ${product.products_name}`, {
+        color,
+        size,
+        quantity,
+        currentStock: product.Stock
+      });
+
+      // Find the matching color and size in product's image_url array
+      let stockReduced = false;
+      for (const imageItem of product.image_url) {
+        if (imageItem.color === color || imageItem.colorcode === color) {
+          for (const contentItem of imageItem.content) {
+            if (contentItem.size === size) {
+              const currentStock = contentItem.minstock || 0;
+              const newStock = Math.max(0, currentStock - quantity);
+              
+              console.log(`  ✅ Found matching size: ${size}, reducing from ${currentStock} to ${newStock}`);
+              contentItem.minstock = newStock;
+              stockReduced = true;
+              break;
+            }
+          }
+          if (stockReduced) break;
+        }
+      }
+
+      if (stockReduced) {
+        // Save the product (this will trigger the pre-save hook to recalculate total Stock)
+        await product.save();
+        console.log(`✅ Stock reduced successfully for ${product.products_name} - New total stock: ${product.Stock}`);
+      } else {
+        console.warn(`⚠️ Could not find matching color/size combination for stock reduction:`, {
+          productName: product.products_name,
+          color,
+          size
+        });
+      }
+    } catch (error) {
+      console.error(`❌ Error reducing stock for item:`, error.message);
+      // Continue with other items even if one fails
+    }
+  }
+  
+  console.log('✅ Stock reduction completed');
+}
+
+// ✅ Stock Validation Helper
+async function validateStock(items) {
+  console.log('🔍 Validating stock for order items...');
+  const outOfStockItems = [];
+  
+  for (const item of items) {
+    try {
+      const productId = item.product || item.productId || item._id;
+      if (!productId) continue;
+
+      const product = await Product.findById(productId);
+      if (!product) {
+        outOfStockItems.push({
+          name: item.name || item.products_name || 'Unknown Product',
+          reason: 'Product not found'
+        });
+        continue;
+      }
+
+      const color = item.color;
+      const size = item.size;
+      const quantity = sumQuantity(item.quantity) || item.qty || 1;
+
+      // Find the matching color and size in product's image_url array
+      let stockFound = false;
+      let availableStock = 0;
+      
+      for (const imageItem of product.image_url) {
+        if (imageItem.color === color || imageItem.colorcode === color) {
+          for (const contentItem of imageItem.content) {
+            if (contentItem.size === size) {
+              availableStock = contentItem.minstock || 0;
+              stockFound = true;
+              
+              if (availableStock < quantity) {
+                outOfStockItems.push({
+                  name: product.products_name,
+                  color,
+                  size,
+                  requested: quantity,
+                  available: availableStock,
+                  reason: 'Insufficient stock'
+                });
+              }
+              break;
+            }
+          }
+          if (stockFound) break;
+        }
+      }
+
+      if (!stockFound) {
+        outOfStockItems.push({
+          name: product.products_name,
+          color,
+          size,
+          reason: 'Size/Color combination not available'
+        });
+      }
+    } catch (error) {
+      console.error(`❌ Error validating stock for item:`, error.message);
+      outOfStockItems.push({
+        name: item.name || 'Unknown Product',
+        reason: 'Validation error: ' + error.message
+      });
+    }
+  }
+  
+  return outOfStockItems;
 }
 
 function addressToLine(a = {}) {
@@ -490,6 +630,17 @@ const completeOrder = async (req, res) => {
     const items = Array.isArray(orderData.items) ? orderData.items : [];
     const totalPay = safeNum(orderData.totalPay, 0);
     
+    // ✅ Validate stock before creating order
+    const outOfStockItems = await validateStock(items);
+    if (outOfStockItems.length > 0) {
+      console.error('❌ Stock validation failed:', outOfStockItems);
+      return res.status(400).json({
+        success: false,
+        message: 'Some items are out of stock or have insufficient stock',
+        outOfStockItems
+      });
+    }
+    
     // ✅ Handle both old single address and new billing/shipping addresses
     let addresses = null;
     let legacyAddress = null;
@@ -691,6 +842,13 @@ const completeOrder = async (req, res) => {
         console.error('Invoice creation failed (store pickup):', e);
       }
 
+      // ✅ Reduce stock after order creation
+      try {
+        await reduceProductStock(items);
+      } catch (e) {
+        console.error('Stock reduction failed (store pickup):', e);
+      }
+
       // ✅ Upload design images to Cloudinary
       try {
         const designImages = await extractAndUploadDesignImages(items, order._id.toString());
@@ -750,6 +908,13 @@ const completeOrder = async (req, res) => {
         await createInvoice(invoicePayload);
       } catch (e) {
         console.error('Invoice creation failed (netbanking):', e);
+      }
+
+      // ✅ Reduce stock after order creation
+      try {
+        await reduceProductStock(items);
+      } catch (e) {
+        console.error('Stock reduction failed (netbanking):', e);
       }
 
       // ✅ Upload design images to Cloudinary
@@ -851,6 +1016,13 @@ const completeOrder = async (req, res) => {
         await createInvoice(invoicePayload);
       } catch (e) {
         console.error('Invoice creation failed (razorpay):', e);
+      }
+
+      // ✅ Reduce stock after order creation
+      try {
+        await reduceProductStock(items);
+      } catch (e) {
+        console.error('Stock reduction failed (razorpay):', e);
       }
 
       // ✅ Upload design images to Cloudinary
@@ -957,6 +1129,13 @@ const completeOrder = async (req, res) => {
         await createInvoice(invoicePayload);
       } catch (e) {
         console.error('Invoice creation failed (50%):', e);
+      }
+
+      // ✅ Reduce stock after order creation
+      try {
+        await reduceProductStock(items);
+      } catch (e) {
+        console.error('Stock reduction failed (50%):', e);
       }
 
       // ✅ Upload design images to Cloudinary
