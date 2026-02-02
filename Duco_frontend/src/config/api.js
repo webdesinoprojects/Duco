@@ -1,9 +1,22 @@
 // Centralized API configuration
-// Production URL: https://duco-67o5.onrender.com
-const getApiBaseUrl = () => {
-    // Always use production URL
-    return import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+// Production backend: https://duco-67o5.onrender.com
+
+const DEFAULT_API_BASE_URL = 'https://duco-67o5.onrender.com';
+
+const normalizeApiBaseUrl = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return DEFAULT_API_BASE_URL;
+
+    // Guard against accidentally deploying with an old backend domain.
+    if (raw.includes('ducobackend.onrender.com')) return DEFAULT_API_BASE_URL;
+
+    // Basic validity check; Vite injects this at build-time.
+    if (!/^https?:\/\//i.test(raw)) return DEFAULT_API_BASE_URL;
+
+    return raw.replace(/\/+$/, '');
 };
+
+const getApiBaseUrl = () => normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 export const API_BASE_URL = getApiBaseUrl();
 export const API_ENDPOINTS = {
@@ -22,5 +35,6 @@ export const API_ENDPOINTS = {
 
 console.log('🔗 API Configuration:', {
     baseUrl: API_BASE_URL,
-    environment: import.meta.env.MODE
+    environment: import.meta.env.MODE,
+    envBaseUrl: import.meta.env.VITE_API_BASE_URL
 });

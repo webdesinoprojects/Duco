@@ -5,6 +5,7 @@ import { useState, useEffect, useContext } from "react";
 import { usePriceContext } from "../ContextAPI/PriceContext";
 import { CartContext } from "../ContextAPI/CartContext";
 import menstshirt from "../assets/men_s_white_polo_shirt_mockup-removebg-preview.png";
+import { API_BASE_URL } from "../config/api";
 
 const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   const [previewImage, setPreviewImage] = useState(null);
@@ -20,7 +21,7 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         const productId = item.id || item.productId || item._id;
         if (!productId) return;
 
-        const response = await fetch(`https://ducobackend.onrender.com/api/stock/product/${productId}`);
+        const response = await fetch(`${API_BASE_URL}/api/stock/product/${productId}`);
         const data = await response.json();
         
         if (data.success && data.variants) {

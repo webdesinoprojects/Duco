@@ -9,6 +9,7 @@ import {
 import DesignPreviewModal from "../Components/DesignPreview";
 import { CartContext } from "../ContextAPI/CartContext";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import { API_BASE_URL } from "../config/api";
 import Zoom from "react-medium-image-zoom";
 import { toast } from "react-toastify";
 import "react-medium-image-zoom/dist/styles.css";
@@ -173,7 +174,6 @@ const ProductPage = () => {
   useEffect(() => {
     if (!product) return;
     const basePrice = product?.pricing?.[0]?.price_per || 0;
-
     console.log('💰 ProductPage Price Calculation:', {
       basePrice,
       toConvert,
@@ -280,7 +280,7 @@ const ProductPage = () => {
       if (!product || !selectedColorCode) return;
       
       try {
-        const response = await fetch(`https://ducobackend.onrender.com/api/stock/product/${id}`);
+        const response = await fetch(`${API_BASE_URL}/api/stock/product/${id}`);
         const data = await response.json();
         
         if (data.success && data.variants) {
