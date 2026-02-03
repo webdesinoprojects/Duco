@@ -37,24 +37,6 @@ const resolveItemColorCode = (item) => {
   return raw;
 };
 
-const getVariantStock = (availableStock, item, size) => {
-  const colorCode = resolveItemColorCode(item);
-  const rawColor = item?.color;
-
-  const candidates = [
-    `${colorCode}-${size}`,
-    `${rawColor}-${size}`,
-    `${normalizeText(rawColor)}-${size}`,
-  ].filter(Boolean);
-
-  for (const key of candidates) {
-    const value = availableStock?.[key];
-    if (value !== undefined) return { key, stock: Number(value) || 0 };
-  }
-
-  return { key: candidates[0] || `${colorCode}-${size}`, stock: 0 };
-};
-
 const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   const navigate = useNavigate();
   const [previewImage, setPreviewImage] = useState(null);
@@ -367,8 +349,8 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                         </div>
                         {/* Stock indicator */}
                         {(() => {
-                          const { stock: maxStock } = getVariantStock(availableStock, item, size);
-                          if (maxStock !== undefined && maxStock <= 10) {
+                          const maxStock = getSizeStockLimit(size);
+                          if (maxStock !== null && maxStock !== undefined && maxStock <= 10) {
                             return (
                               <span className={`text-xs ${maxStock === 0 ? 'text-red-400' : 'text-orange-400'}`}>
                                 {maxStock === 0 ? '❌ Out of stock' : `⚠️ Only ${maxStock} left`}

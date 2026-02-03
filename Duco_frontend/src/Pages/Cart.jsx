@@ -80,6 +80,14 @@ const countDesignSides = (item) => {
     // Count sides with either uploaded image OR custom text
     if (side?.uploadedImage || side?.customText) used += 1;
   });
+  
+  // ✅ If no design sides are used but PDF/CDR files are uploaded, count as 1 side (front)
+  // This ensures B2B printing charges are applied when users upload files
+  if (used === 0 && item?.additionalFilesMeta && Array.isArray(item.additionalFilesMeta) && item.additionalFilesMeta.length > 0) {
+    console.log(`🖨️ Item "${item.products_name || item.name}" has ${item.additionalFilesMeta.length} additional file(s) uploaded - counting as 1 printed side`);
+    used = 1;
+  }
+  
   return used;
 };
 
