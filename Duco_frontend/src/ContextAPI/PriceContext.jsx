@@ -3,6 +3,78 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 import { getUpdatePricesByLocation } from "../Service/APIservice";
 
+const LOCATION_FALLBACK_DEFAULT = "India";
+const locationToCountryCodeMap = {
+  India: "IN",
+  "United States": "US",
+  Canada: "CA",
+  "United Kingdom": "GB",
+  Germany: "DE",
+  France: "FR",
+  Netherlands: "NL",
+  Spain: "ES",
+  Italy: "IT",
+  Australia: "AU",
+  "New Zealand": "NZ",
+  China: "CN",
+  Japan: "JP",
+  "South Korea": "KR",
+  Singapore: "SG",
+  UAE: "AE",
+  "Saudi Arabia": "SA",
+};
+
+const getFallbackLocation = () => {
+  let location = LOCATION_FALLBACK_DEFAULT;
+  try {
+    const cached = JSON.parse(localStorage.getItem("locationPricing"));
+    if (cached && cached.location) {
+      location = cached.location;
+    }
+  } catch (e) {
+    console.warn("⚠️ Could not read cached location:", e);
+  }
+
+  const countryCode = locationToCountryCodeMap[location] || "IN";
+  return { countryName: location, countryCode };
+};
+
+let ipapiInterceptorInitialized = false;
+const ensureIpapiInterceptor = () => {
+  if (ipapiInterceptorInitialized) return;
+  ipapiInterceptorInitialized = true;
+
+  axios.interceptors.request.use(
+    (config) => {
+      const url = config?.url || "";
+      if (typeof url === "string" && url.includes("ipapi.co/")) {
+        const { countryName, countryCode } = getFallbackLocation();
+
+        config.adapter = async () => ({
+          data: {
+            country: countryCode,
+            country_name: countryName,
+          },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config,
+          request: {},
+        });
+
+        console.warn("⚠️ ipapi call intercepted; using local fallback.", {
+          countryCode,
+          countryName,
+        });
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+};
+
+ensureIpapiInterceptor();
+
 const PriceContext = createContext();
 
 export const PriceProvider = ({ children }) => {

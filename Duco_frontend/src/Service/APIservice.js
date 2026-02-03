@@ -93,8 +93,8 @@ export const getCategories = async () => {
     const res = await axios.get(`${API_BASE}category/getall`);
     return res.data.category || [];
   } catch (err) {
-    console.error("Error fetching categories:", err);
-    return null;
+    console.warn("⚠️ Error fetching categories, using empty list:", err?.message || err);
+    return [];
   }
 };
 
@@ -103,8 +103,8 @@ export const getSubcategoriesByCategoryId = async (categoryId) => {
     const res = await axios.get(`${API_BASE}subcategory/subcat/${categoryId}`);
     return res.data.data || [];
   } catch (err) {
-    console.error("Error fetching subcategories:", err);
-    return null;
+    console.warn("⚠️ Error fetching subcategories, using empty list:", err?.message || err);
+    return [];
   }
 };
 
@@ -114,8 +114,8 @@ export const getproducts = async () => {
     const res = await axios.get(`${API_BASE}products/get/`);
     return res.data || [];
   } catch (err) {
-    console.error("Error fetching products:", err);
-    return null;
+    console.warn("⚠️ Error fetching products, using empty list:", err?.message || err);
+    return [];
   }
 };
 
@@ -124,7 +124,7 @@ export const getproductssingle = async (id) => {
     const res = await axios.get(`${API_BASE}products/get/${id}`);
     return res.data || [];
   } catch (err) {
-    console.error("Error fetching single product:", err);
+    console.warn("⚠️ Error fetching single product:", err?.message || err);
     return null;
   }
 };
@@ -134,8 +134,8 @@ export const getproductcategory = async (idsub) => {
     const res = await axios.get(`${API_BASE}products/getsub/${idsub}`);
     return res.data || [];
   } catch (err) {
-    console.error("Error fetching products by subcategory:", err);
-    return null;
+    console.warn("⚠️ Error fetching products by subcategory, using empty list:", err?.message || err);
+    return [];
   }
 };
 

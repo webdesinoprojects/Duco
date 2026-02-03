@@ -217,6 +217,53 @@ const ProductPageBulk = () => {
     }
   }; 
 
+  const normalizeSize = (value) => {
+    const raw = String(value || "").trim().toUpperCase();
+    const cleaned = raw.replace(/\s+/g, "").replace(/-/g, "");
+    if (["XXL", "2XL", "2X"].includes(cleaned)) return "2XL";
+    if (["XXXL", "3XL", "3X"].includes(cleaned)) return "3XL";
+    return cleaned;
+  };
+  const getSizeStockLimit = (sizeLabel) => {
+    const content = defaultColorGroup?.content || [];
+    const target = normalizeSize(sizeLabel);
+    console.log(`🔍 Looking for size "${sizeLabel}" -> normalized "${target}" in content:`, content?.map(c => ({ size: c.size, normalized: normalizeSize(c.size), minstock: c.minstock })));
+    
+    const match = content.find(
+      (item) => {
+        const itemNorm = normalizeSize(item?.size);
+        const matches = itemNorm === target;
+        if (matches) console.log(`✅ Matched: "${item.size}" -> "${itemNorm}" (stock: ${item.minstock})`);
+        return matches;
+      }
+    );
+    const limit = Number(match?.minstock);
+    // ✅ If size not found in admin content, assume 0 stock (out of stock)
+    const result = Number.isFinite(limit) ? Math.max(0, limit) : 0;
+    console.log(`📊 getSizeStockLimit("${sizeLabel}") => ${result}`);
+    return result;
+  };
+
+  const validateStockSelection = () => {
+    for (const [size, value] of Object.entries(qty)) {
+      const selectedQty = Number(value || 0);
+      if (selectedQty <= 0) continue;
+      const limit = getSizeStockLimit(size);
+
+      if (typeof limit === "number" && limit === 0) {
+        toast.error(`${size} size is out of stock`);
+        return false;
+      }
+
+      if (typeof limit === "number" && selectedQty > limit) {
+        toast.error(`Only ${limit} left for size ${size}`);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   function calculatePrice(conversionRate, basePrice, markupPercent) {
     // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
     // Handle edge cases
@@ -236,7 +283,27 @@ const ProductPageBulk = () => {
   }
 
 const handleQty = (k, v) => {
-  const n = Math.max(0, Math.min(9999, Number(v.replace(/[^0-9]/g, "")) || 0));
+  const raw = Number(v.replace(/[^0-9]/g, "")) || 0;
+  const limit = getSizeStockLimit(k);
+  console.log(`📝 handleQty: size="${k}", raw=${raw}, limit=${limit}`);
+
+  let n = Math.max(0, Math.min(9999, raw));
+
+  // Clamp to stock limit if available
+  if (typeof limit === "number") {
+    if (n > limit) {
+      n = limit;
+      if (limit === 0) {
+        toast.error(`${k} size is out of stock`);
+      } else {
+        toast.error(`Only ${limit} left for size ${k}`);
+      }
+    }
+  } else {
+    console.warn(`⚠️ No stock limit found for size ${k}`);
+  }
+
+  console.log(`✅ Final qty for ${k}: ${n}`);
   setQty((p) => ({ ...p, [k]: n }));
 };
 
@@ -377,20 +444,37 @@ const validateMinimumQuantity = () => {
               <MdOutlineStraighten /> Available Sizes
             </h3>
           <div className="flex text-white flex-wrap gap-3 mt-2">
-  {SIZES.map((s) => (
-    <label key={s} className="flex flex-col items-center gap-1">
-      <span className="text-sm text-white">{s}</span>
+  {SIZES.map((s) => {
+    const stockLimit = getSizeStockLimit(s);
+    const isOutOfStock = stockLimit === 0;
+    return (
+      <label key={s} className="flex flex-col items-center gap-1">
+        <span className={`text-sm font-medium ${
+          isOutOfStock ? "text-red-400" : "text-white"
+        }`}>{s}</span>
         <input
-  type="text"
-  inputMode="numeric"
-  className="h-12 w-16 rounded-xl border border-slate-300 text-center focus:outline-none focus:ring-2 focus:ring-sky-400"
-  value={qty[s] === 0 ? "" : qty[s]}   // 👈 show empty if 0
-  onChange={(e) => handleQty(s, e.target.value)}
-  placeholder="0"
-/>
-
-    </label>
-  ))}
+          type="text"
+          inputMode="numeric"
+          className={`h-12 w-16 rounded-xl border text-center focus:outline-none focus:ring-2 ${
+            isOutOfStock
+              ? "border-red-500 bg-red-900/20 text-red-300 cursor-not-allowed"
+              : "border-slate-300 text-white focus:ring-sky-400"
+          }`}
+          value={qty[s] === 0 ? "" : qty[s]}
+          onChange={(e) => handleQty(s, e.target.value)}
+          placeholder="0"
+          disabled={isOutOfStock}
+        />
+        {typeof stockLimit === "number" && (
+          <span className={`text-xs ${
+            isOutOfStock ? "text-red-400" : "text-gray-400"
+          }`}>
+            {isOutOfStock ? "Out of stock" : `Stock: ${stockLimit}`}
+          </span>
+        )}
+      </label>
+    );
+  })}
 </div>
 
             {/* Quantity Summary */}
@@ -423,6 +507,9 @@ const validateMinimumQuantity = () => {
               }
               else if(!validateMinimumQuantity()){
                   // Validation error already shown by validateMinimumQuantity
+                  return;
+              }
+              else if(!validateStockSelection()){
                   return;
               }
               else{
@@ -513,6 +600,9 @@ const validateMinimumQuantity = () => {
             <div className="space-y-4 mb-6">
               <button
                 onClick={() => {
+                 if(!validateStockSelection()){
+                   return;
+                 }
                  addToCart({
                 id,
                 design:[],
@@ -534,6 +624,9 @@ const validateMinimumQuantity = () => {
               </button>
               <button
                 onClick={() => {
+                 if(!validateStockSelection()){
+                   return;
+                 }
                  navigate(`/design/${id}/${selectedColorCode.replace('#', '')}`);
 
                   setShowModal(false);

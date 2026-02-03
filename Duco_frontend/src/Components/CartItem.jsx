@@ -2,29 +2,97 @@ import QuantityControlss from "./QuantityControlss";
 import PriceDisplay from "./PriceDisplay";
 import { RiEyeFill } from "react-icons/ri";
 import { useState, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import { usePriceContext } from "../ContextAPI/PriceContext";
 import { CartContext } from "../ContextAPI/CartContext";
+import { getproductssingle } from "../Service/APIservice";
+import { toast } from "react-toastify";
 import menstshirt from "../assets/men_s_white_polo_shirt_mockup-removebg-preview.png";
 
 const CartItem = ({ item, removeFromCart, updateQuantity }) => {
+  const navigate = useNavigate();
   const [previewImage, setPreviewImage] = useState(null);
   const [displayImage, setDisplayImage] = useState(null);
+  const [productData, setProductData] = useState(null);
   const { toConvert, priceIncrease } = usePriceContext();
   const { getPreviewImages } = useContext(CartContext);
 
-  // ✅ Check if image is blank/empty by checking if it's a data URL with minimal content
-  const isBlankImage = (src) => {
-    if (!src) return true;
-    if (typeof src !== 'string') return true;
-    // Check if it's a data URL that's too small (likely blank)
-    if (src.startsWith('data:image')) {
-      // A blank white image is typically very small (< 1KB)
-      // A real design image should be at least 5KB
-      // But some compressed images might be smaller, so be more lenient
-      // Increased threshold from 2000 to 5000 to catch more blank images
-      return src.length < 5000;
+  // ✅ Fetch product data on mount to get stock info
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!item.id) return;
+      try {
+        const data = await getproductssingle(item.id);
+        const p = Array.isArray(data) ? data[0] : data;
+        setProductData(p);
+        console.log(`📦 CartItem: Loaded product stock data for ${item.id}`, p?.image_url);
+      } catch (err) {
+        console.warn(`⚠️ CartItem: Could not fetch product stock for ${item.id}`, err.message);
+      }
+    };
+    fetchProduct();
+  }, [item.id]);
+
+  const normalizeSize = (value) => {
+    const raw = String(value || "").trim().toUpperCase();
+    const cleaned = raw.replace(/\s+/g, "").replace(/-/g, "");
+    if (["XXL", "2XL", "2X"].includes(cleaned)) return "2XL";
+    if (["XXXL", "3XL", "3X"].includes(cleaned)) return "3XL";
+    return cleaned;
+  };
+
+  const getSizeStockLimit = (sizeLabel) => {
+    if (!productData) {
+      console.warn(`⚠️ CartItem: productData not loaded yet`);
+      return null;
     }
-    return false;
+
+    if (!item.color) {
+      console.warn(`⚠️ CartItem: item.color is missing`);
+      return null;
+    }
+    
+    // ✅ Normalize color code for matching (remove spaces, lowercase)
+    const itemColorNorm = String(item.color || "").toLowerCase().trim();
+    
+    // Find the color group matching the item's color
+    const colorGroup = productData.image_url?.find(
+      (c) => {
+        const colorNorm = String(c.colorcode || "").toLowerCase().trim();
+        const matches = colorNorm === itemColorNorm;
+        console.log(`🎨 Comparing color: "${colorNorm}" vs "${itemColorNorm}" => ${matches}`);
+        return matches;
+      }
+    );
+    
+    if (!colorGroup) {
+      console.warn(`❌ CartItem: Color group not found for "${itemColorNorm}". Available colors:`, 
+        productData.image_url?.map(c => c.colorcode)
+      );
+      return 0; // Color not found = cannot validate stock, assume out of stock
+    }
+    
+    if (!colorGroup?.content || !Array.isArray(colorGroup.content)) {
+      console.warn(`❌ CartItem: No content/stock data for color "${itemColorNorm}"`);
+      return 0; // No stock data = out of stock
+    }
+    
+    const target = normalizeSize(sizeLabel);
+    const match = colorGroup.content.find(
+      (c) => normalizeSize(c.size) === target
+    );
+    
+    if (!match) {
+      console.warn(`❌ CartItem: Size "${sizeLabel}" (normalized: "${target}") not found. Available:`, 
+        colorGroup.content.map(c => ({ size: c.size, normalized: normalizeSize(c.size), minstock: c.minstock }))
+      );
+      return 0; // Size not defined = out of stock
+    }
+    
+    const limit = Number(match.minstock);
+    const result = Number.isFinite(limit) ? Math.max(0, limit) : 0;
+    console.log(`✅ CartItem: Size "${sizeLabel}" -> stock ${result}`);
+    return result;
   };
 
   // ✅ Determine which image to display
@@ -175,7 +243,11 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         {/* Product Info */}
         <div className="flex-1 flex flex-col gap-1 text-white">
           <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
-            <h2 className="text-lg sm:text-xl font-semibold">
+            <h2 
+              className="text-lg sm:text-xl font-semibold cursor-pointer hover:text-[#E5C870] transition-colors"
+              onClick={() => item.id && navigate(`/products/${item.id}`)}
+              title="Click to view product"
+            >
               {item.products_name || item.name || "Custom T-Shirt"}
             </h2>
             <PriceDisplay
@@ -192,18 +264,24 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
             {item.quantity && typeof item.quantity === "object" ? (
               Object.entries(item.quantity).filter(([_, count]) => count > 0).length > 0 ? (
                 <>
-                  {Object.entries(item.quantity).map(([size, count]) =>
-                    count > 0 ? (
-                      <div key={size} className="flex items-center gap-2">
-                        <span className="px-2 py-1 text-xs rounded border bg-gray-800 text-white">
+                  {Object.entries(item.quantity).map(([size, count]) => {
+                    const stockLimit = getSizeStockLimit(size);
+                    const exceedsStock = typeof stockLimit === "number" && count > stockLimit;
+                    return count > 0 ? (
+                      <div key={size} className={`flex items-center gap-2 ${exceedsStock ? "opacity-60" : ""}`}>
+                        <span className={`px-2 py-1 text-xs rounded border ${
+                          exceedsStock 
+                            ? "bg-red-900/40 border-red-600 text-red-300" 
+                            : "bg-gray-800 text-white"
+                        }`}>
                           {size} × {count}
+                          {exceedsStock && ` (Max: ${stockLimit})`}
                         </span>
                         <div className="flex items-center gap-1 border px-1 rounded-md bg-gray-700 text-white">
                           <button
                             onClick={() => {
                               const newQty = { ...item.quantity };
                               newQty[size] = Math.max(0, count - 1);
-                              // updateQuantity is a wrapper that expects the new quantity as first param
                               updateQuantity(newQty);
                             }}
                             className="text-sm px-2 hover:text-red-500 transition"
@@ -214,20 +292,36 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                           <span className="text-xs font-semibold">{count}</span>
                           <button
                             onClick={() => {
-                              const newQty = { ...item.quantity };
-                              newQty[size] = count + 1;
-                              // updateQuantity is a wrapper that expects the new quantity as first param
-                              updateQuantity(newQty);
+                              const stockLimit = getSizeStockLimit(size);
+                              const newQty = count + 1;
+                              
+                              // Block increment if stock limit is 0 or exceeded
+                              if (typeof stockLimit === "number" && newQty > stockLimit) {
+                                if (stockLimit === 0) {
+                                  toast.error(`${size} size is out of stock`);
+                                } else {
+                                  toast.error(`Only ${stockLimit} available for size ${size}`);
+                                }
+                                return;
+                              }
+                              
+                              const newQtyObj = { ...item.quantity };
+                              newQtyObj[size] = newQty;
+                              updateQuantity(newQtyObj);
                             }}
-                            className="text-sm px-2 hover:text-green-400 transition"
+                            className="text-sm px-2 hover:text-green-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Increase quantity"
+                            disabled={(() => {
+                              const stockLimit = getSizeStockLimit(size);
+                              return typeof stockLimit === "number" && count >= stockLimit;
+                            })()}
                           >
                             +
                           </button>
                         </div>
                       </div>
-                    ) : null
-                  )}
+                    ) : null;
+                  })}
                 </>
               ) : (
                 <span className="px-2 py-1 text-xs rounded border">

@@ -85,24 +85,7 @@ const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText 
     </div>
   </div>
 
-  {/* Scroll Down Button */}
-  <div className=" absolute md:bottom-[-36px] sm:right-12  right-4 mt-2 md:transform md:-translate-x-1/2 flex justify-center">
-    <button className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl text-black font-semibold text-sm shadow hover:shadow-md transition duration-300">
-      Scroll Down
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-4 w-4"
-        fill="currentColor"
-        viewBox="0 0 20 20"
-      >
-        <path
-          fillRule="evenodd"
-          d="M5.23 7.21a.75.75 0 011.06.02L10 11.187l3.71-3.96a.75.75 0 111.08 1.04l-4.25 4.54a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
-          clipRule="evenodd"
-        />
-      </svg>
-    </button>
-  </div>
+
 </section>
 
 

@@ -235,7 +235,7 @@ async function reduceProductStock(items) {
   
   for (const item of items) {
     try {
-      const productId = item.product || item.productId || item._id;
+      const productId = item.product || item.productId || item._id || item.id;
       if (!productId) {
         console.warn('⚠️ Skipping item - no product ID found:', item);
         continue;
@@ -248,36 +248,57 @@ async function reduceProductStock(items) {
       }
 
       const color = item.color;
-      const size = item.size;
-      const quantity = sumQuantity(item.quantity) || item.qty || 1;
+      const quantityObj = item.quantity || {};
 
       console.log(`📦 Reducing stock for: ${product.products_name}`, {
         color,
-        size,
-        quantity,
+        quantityObj,
         currentStock: product.Stock
       });
 
-      // Find the matching color and size in product's image_url array
-      let stockReduced = false;
+      // Normalize color for case-insensitive comparison
+      const normalizedColor = typeof color === 'string' ? color.toLowerCase().trim() : '';
+
+      // Find the matching color in product's image_url array
+      let colorFound = false;
+      let colorItem = null;
+
       for (const imageItem of product.image_url) {
-        if (imageItem.color === color || imageItem.colorcode === color) {
-          for (const contentItem of imageItem.content) {
-            if (contentItem.size === size) {
-              const currentStock = contentItem.minstock || 0;
-              const newStock = Math.max(0, currentStock - quantity);
-              
-              console.log(`  ✅ Found matching size: ${size}, reducing from ${currentStock} to ${newStock}`);
-              contentItem.minstock = newStock;
-              stockReduced = true;
-              break;
-            }
-          }
-          if (stockReduced) break;
+        const imageColor = typeof imageItem.color === 'string' ? imageItem.color.toLowerCase().trim() : '';
+        const imageColorCode = typeof imageItem.colorcode === 'string' ? imageItem.colorcode.toLowerCase().trim() : '';
+        
+        if (imageColor === normalizedColor || imageColorCode === normalizedColor) {
+          colorFound = true;
+          colorItem = imageItem;
+          break;
         }
       }
 
-      if (stockReduced) {
+      if (!colorFound) {
+        console.warn(`⚠️ Color not found for product: ${product.products_name}`);
+        continue;
+      }
+
+      // Reduce stock for each size in the quantity object
+      let anyStockReduced = false;
+      for (const [size, qty] of Object.entries(quantityObj)) {
+        const quantity = safeNum(qty, 0);
+        if (quantity <= 0) continue;
+
+        for (const contentItem of colorItem.content) {
+          if (contentItem.size === size) {
+            const currentStock = contentItem.minstock || 0;
+            const newStock = Math.max(0, currentStock - quantity);
+            
+            console.log(`  ✅ Found matching size: ${size}, reducing from ${currentStock} to ${newStock}`);
+            contentItem.minstock = newStock;
+            anyStockReduced = true;
+            break;
+          }
+        }
+      }
+
+      if (anyStockReduced) {
         // Save the product (this will trigger the pre-save hook to recalculate total Stock)
         await product.save();
         console.log(`✅ Stock reduced successfully for ${product.products_name} - New total stock: ${product.Stock}`);
@@ -300,12 +321,16 @@ async function reduceProductStock(items) {
 // ✅ Stock Validation Helper
 async function validateStock(items) {
   console.log('🔍 Validating stock for order items...');
+  console.log('📦 Items received:', JSON.stringify(items, null, 2));
   const outOfStockItems = [];
   
   for (const item of items) {
     try {
-      const productId = item.product || item.productId || item._id;
-      if (!productId) continue;
+      const productId = item.product || item.productId || item._id || item.id;
+      if (!productId) {
+        console.warn('⚠️ No product ID found in item:', item);
+        continue;
+      }
 
       const product = await Product.findById(productId);
       if (!product) {
@@ -317,44 +342,86 @@ async function validateStock(items) {
       }
 
       const color = item.color;
-      const size = item.size;
-      const quantity = sumQuantity(item.quantity) || item.qty || 1;
+      const quantityObj = item.quantity || {};
 
-      // Find the matching color and size in product's image_url array
-      let stockFound = false;
-      let availableStock = 0;
-      
+      console.log(`🔍 Validating: ${product.products_name}`);
+      console.log(`  Color (input): "${color}"`);
+      console.log(`  Quantity object:`, quantityObj);
+
+      // Normalize color for case-insensitive comparison
+      const normalizedColor = typeof color === 'string' ? color.toLowerCase().trim() : '';
+
+      console.log(`  Color (normalized): "${normalizedColor}"`);
+      console.log(`  Available colors in product:`, product.image_url.map(img => ({
+        color: img.color,
+        colorcode: img.colorcode,
+        sizes: img.content.map(c => ({ size: c.size, stock: c.minstock }))
+      })));
+
+      // Find the matching color in product's image_url array
+      let colorFound = false;
+      let colorItem = null;
+
       for (const imageItem of product.image_url) {
-        if (imageItem.color === color || imageItem.colorcode === color) {
-          for (const contentItem of imageItem.content) {
-            if (contentItem.size === size) {
-              availableStock = contentItem.minstock || 0;
-              stockFound = true;
-              
-              if (availableStock < quantity) {
-                outOfStockItems.push({
-                  name: product.products_name,
-                  color,
-                  size,
-                  requested: quantity,
-                  available: availableStock,
-                  reason: 'Insufficient stock'
-                });
-              }
-              break;
-            }
-          }
-          if (stockFound) break;
+        const imageColor = typeof imageItem.color === 'string' ? imageItem.color.toLowerCase().trim() : '';
+        const imageColorCode = typeof imageItem.colorcode === 'string' ? imageItem.colorcode.toLowerCase().trim() : '';
+        
+        if (imageColor === normalizedColor || imageColorCode === normalizedColor) {
+          colorFound = true;
+          colorItem = imageItem;
+          console.log(`  ✅ Color match found: "${imageColor}" or "${imageColorCode}"`);
+          break;
         }
       }
 
-      if (!stockFound) {
+      if (!colorFound) {
+        console.log(`  ❌ Color not found in product`);
         outOfStockItems.push({
           name: product.products_name,
           color,
-          size,
-          reason: 'Size/Color combination not available'
+          reason: 'Color not available'
         });
+        continue;
+      }
+
+      // Now validate each size in the quantity object
+      for (const [size, qty] of Object.entries(quantityObj)) {
+        const quantity = safeNum(qty, 0);
+        if (quantity <= 0) continue; // Skip zero quantities
+
+        let sizeFound = false;
+        let availableStock = 0;
+
+        for (const contentItem of colorItem.content) {
+          if (contentItem.size === size) {
+            sizeFound = true;
+            availableStock = contentItem.minstock || 0;
+            console.log(`    ✅ Size match found: "${size}", stock: ${availableStock}, needed: ${quantity}`);
+            
+            if (availableStock < quantity) {
+              console.log(`    ❌ Insufficient stock: need ${quantity}, have ${availableStock}`);
+              outOfStockItems.push({
+                name: product.products_name,
+                color,
+                size,
+                requested: quantity,
+                available: availableStock,
+                reason: 'Insufficient stock'
+              });
+            }
+            break;
+          }
+        }
+
+        if (!sizeFound) {
+          console.log(`    ❌ Size "${size}" not found for this color`);
+          outOfStockItems.push({
+            name: product.products_name,
+            color,
+            size,
+            reason: 'Size not available for this color'
+          });
+        }
       }
     } catch (error) {
       console.error(`❌ Error validating stock for item:`, error.message);
@@ -365,6 +432,7 @@ async function validateStock(items) {
     }
   }
   
+  console.log('📊 Validation Result:', { outOfStockItems, passed: outOfStockItems.length === 0 });
   return outOfStockItems;
 }
 
