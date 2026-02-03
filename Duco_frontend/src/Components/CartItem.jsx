@@ -8,6 +8,52 @@ import { CartContext } from "../ContextAPI/CartContext";
 import { getproductssingle } from "../Service/APIservice";
 import { toast } from "react-toastify";
 import menstshirt from "../assets/men_s_white_polo_shirt_mockup-removebg-preview.png";
+import { API_BASE_URL } from "../config/api";
+
+const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}){1,2}$/i;
+
+const normalizeText = (value) => String(value || '').trim().toLowerCase();
+
+const resolveItemColorCode = (item) => {
+  const raw = item?.color;
+  if (HEX_COLOR_RE.test(raw)) return raw;
+
+  // Some cart items may store a separate colorCode
+  if (HEX_COLOR_RE.test(item?.colorCode)) return item.colorCode;
+
+  // Try to resolve from product image_url entries (they contain color + colorcode)
+  const desiredName = normalizeText(raw);
+  const imageUrls = Array.isArray(item?.image_url) ? item.image_url : [];
+  const match = imageUrls.find((img) => normalizeText(img?.color) === desiredName);
+
+  const candidate = match?.colorcode || match?.colorCode;
+  if (HEX_COLOR_RE.test(candidate)) return candidate;
+
+  // Handle hex without leading '#'
+  const trimmed = String(candidate || '').trim();
+  if (/^(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return `#${trimmed}`;
+
+  // Fallback: whatever was stored (can still be a valid CSS color like 'white')
+  return raw;
+};
+
+const getVariantStock = (availableStock, item, size) => {
+  const colorCode = resolveItemColorCode(item);
+  const rawColor = item?.color;
+
+  const candidates = [
+    `${colorCode}-${size}`,
+    `${rawColor}-${size}`,
+    `${normalizeText(rawColor)}-${size}`,
+  ].filter(Boolean);
+
+  for (const key of candidates) {
+    const value = availableStock?.[key];
+    if (value !== undefined) return { key, stock: Number(value) || 0 };
+  }
+
+  return { key: candidates[0] || `${colorCode}-${size}`, stock: 0 };
+};
 
 const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   const navigate = useNavigate();
@@ -319,6 +365,18 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                             +
                           </button>
                         </div>
+                        {/* Stock indicator */}
+                        {(() => {
+                          const { stock: maxStock } = getVariantStock(availableStock, item, size);
+                          if (maxStock !== undefined && maxStock <= 10) {
+                            return (
+                              <span className={`text-xs ${maxStock === 0 ? 'text-red-400' : 'text-orange-400'}`}>
+                                {maxStock === 0 ? '❌ Out of stock' : `⚠️ Only ${maxStock} left`}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     ) : null;
                   })}
@@ -340,7 +398,7 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
               <span className="text-white font-medium mr-1">Color:</span>
               <span
                 className="inline-block w-4 h-4 rounded-full border border-white"
-                style={{ backgroundColor: item.color }}
+                style={{ backgroundColor: resolveItemColorCode(item) || item.color }}
               ></span>
             </p>
             <p>

@@ -9,6 +9,7 @@ import {
 import DesignPreviewModal from "../Components/DesignPreview";
 import { CartContext } from "../ContextAPI/CartContext";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import { API_BASE_URL } from "../config/api";
 import Zoom from "react-medium-image-zoom";
 import { toast } from "react-toastify";
 import "react-medium-image-zoom/dist/styles.css";
@@ -79,6 +80,7 @@ const ProductPage = () => {
   const [iscount, setIscount] = useState(0);
   const [videoThumbnail, setVideoThumbnail] = useState(null);
   const videoRef = useRef(null);
+  const [availableStock, setAvailableStock] = useState({});
 
   // ✅ Check if image is blank (data URL < 5KB)
   const isBlankImage = (src) => {
@@ -172,7 +174,6 @@ const ProductPage = () => {
   useEffect(() => {
     if (!product) return;
     const basePrice = product?.pricing?.[0]?.price_per || 0;
-
     console.log('💰 ProductPage Price Calculation:', {
       basePrice,
       toConvert,
@@ -272,6 +273,50 @@ const ProductPage = () => {
     };
     loadDesigns();
   }, [id]);
+
+  // ✅ Fetch stock when product or color changes
+  useEffect(() => {
+    const fetchStock = async () => {
+      if (!product || !selectedColorCode) return;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/stock/product/${id}`);
+        const data = await response.json();
+        
+        if (data.success && data.variants) {
+          // Find stock for selected color - compare with colorCode (hex) not color (text)
+          const colorVariants = data.variants.filter(v => 
+            v.colorCode === selectedColorCode || 
+            v.colorCode === selectedColorCode.toUpperCase()
+          );
+          const stockMap = {};
+          
+          // Map frontend sizes to backend sizes (2XL -> XXL, 3XL -> XXXL)
+          const sizeMapping = {
+            'S': 'S',
+            'M': 'M',
+            'L': 'L',
+            'XL': 'XL',
+            '2XL': 'XXL',
+            '3XL': 'XXXL'
+          };
+          
+          SIZES.forEach(size => {
+            const backendSize = sizeMapping[size] || size;
+            const variant = colorVariants.find(v => v.size === backendSize);
+            stockMap[size] = variant ? variant.stock : 0;
+          });
+          
+          setAvailableStock(stockMap);
+          console.log('📦 Stock loaded for color:', selectedColorCode, stockMap);
+        }
+      } catch (error) {
+        console.error('Error fetching stock:', error);
+      }
+    };
+    
+    fetchStock();
+  }, [product, selectedColorCode, id]);
 
   const handleColorChange = (colorcode, colortext) => {
     const matched = product?.image_url?.find((c) => c.colorcode === colorcode);

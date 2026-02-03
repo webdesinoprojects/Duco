@@ -43,25 +43,53 @@ app.set('trust proxy', 1);
 app.use(compression());
 
 /* =========================
-   ✅ FIXED CORS (PATCH ENABLED)
+   ✅ CORS
    ========================= */
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:4173',
+  'https://duco-67o5.onrender.com',
+  'https://ducoart.com',
+  'https://www.ducoart.com',
+];
+
+const envAllowedOrigins = String(process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([...defaultAllowedOrigins, ...envAllowedOrigins]);
+
 const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:4173',
-    'https://duco-67o5.onrender.com',
-    'https://ducoart.com',
-    'https://www.ducoart.com',
-  ],
+  origin: (origin, callback) => {
+    // Allow server-to-server calls (no Origin header)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.has(origin)) return callback(null, true);
+
+    // Allow any secure subdomain of ducoart.com
+    if (/^https:\/\/([a-z0-9-]+\.)*ducoart\.com$/i.test(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(null, false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  // Be permissive here to avoid preflight failures due to extra headers.
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+  ],
   optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // ✅ THIS LINE IS CRITICAL
+app.options('*', cors(corsOptions));
 
 /* =========================
    BODY PARSERS
