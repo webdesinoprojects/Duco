@@ -307,9 +307,19 @@ export default function OrderSuccess() {
 
   if (!invoiceData) {
     return (
-      <div className="flex items-center justify-center min-h-screen w-full bg-gray-100 py-4 overflow-y-auto">
-        <div className="text-center my-auto">
-          <h2 className="text-xl font-semibold">Loading your order…</h2>
+      <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 z-50">
+        <div className="text-center">
+          <div className="mb-6 flex justify-center">
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-spin"></div>
+              <div className="absolute inset-2 bg-white rounded-full"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Processing Your Order</h2>
+          <p className="text-gray-600 text-sm">Please wait while we prepare your invoice...</p>
         </div>
       </div>
     );

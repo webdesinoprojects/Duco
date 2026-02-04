@@ -57,6 +57,7 @@ const PaymentPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [showPayNow, setShowPayNow] = useState(false);
   const [showNetModal, setShowNetModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Netbanking (BANK) fields
   const [bankName, setBankName] = useState("");
@@ -493,6 +494,7 @@ const PaymentPage = () => {
       console.log("✅ FINAL PAYMENTMODE IN BODY:", normalizedPayload.paymentmode);
       console.log("📦 ITEMS BEING SENT:", JSON.stringify(normalizedPayload.items, null, 2));
 
+      setIsProcessing(true);
       const res = await completeOrder(paymentId, normalizedPayload.paymentmode, normalizedPayload);
       const order = res?.order || res?.data?.order;
       const orderId = order?.id || order?._id;
@@ -524,6 +526,7 @@ const PaymentPage = () => {
         });
       }
     } catch (err) {
+      setIsProcessing(false);
       console.error("❌ Order creation failed:", err);
       const errorMessage = err?.response?.data?.message || "Failed to place order";
       toast.error(errorMessage);
@@ -1155,6 +1158,26 @@ const PaymentPage = () => {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ PROCESSING OVERLAY */}
+        {isProcessing && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm mx-4">
+              <div className="mb-6 flex justify-center">
+                <div className="relative w-20 h-20">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-spin"></div>
+                  <div className="absolute inset-2 bg-white rounded-full"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">Processing Your Order</h3>
+              <p className="text-gray-600 text-sm mb-2">Please wait while we confirm your payment...</p>
+              <p className="text-gray-500 text-xs animate-pulse">This may take a few moments</p>
             </div>
           </div>
         )}

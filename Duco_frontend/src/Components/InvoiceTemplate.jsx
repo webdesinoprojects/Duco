@@ -76,7 +76,7 @@ export const InvoiceTemplate = ({ data }) => {
 
   const displayAmount = paymentmode === '50%' && amountPaid > 0 ? amountPaid : total;
   const currencyName = currencyNames[currency] || "Rupees";
-  const totalQty = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
+  const totalQty = (items || []).reduce((sum, it) => sum + Number(it.qty || 0), 0);
 
   // Calculate tax amounts
   const cgstAmount = Number(tax?.cgstAmount || 0);
