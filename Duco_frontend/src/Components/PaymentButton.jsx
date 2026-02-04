@@ -57,8 +57,17 @@ const PaymentButton = ({ orderData }) => {
       return;
     }
 
-    const razorpayKey = "rzp_live_S3KJGyRC23sO17"; // ✅ LIVE KEY (matches backend)
+    // ✅ CRITICAL: Use Razorpay key from environment variable (NEVER hardcode keys)
+    const razorpayKey = import.meta.env.RAZORPAY_KEY_ID || import.meta.env.VITE_RAZORPAY_KEY_ID;
+    
+    if (!razorpayKey) {
+      console.error('❌ CRITICAL: Razorpay key not configured in environment');
+      alert("Payment gateway is not properly configured. Please contact support.");
+      return;
+    }
+    
     console.log('🔑 Using Razorpay Key:', razorpayKey.substring(0, 20) + '...');
+    console.log('🔑 Key Mode:', razorpayKey.includes('test') ? '🧪 TEST' : '💰 LIVE');
 
     const sdkLoaded = await loadScript(
       "https://checkout.razorpay.com/v1/checkout.js"

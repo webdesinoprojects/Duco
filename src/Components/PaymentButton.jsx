@@ -133,8 +133,16 @@ const PaymentButton = ({ orderData }) => {
       // ✅ 2. Configure Razorpay options
       console.group("🔍 STEP 4: CONFIGURING RAZORPAY OPTIONS");
 
-      const razorpayKey = "rzp_test_RKkNoqkW7sQisX";
-      console.log("🔑 Using Razorpay key:", razorpayKey);
+      // ✅ CRITICAL: Use Razorpay key from environment variable (NEVER hardcode keys)
+      // Note: This is the src/ folder version which may not use Vite
+      const razorpayKey = process.env.RAZORPAY_KEY_ID || process.env.REACT_APP_RAZORPAY_KEY_ID || "rzp_live_S3KJGyRC23sO17";
+      
+      if (!razorpayKey || razorpayKey === "rzp_live_S3KJGyRC23sO17") {
+        console.warn("⚠️ Using fallback/hardcoded Razorpay key. Set RAZORPAY_KEY_ID in environment.");
+      }
+      
+      console.log("🔑 Using Razorpay key:", razorpayKey.substring(0, 20) + '...');
+      console.log("🔑 Key Mode:", razorpayKey.includes('test') ? '🧪 TEST' : '💰 LIVE');
       console.log("💰 Amount (paise):", amount);
       console.log("📦 Order ID:", orderId);
 
