@@ -326,6 +326,38 @@ async function validateStock(items) {
   
   for (const item of items) {
     try {
+      // ✅ Handle custom designed t-shirts that have image_url with stock info
+      // These items may not have explicit quantity or color fields
+      if (item.image_url && Array.isArray(item.image_url)) {
+        console.log(`✅ Custom designed item detected: ${item.products_name || item.name}`);
+        console.log(`   Has image_url with ${item.image_url.length} colors`);
+        
+        // For custom items with image_url, just verify that stock exists
+        // The item is being sold as 1 unit regardless of which color/size combination
+        let hasAvailableStock = false;
+        
+        for (const colorGroup of item.image_url) {
+          if (colorGroup.content && Array.isArray(colorGroup.content)) {
+            for (const sizeItem of colorGroup.content) {
+              if (sizeItem.minstock > 0) {
+                hasAvailableStock = true;
+                break;
+              }
+            }
+          }
+          if (hasAvailableStock) break;
+        }
+        
+        if (!hasAvailableStock) {
+          outOfStockItems.push({
+            name: item.products_name || item.name,
+            reason: 'No stock available for any size/color combination'
+          });
+        }
+        continue; // Skip to next item - custom items validated
+      }
+
+      // ✅ Original validation logic for regular products
       const productId = item.product || item.productId || item._id || item.id;
       if (!productId) {
         console.warn('⚠️ No product ID found in item:', item);
@@ -462,8 +494,20 @@ function addressToLine(a = {}) {
 
 // ✅ Helper to build invoice payload with billing and shipping addresses
 function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode = 'online', totalAmount = 0) {
+  console.log('📋 buildInvoicePayload called with:', {
+    paymentmode,
+    addresses: addresses ? { billing: addresses.billing?.fullName, shipping: addresses.shipping?.fullName } : null,
+    legacyAddress: legacyAddress ? legacyAddress.fullName : null,
+    orderDataUser: orderData?.user?.name
+  });
+  
   const billingAddr = addresses?.billing || legacyAddress;
   const shippingAddr = addresses?.shipping || legacyAddress;
+  
+  console.log('🔍 billingAddr selected:', {
+    source: addresses?.billing ? 'addresses.billing' : 'legacyAddress',
+    name: billingAddr?.fullName
+  });
   
   // ✅ Extract GST/Tax number from orderData if provided
   const gstNumber = orderData?.gstNumber?.trim() || billingAddr?.gstNumber?.trim() || '';
@@ -630,6 +674,7 @@ const completeOrder = async (req, res) => {
         items: orderData.items?.length || 0,
         totalPay: orderData.totalPay,
         address: orderData.address,
+        addresses: orderData.addresses ? { billing: orderData.addresses.billing?.fullName, shipping: orderData.addresses.shipping?.fullName } : undefined,
         user: orderData.user,
         pf: orderData.pf,
         pfFlat: orderData.pfFlat,
@@ -713,6 +758,9 @@ const completeOrder = async (req, res) => {
     let addresses = null;
     let legacyAddress = null;
     
+    console.log('📦 Received orderData.addresses:', JSON.stringify(orderData.addresses, null, 2));
+    console.log('📦 Received orderData.address:', JSON.stringify(orderData.address, null, 2));
+    
     if (orderData.addresses) {
       // New format: separate billing and shipping
       addresses = {
@@ -724,14 +772,20 @@ const completeOrder = async (req, res) => {
           ...orderData.addresses.shipping,
           email: orderData.addresses.shipping?.email || orderData.user?.email || 'not_provided@duco.com'
         },
-        sameAsBilling: orderData.addresses.sameAsBilling !== false
+        sameAsBilling: orderData.addresses.sameAsBilling === true // ✅ FIX: Only true if explicitly true
       };
+      console.log('✅ Using new addresses format:', {
+        billingName: addresses.billing.fullName,
+        shippingName: addresses.shipping.fullName,
+        sameAsBilling: addresses.sameAsBilling
+      });
     } else if (orderData.address) {
       // Legacy format: single address (use for both billing and shipping)
       legacyAddress = {
         ...orderData.address,
         email: orderData.address?.email || orderData.user?.email || 'not_provided@duco.com'
       };
+      console.log('⚠️ Using legacy address format:', legacyAddress.fullName);
     }
 
     const user =
@@ -798,11 +852,51 @@ const completeOrder = async (req, res) => {
       }))
     });
 
-    // ✅ B2C ORDERS: Set P&F and Printing charges to 0
-    let finalPfCharge = pfCharge;
-    let finalPrintingCharge = printingCharge;
+    // ✅ Calculate total quantity and check for designed items
+    const totalQty = (orderData?.items || []).reduce((sum, item) => {
+      const qty = Object.values(item.quantity || {}).reduce(
+        (a, q) => a + safeNum(q), 0
+      );
+      return sum + qty;
+    }, 0);
     
-    console.log('📦 Order detected - Using P&F and Printing charges:', { pfCharge, printingCharge });
+    // ✅ Check if ANY item has design (uploadedImage OR customText on any side)
+    const hasDesignedItem = (orderData?.items || []).some((item) => {
+      if (!item?.design) return false;
+      const sides = ['front', 'back', 'left', 'right'];
+      return sides.some(side => 
+        item.design[side]?.uploadedImage || item.design[side]?.customText
+      );
+    });
+
+    // ✅ ADMIN-DRIVEN PRINTING CHARGES (from Charge Plan Manager):
+    // B2B: Always apply admin's printingCharge
+    // B2C: Apply ONLY if BOTH: has design AND total qty >= 5
+    let finalPrintingCharge = 0;
+    if (isCorporateOrder) {
+      // B2B: Always apply
+      finalPrintingCharge = printingCharge;
+    } else if (hasDesignedItem && totalQty >= 5) {
+      // B2C: Apply only if designed AND qty >= 5
+      finalPrintingCharge = printingCharge;
+    }
+    
+    // ✅ P&F charges: Only for B2B orders
+    let finalPfCharge = isCorporateOrder ? pfCharge : 0;
+    
+    console.log('📦 Charges Logic:', { 
+      orderType,
+      totalQty,
+      hasDesignedItem,
+      printingCharge,
+      finalPrintingCharge,
+      pfCharge: finalPfCharge,
+      reason: isCorporateOrder 
+        ? 'B2B order - all charges applied' 
+        : (hasDesignedItem && totalQty >= 5)
+          ? `B2C designed + qty(${totalQty}) >= 5 - printing applied`
+          : `B2C without design or qty(${totalQty}) < 5 - no printing`
+    });
 
     // ================================================================
     // CASE 0 – NORMALIZE PAYMENT MODE DISPLAY
@@ -903,6 +997,13 @@ const completeOrder = async (req, res) => {
       }
 
       const settings = await getOrCreateSingleton();
+      console.log('🏪 STORE PICKUP: About to build invoice payload with:', {
+        hasAddresses: !!addresses,
+        addressesBilling: addresses?.billing?.fullName,
+        hasLegacyAddress: !!legacyAddress,
+        legacyAddressName: legacyAddress?.fullName,
+        paymentmode
+      });
       const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode, totalPay);
       try {
         await createInvoice(invoicePayload);
@@ -971,6 +1072,13 @@ const completeOrder = async (req, res) => {
       });
 
       const settings = await getOrCreateSingleton();
+      console.log('🏦 NETBANKING: About to build invoice payload with:', {
+        hasAddresses: !!addresses,
+        addressesBilling: addresses?.billing?.fullName,
+        hasLegacyAddress: !!legacyAddress,
+        legacyAddressName: legacyAddress?.fullName,
+        paymentmode
+      });
       const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode, totalPay);
       try {
         await createInvoice(invoicePayload);

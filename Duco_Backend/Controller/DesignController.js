@@ -12,26 +12,56 @@ const createDesign = async (req, res) => {
 
     // ✅ Extract additional files metadata from design array
     let additionalFilesMeta = [];
+    let cleanedDesign = design; // Copy the design array
 
     if (Array.isArray(design) && design.length > 0) {
       const firstDesign = design[0];
       
+      console.log('🔍 DEBUG - firstDesign.additionalFilesMeta:', {
+        type: typeof firstDesign.additionalFilesMeta,
+        value: firstDesign.additionalFilesMeta,
+        isArray: Array.isArray(firstDesign.additionalFilesMeta)
+      });
+      
       // Extract additional files metadata
-      if (Array.isArray(firstDesign.additionalFilesMeta)) {
-        additionalFilesMeta = firstDesign.additionalFilesMeta.map(f => ({
-          name: f.name,
-          size: f.size,
-          type: f.type
-        }));
-        console.log('✅ Additional files extracted:', additionalFilesMeta.length);
+      if (firstDesign.additionalFilesMeta) {
+        let fileMeta = firstDesign.additionalFilesMeta;
+        
+        // Handle if it's a stringified JSON (possibly double-stringified)
+        while (typeof fileMeta === 'string') {
+          try {
+            fileMeta = JSON.parse(fileMeta);
+            console.log('🔄 Parsed additionalFilesMeta, new type:', typeof fileMeta);
+          } catch (e) {
+            console.error('❌ Failed to parse additionalFilesMeta:', e.message);
+            fileMeta = [];
+            break;
+          }
+        }
+        
+        if (Array.isArray(fileMeta)) {
+          additionalFilesMeta = fileMeta.map(f => ({
+            name: String(f.name || ''),
+            size: Number(f.size || 0),
+            type: String(f.type || '')
+          }));
+          console.log('✅ Additional files extracted:', additionalFilesMeta);
+        }
       }
+      
+      // ✅ Clean the design array by removing stringified additionalFilesMeta
+      cleanedDesign = design.map(d => {
+        const cleaned = { ...d };
+        delete cleaned.additionalFilesMeta; // Remove from design object
+        return cleaned;
+      });
     }
 
     const newDesign = new Design({
       user,
       products,
       cutomerprodcuts,
-      design,
+      design: cleanedDesign,
       additionalFilesMeta
     });
 

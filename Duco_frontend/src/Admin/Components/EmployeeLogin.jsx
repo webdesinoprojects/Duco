@@ -78,10 +78,10 @@ const EmployeeLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-900 text-white py-4 overflow-y-auto">
       <form
         onSubmit={handleSubmit}
-        className="bg-gray-800 p-8 rounded-xl w-full max-w-md space-y-6 shadow-2xl border border-gray-700"
+        className="bg-gray-800 p-8 rounded-xl w-full max-w-md space-y-6 shadow-2xl border border-gray-700 my-auto"
       >
         <div className="text-center">
           <h1 className="text-2xl font-bold text-yellow-400 mb-2">Employee Portal</h1>

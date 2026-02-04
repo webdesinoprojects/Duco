@@ -60,15 +60,17 @@ const createRazorpayOrder = async (req, res) => {
 
     console.log('✅ Amount validation passed');
 
-    // Calculate final amount to charge
-    const finalAmount = half ? Math.ceil(amount / 2) : amount;
+    // ✅ IMPORTANT: Frontend already sends the final amount to charge
+    // Do NOT divide by 2 again - the 'half' flag is just for record keeping
+    // The frontend calculates halfPayAmountINR and sends that directly
+    const finalAmount = amount; // Use the amount as-is (already calculated by frontend)
     const amountInPaise = Math.round(finalAmount * 100);
 
     console.log('🔍 STEP 2: Calculating amounts...');
-    console.log('💰 Original amount:', amount);
-    console.log('💰 Final amount (INR):', finalAmount);
+    console.log('💰 Amount from frontend:', amount);
+    console.log('💰 Final amount to charge (INR):', finalAmount);
     console.log('💰 Amount in paise:', amountInPaise);
-    console.log('🔀 Half payment:', half);
+    console.log('🔀 Half payment flag:', half);
 
     console.log('🔍 STEP 3: Creating Razorpay order...');
     

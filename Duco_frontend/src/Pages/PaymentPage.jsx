@@ -358,6 +358,17 @@ const PaymentPage = () => {
 
   const placeOrder = async (mode, successMsg, extraMeta = {}) => {
     try {
+      console.log("🚀 placeOrder called with mode:", mode);
+      console.log("📦 orderpayload structure:", {
+        hasAddresses: !!orderpayload?.addresses,
+        hasAddress: !!orderpayload?.address,
+        addressesBilling: orderpayload?.addresses?.billing?.fullName,
+        addressShippingFullName: orderpayload?.addresses?.shipping?.fullName,
+        legacyAddressName: orderpayload?.address?.fullName,
+        hasItems: !!orderpayload?.items,
+        hasUser: !!orderpayload?.user
+      });
+
       const paymentMeta = {
         mode,
         ...extraMeta,
@@ -374,6 +385,7 @@ const PaymentPage = () => {
       };
 
       if (orderpayload?.addresses) {
+        console.log("✅ Using NEW addresses format");
         normalizedPayload.addresses = {
           billing: {
             fullName:
@@ -424,6 +436,7 @@ const PaymentPage = () => {
           sameAsBilling: orderpayload.addresses.sameAsBilling ?? false,
         };
       } else if (orderpayload?.address) {
+        console.log("✅ Using LEGACY address format");
         normalizedPayload.address = {
           fullName:
             orderpayload.address.fullName || orderpayload.user?.name || "",
@@ -442,6 +455,9 @@ const PaymentPage = () => {
             orderpayload.address.phone || orderpayload.user?.phone || "",
           gstNumber: orderpayload.gstNumber || orderpayload.address.gstNumber,
         };
+      } else {
+        console.warn("⚠️ NO ADDRESS DATA FOUND - neither addresses nor address present!");
+        console.warn("This is why netbanking invoice shows wrong address!");
       }
 
       if (normalizedPayload.user && typeof normalizedPayload.user === "object") {
@@ -468,11 +484,14 @@ const PaymentPage = () => {
         };
       }
 
-      const paymentId = mode === "store_pickup" ? null : "manualpayment";
+      // ✅ Use null for all manual payment methods (netbanking, bank transfer, pickup, etc.)
+      // This allows MongoDB to generate unique Order IDs instead of treating them as duplicates
+      const paymentId = null;
 
       console.log("🚨 PAYMENT MODE SENT TO BACKEND:", mode);
       console.log("🧾 ORDER PAYLOAD", normalizedPayload);
       console.log("✅ FINAL PAYMENTMODE IN BODY:", normalizedPayload.paymentmode);
+      console.log("📦 ITEMS BEING SENT:", JSON.stringify(normalizedPayload.items, null, 2));
 
       const res = await completeOrder(paymentId, normalizedPayload.paymentmode, normalizedPayload);
       const order = res?.order || res?.data?.order;
@@ -506,7 +525,8 @@ const PaymentPage = () => {
       }
     } catch (err) {
       console.error("❌ Order creation failed:", err);
-      toast.error("Failed to place order");
+      const errorMessage = err?.response?.data?.message || "Failed to place order";
+      toast.error(errorMessage);
     }
   };
 
@@ -598,15 +618,15 @@ const PaymentPage = () => {
 
   if (!cartLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] text-white">
-        Loading payment details...
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#0A0A0A] text-white py-4 overflow-y-auto">
+        <div className="my-auto">Loading payment details...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] px-4">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-lg relative">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#0A0A0A] px-4 py-4 overflow-y-auto">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-lg relative my-auto">
         <h1 className="text-2xl font-semibold text-center text-[#0A0A0A] mb-6">
           Select Payment Method
         </h1>

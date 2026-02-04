@@ -113,10 +113,16 @@ const BoxOfProducts = ({ price, title, id, image, description }) => {
               e.stopPropagation();
               addtocart({
                 id,
-                design: [],
+                design: {
+                  front: {},
+                  back: {},
+                  left: {},
+                  right: {}
+                },
                 color: "white",
                 quantity: 1,
                 price: Number(finalPrice),
+                isPlainTshirt: true, // ✅ Mark as plain t-shirt for easy identification
               });
             }}
             className="px-4 py-1.5 bg-[#E5C870] text-black text-sm font-medium rounded-full hover:bg-gray-800 hover:text-white transition"

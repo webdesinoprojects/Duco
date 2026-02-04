@@ -1189,7 +1189,55 @@ const TshirtDesigner = () => {
       const fallbackVariantId = finalPrintroveLineItems.find(item => item.printroveVariantId)?.printroveVariantId || null;
       const needsProductId = !printroveProductId;
 
-      // Build cart product
+      // ✅ CHECK: Does this item actually have ANY design customization?
+      const sides = ['front', 'back', 'left', 'right'];
+      const hasActualDesign = sides.some(side => 
+        allDesigns[side]?.uploadedImage || (allDesigns[side]?.customText && allDesigns[side].customText.trim() !== "")
+      );
+      
+      console.log("🎨 DESIGN CHECK: Does item have actual customization?", {
+        hasActualDesign,
+        designDetails: sides.reduce((acc, side) => {
+          acc[side] = {
+            hasUploadedImage: !!allDesigns[side]?.uploadedImage,
+            hasCustomText: !!allDesigns[side]?.customText,
+            customTextLength: allDesigns[side]?.customText?.length || 0,
+            customTextTrimmed: allDesigns[side]?.customText?.trim() || ""
+          };
+          return acc;
+        }, {})
+      });
+
+      // If NO actual design customization, add as regular product (not custom-tshirt)
+      if (!hasActualDesign) {
+        console.log("⚠️ No design customization detected - adding as regular product instead of custom-tshirt");
+        // Add regular product instead
+        const regularProduct = {
+          _id: productDetails?._id || proid,
+          productId: productDetails?._id || proid,
+          products_name: productDetails?.products_name || "T-Shirt",
+          name: productDetails?.products_name || "T-Shirt",
+          image_url: productDetails?.image_url || [],
+          color: colorWithHash,
+          colortext: productDetails?.colortext || "Custom",
+          gender: productDetails?.gender || "Unisex",
+          isCorporate: productDetails?.isCorporate || false,
+          price: applyLocationPricing(
+            productDetails?.pricing?.[0]?.price_per || 499,
+            priceIncrease,
+            conversionRate
+          ),
+          quantity: finalQuantities,
+          // NO design property for regular products
+        };
+        
+        addToCart(regularProduct);
+        toast.success("Product added to cart!");
+        navigate(`/cart`);
+        return;
+      }
+
+      // Build cart product (ONLY if it has actual design customization)
       const customProduct = {
         id: `custom-tshirt-${Date.now()}`,
         productId: productDetails?._id || proid,
@@ -1197,6 +1245,8 @@ const TshirtDesigner = () => {
         name: productDetails?.products_name || "Custom T-Shirt",
         timestamp: new Date().toISOString(), // ✅ Add timestamp for debugging
         sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // ✅ Unique session ID
+        // ✅ CRITICAL: Include image_url from productDetails so stock checking works in CartItem
+        image_url: productDetails?.image_url || [],
         printroveProductId: printroveProductId || null,
         printroveVariantId: fallbackVariantId, // legacy single
         printroveVariantsBySize: Object.fromEntries(

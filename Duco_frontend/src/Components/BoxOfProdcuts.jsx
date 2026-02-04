@@ -149,11 +149,17 @@ const BoxOfProducts = ({ price, title, id, image, description, stock }) => {
                 productId: id,
                 products_name: title,
                 name: title,
-                design: [],
+                design: {
+                  front: {},
+                  back: {},
+                  left: {},
+                  right: {}
+                },
                 color: "white",
                 quantity: { [firstAvailableSize]: 1 },
                 price: Number(finalPrice),
                 image: image,
+                isPlainTshirt: true, // ✅ Mark as plain t-shirt for easy identification
               });
               toast.success(`${title || "Product"} added to cart!`, {
                 position: "top-right",

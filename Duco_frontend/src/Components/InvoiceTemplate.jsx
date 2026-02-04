@@ -253,7 +253,32 @@ export const InvoiceTemplate = ({ data }) => {
         <div style={{ width: "400px", borderLeft: "1px solid #000" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
-              {/* INTRASTATE_CGST_SGST: 2.5% CGST + 2.5% SGST (Chhattisgarh - Home State) */}
+              {/* ✅ SUBTOTAL */}
+              <tr>
+                <td style={{ padding: "3px 8px", textAlign: "left" }}>Subtotal</td>
+                <td style={{ padding: "3px 8px", textAlign: "right" }}>-</td>
+                <td style={{ padding: "3px 8px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
+              </tr>
+              
+              {/* ✅ P&F CHARGES (Show if > 0) */}
+              {charges?.pf > 0 && (
+                <tr>
+                  <td style={{ padding: "3px 8px", textAlign: "left" }}>P&F Charges</td>
+                  <td style={{ padding: "3px 8px", textAlign: "right" }}>-</td>
+                  <td style={{ padding: "3px 8px", textAlign: "right" }}>{Number(charges.pf).toFixed(2)}</td>
+                </tr>
+              )}
+              
+              {/* ✅ PRINTING CHARGES (Show if > 0) */}
+              {charges?.printing > 0 && (
+                <tr>
+                  <td style={{ padding: "3px 8px", textAlign: "left" }}>Printing Charges</td>
+                  <td style={{ padding: "3px 8px", textAlign: "right" }}>-</td>
+                  <td style={{ padding: "3px 8px", textAlign: "right" }}>{Number(charges.printing).toFixed(2)}</td>
+                </tr>
+              )}
+              
+              {/* ✅ INTRASTATE_CGST_SGST: 2.5% CGST + 2.5% SGST (Chhattisgarh - Home State) */}
               {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
                 <>
                   <tr>

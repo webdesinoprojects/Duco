@@ -374,12 +374,18 @@ const ProductPage = () => {
                 onClick={() => {
                   addToCart({
                     id,
-                    design: [],
+                    design: {
+                      front: {},
+                      back: {},
+                      left: {},
+                      right: {}
+                    },
                     color: selectedColorCode,
                     quantity: qty,
                     colortext,
                     price: Math.round(price),
                     gender,
+                    isPlainTshirt: true, // ✅ Mark as plain t-shirt for easy identification
                   });
                   setShowModal(false);
                   navigate("/cart");

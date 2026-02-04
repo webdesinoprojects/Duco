@@ -373,10 +373,73 @@ const Cart = () => {
   }, [itemsSubtotal, totalQuantity]);
 
   const printingCost = useMemo(() => {
-    const a = safeNum(printPerUnit) * safeNum(totalQuantity);
-    const b = safeNum(printingPerSide) * safeNum(printingUnits);
-    return a + b;
-  }, [printPerUnit, printingPerSide, totalQuantity, printingUnits]);
+    // ✅ Check if this is a B2B order
+    const isBulkOrder = products.some(item => item.isCorporate === true);
+    
+    console.log('🔍 Printing Cost Calculation:', {
+      isBulkOrder,
+      actualDataCount: actualData.length,
+      itemsWithDesign: actualData.filter(item => item?.design).length
+    });
+    
+    // ✅ B2B Orders: Always apply printing charges
+    if (isBulkOrder) {
+      const a = safeNum(printPerUnit) * safeNum(totalQuantity);
+      const b = safeNum(printingPerSide) * safeNum(printingUnits);
+      console.log('✅ B2B Order - Printing charges applied');
+      return a + b;
+    }
+    
+    // ✅ B2C Orders: Apply printing charges ONLY if:
+    //    1. Has custom-designed T-shirts (uploaded image OR custom text on any side)
+    //    2. AND total quantity >= 5
+    const hasDesignedTshirt = actualData.some(item => {
+      if (!item?.design) {
+        console.log('❌ Item has no design:', item?.products_name);
+        return false;
+      }
+      // Check if any side has custom design (uploadedImage or customText)
+      const sides = ['front', 'back', 'left', 'right'];
+      const hasDesign = sides.some(side => 
+        item.design[side]?.uploadedImage || item.design[side]?.customText
+      );
+      console.log(`🎨 Item "${item?.products_name}" design check:`, {
+        hasDesign,
+        sides: sides.map(s => ({
+          [s]: {
+            uploadedImage: !!item.design[s]?.uploadedImage,
+            customText: !!item.design[s]?.customText
+          }
+        }))
+      });
+      return hasDesign;
+    });
+    
+    const totalQty = Object.values(cart).reduce((sum, item) => {
+      const qty = Object.values(item.quantity || {}).reduce(
+        (a, q) => a + safeNum(q), 0
+      );
+      return sum + qty;
+    }, 0);
+    
+    console.log('📊 B2C Design & Qty Check:', {
+      hasDesignedTshirt,
+      totalQty,
+      shouldApplyPrinting: hasDesignedTshirt && totalQty >= 5
+    });
+    
+    // If designed T-shirt AND quantity >= 5, apply printing charges
+    if (hasDesignedTshirt && totalQty >= 5) {
+      const a = safeNum(printPerUnit) * safeNum(totalQuantity);
+      const b = safeNum(printingPerSide) * safeNum(printingUnits);
+      console.log('✅ B2C with design & qty>=5 - Printing charges applied:', { a, b });
+      return a + b;
+    }
+    
+    // Otherwise, no printing charges for B2C
+    console.log('✅ B2C without design or qty<5 - NO printing charges');
+    return 0;
+  }, [printPerUnit, printingPerSide, totalQuantity, printingUnits, products, actualData, cart]);
 
   const pfCost = useMemo(() => {
     // ✅ Check if this is a B2B order

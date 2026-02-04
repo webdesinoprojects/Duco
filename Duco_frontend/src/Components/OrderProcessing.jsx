@@ -199,16 +199,16 @@ const OrderProcessing = () => {
   const inSuccessView = processedFlag || orderIdFromQuery || lastOrderId;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] text-white text-xl font-semibold text-center px-4">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#0A0A0A] text-white text-xl font-semibold text-center px-4 py-4 overflow-y-auto\">
       {inSuccessView ? (
-        <div>
+        <div className="my-auto">
           <p>✅ Order placed successfully!</p>
           <p className="text-gray-300 text-sm mt-2">
             Redirecting you to your invoice...
           </p>
         </div>
       ) : (
-        <div>
+        <div className="my-auto">
           <p>Processing your order...</p>
           <p className="text-gray-300 text-sm mt-2">
             Please do not refresh or close this page.

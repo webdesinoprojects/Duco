@@ -14,6 +14,14 @@ const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}){1,2}$/i;
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
 
+// ✅ Check if image is blank (data URL < 5KB)
+const isBlankImage = (src) => {
+  if (!src) return true;
+  if (typeof src !== 'string') return true;
+  if (src.startsWith('data:') && src.length < 5000) return true;
+  return false;
+};
+
 const resolveItemColorCode = (item) => {
   const raw = item?.color;
   if (HEX_COLOR_RE.test(raw)) return raw;
@@ -48,18 +56,47 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   // ✅ Fetch product data on mount to get stock info
   useEffect(() => {
     const fetchProduct = async () => {
-      if (!item.id) return;
+      if (!item.id) {
+        console.warn(`⚠️ CartItem: No item.id for ${item.products_name || item.name}`);
+        return;
+      }
+      
+      // ✅ For designed T-shirts: Use the image_url already included in the item instead of fetching
+      if (item.id && String(item.id).startsWith('custom-tshirt-')) {
+        console.log(`✅ Using image_url from designed T-shirt item: ${item.id}`);
+        // Set productData from the item's image_url (already included from TShirtDesigner)
+        if (item.image_url && Array.isArray(item.image_url) && item.image_url.length > 0) {
+          setProductData({ image_url: item.image_url });
+          console.log(`✅ Product data (image_url) loaded for designed T-shirt`, {
+            imageUrlLength: item.image_url.length,
+            colors: item.image_url.map(c => ({ color: c.color, colorcode: c.colorcode, hasContent: !!c.content }))
+          });
+        } else {
+          console.warn(`⚠️ Designed T-shirt missing image_url: ${item.id}`);
+          setProductData({ image_url: [] });
+        }
+        return;
+      }
+      
+      console.log(`🔄 Fetching product data for: ${item.products_name || item.name} (ID: ${item.id})`);
+      
       try {
         const data = await getproductssingle(item.id);
         const p = Array.isArray(data) ? data[0] : data;
         setProductData(p);
-        console.log(`📦 CartItem: Loaded product stock data for ${item.id}`, p?.image_url);
+        console.log(`✅ Product data loaded for ${item.id}:`, {
+          hasImageUrl: !!p?.image_url,
+          imageUrlLength: p?.image_url?.length,
+          colors: p?.image_url?.map(c => ({ color: c.color, colorcode: c.colorcode, hasContent: !!c.content }))
+        });
       } catch (err) {
-        console.warn(`⚠️ CartItem: Could not fetch product stock for ${item.id}`, err.message);
+        console.error(`❌ Failed to fetch product stock for ${item.id}:`, err.message);
+        // ✅ Set empty product data to prevent infinite loading
+        setProductData({ image_url: [] });
       }
     };
     fetchProduct();
-  }, [item.id]);
+  }, [item.id, item.image_url]);
 
   const normalizeSize = (value) => {
     const raw = String(value || "").trim().toUpperCase();
@@ -70,39 +107,78 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   };
 
   const getSizeStockLimit = (sizeLabel) => {
+    // ✅ B2B/Corporate orders: Allow high stock (no inventory constraints)
+    if (item.isCorporate === true) {
+      console.log(`🏢 B2B item - returning high stock limit (9999) for ${sizeLabel}`);
+      return 9999;
+    }
+    
     if (!productData) {
-      console.warn(`⚠️ CartItem: productData not loaded yet`);
-      return null;
+      console.warn(`⚠️ CartItem: productData not loaded yet for ${item.products_name || item.name}`);
+      // ✅ Return reasonable default (100) for regular items while loading
+      return 100;
     }
 
     if (!item.color) {
-      console.warn(`⚠️ CartItem: item.color is missing`);
-      return null;
+      console.warn(`⚠️ CartItem: item.color is missing for ${item.products_name || item.name}`);
+      return 100;
     }
     
-    // ✅ Normalize color code for matching (remove spaces, lowercase)
+    console.log(`🔍 getSizeStockLimit called for size: ${sizeLabel}, item.color: "${item.color}"`);
+    
+    // ✅ Normalize for matching (remove spaces, lowercase)
     const itemColorNorm = String(item.color || "").toLowerCase().trim();
     
-    // Find the color group matching the item's color
-    const colorGroup = productData.image_url?.find(
-      (c) => {
-        const colorNorm = String(c.colorcode || "").toLowerCase().trim();
-        const matches = colorNorm === itemColorNorm;
-        console.log(`🎨 Comparing color: "${colorNorm}" vs "${itemColorNorm}" => ${matches}`);
-        return matches;
-      }
-    );
-    
-    if (!colorGroup) {
-      console.warn(`❌ CartItem: Color group not found for "${itemColorNorm}". Available colors:`, 
-        productData.image_url?.map(c => c.colorcode)
-      );
-      return 0; // Color not found = cannot validate stock, assume out of stock
+    // ✅ Also check if item.color is a hex code - normalize it
+    let itemColorHex = item.color;
+    if (HEX_COLOR_RE.test(item.color)) {
+      itemColorHex = item.color.toLowerCase();
     }
     
+    console.log(`🔍 Looking for color: "${itemColorNorm}" or hex: "${itemColorHex}"`);
+    console.log(`🔍 Available colors in product:`, productData.image_url?.map(c => ({
+      color: c.color,
+      colorcode: c.colorcode,
+      contentLength: c.content?.length || 0,
+      hasContent: !!c.content
+    })));
+    
+    // ✅ Try to match by both color code AND color name
+    const colorGroup = productData.image_url?.find((c) => {
+      const colorCodeNorm = String(c.colorcode || "").toLowerCase().trim();
+      const colorNameNorm = String(c.color || "").toLowerCase().trim();
+      const matchesCode = colorCodeNorm === itemColorNorm || colorCodeNorm === itemColorHex;
+      const matchesName = colorNameNorm === itemColorNorm;
+      const matches = matchesCode || matchesName;
+      
+      if (matches) {
+        console.log(`✅ MATCHED! Color group found: ${c.color} (${c.colorcode})`);
+      }
+      return matches;
+    });
+    
+    if (!colorGroup) {
+      console.error(`❌ CartItem: Color not found for "${itemColorNorm}". Available colors:`, 
+        productData.image_url?.map(c => c.color) || []
+      );
+      // ✅ Return reasonable default (100) - product might still have stock
+      return 100;
+    }
+    
+    console.log(`✅ Found color group:`, { 
+      color: colorGroup.color, 
+      colorcode: colorGroup.colorcode, 
+      contentLength: colorGroup.content?.length,
+      contentStructure: colorGroup.content?.[0]
+    });
+    
     if (!colorGroup?.content || !Array.isArray(colorGroup.content)) {
-      console.warn(`❌ CartItem: No content/stock data for color "${itemColorNorm}"`);
-      return 0; // No stock data = out of stock
+      console.warn(`❌ CartItem: No content/stock data for color "${colorGroup.color}"`, {
+        hasContent: !!colorGroup?.content,
+        isArray: Array.isArray(colorGroup?.content),
+        contentValue: colorGroup?.content
+      });
+      return 100; // No stock data = assume available stock
     }
     
     const target = normalizeSize(sizeLabel);
@@ -114,7 +190,7 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
       console.warn(`❌ CartItem: Size "${sizeLabel}" (normalized: "${target}") not found. Available:`, 
         colorGroup.content.map(c => ({ size: c.size, normalized: normalizeSize(c.size), minstock: c.minstock }))
       );
-      return 0; // Size not defined = out of stock
+      return 100; // Size not defined = assume available stock
     }
     
     const limit = Number(match.minstock);
@@ -323,12 +399,15 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                               const stockLimit = getSizeStockLimit(size);
                               const newQty = count + 1;
                               
+                              console.log(`➕ + button clicked for ${size}: current=${count}, limit=${stockLimit}, willBe=${newQty}`);
+                              
                               // Block increment if stock limit is 0 or exceeded
                               if (typeof stockLimit === "number" && newQty > stockLimit) {
                                 if (stockLimit === 0) {
-                                  toast.error(`${size} size is out of stock`);
+                                  toast.error(`No stock available for size ${size}`);
                                 } else {
-                                  toast.error(`Only ${stockLimit} available for size ${size}`);
+                                  const remaining = Math.max(0, stockLimit - count);
+                                  toast.error(`Only ${remaining} ${remaining === 1 ? 'item' : 'items'} left for ${size}`);
                                 }
                                 return;
                               }
@@ -341,7 +420,11 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                             title="Increase quantity"
                             disabled={(() => {
                               const stockLimit = getSizeStockLimit(size);
-                              return typeof stockLimit === "number" && count >= stockLimit;
+                              const isDisabled = typeof stockLimit === "number" && count >= stockLimit;
+                              if (isDisabled) {
+                                console.log(`🚫 + button DISABLED for ${size}: count=${count}, limit=${stockLimit}`);
+                              }
+                              return isDisabled;
                             })()}
                           >
                             +

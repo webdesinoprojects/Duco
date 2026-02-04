@@ -605,7 +605,12 @@ const validateMinimumQuantity = () => {
                  }
                  addToCart({
                 id,
-                design:[],
+                design: {
+                  front: {},
+                  back: {},
+                  left: {},
+                  right: {}
+                },
                 color:selectedColorCode,
                 quantity: qty,
                 colortext,
@@ -614,6 +619,7 @@ const validateMinimumQuantity = () => {
                 isBulkProduct: true, // Flag to identify bulk order items
                 isCorporate: product?.isCorporate !== false, // From database (default true for bulk pages)
                 category: product?.category || 'Corporate T-Shirt', // Include category
+                isPlainTshirt: true, // ✅ Mark as plain t-shirt for easy identification
                  })
                  setShowModal(false);
                  navigate("/cart")

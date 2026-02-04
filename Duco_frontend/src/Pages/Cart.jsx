@@ -75,11 +75,33 @@ const countDesignSides = (item) => {
   const d = item?.design || {};
   const sides = ["front", "back", "left", "right"];
   let used = 0;
+  
+  // 🔍 DEBUG: Log complete item and design structure
+  console.log(`🔍 countDesignSides called for: "${item?.products_name || item?.name}"`, {
+    hasDesignProperty: !!item?.design,
+    itemId: item?.itemId || item?._id,
+    hasAdditionalFilesMeta: !!item?.additionalFilesMeta,
+    additionalFilesMetaLength: item?.additionalFilesMeta?.length || 0,
+    additionalFilesMetaData: item?.additionalFilesMeta,
+    designObject: item?.design,
+    sides: sides.map(s => ({
+      side: s,
+      sideObject: d[s],
+      hasUploadedImage: !!d[s]?.uploadedImage,
+      uploadedImageSize: d[s]?.uploadedImage?.length || 0,
+      hasCustomText: !!d[s]?.customText,
+      customTextValue: d[s]?.customText,
+      customTextLength: d[s]?.customText?.length || 0
+    }))
+  });
+  
   sides.forEach((s) => {
     const side = d[s] || {};
     // Count sides with either uploaded image OR custom text
     if (side?.uploadedImage || side?.customText) used += 1;
   });
+  
+  console.log(`✅ Design sides count: ${used} for "${item?.products_name || item?.name}"`);
   
   // ✅ If no design sides are used but PDF/CDR files are uploaded, count as 1 side (front)
   // This ensures B2B printing charges are applied when users upload files
@@ -87,6 +109,8 @@ const countDesignSides = (item) => {
     console.log(`🖨️ Item "${item.products_name || item.name}" has ${item.additionalFilesMeta.length} additional file(s) uploaded - counting as 1 printed side`);
     used = 1;
   }
+  
+  console.log(`✅ Final design sides count: ${used} for "${item?.products_name || item?.name}"`);
   
   return used;
 };
@@ -116,6 +140,103 @@ const isOrderB2B = (cartItems = [], productsList = []) => {
   });
   
   return allB2B;
+};
+
+// ✅ HELPER: Get stock limit for a specific size and color
+const getStockLimitForItem = (item, sizeLabel) => {
+  if (!item.image_url || !Array.isArray(item.image_url)) {
+    console.log(`⚠️ getStockLimitForItem: No image_url for ${item.products_name}`);
+    return null;
+  }
+  
+  // Normalize item color - handle both hex codes and color names
+  const itemColor = item.color || item.colorCode || "";
+  const itemColorNorm = String(itemColor).toLowerCase().trim();
+  
+  console.log(`🔍 Stock lookup: ${item.products_name}, Color input: "${itemColor}"`);
+  console.log(`Available colors in product:`, item.image_url.map(c => ({ 
+    color: c.color, 
+    colorcode: c.colorcode,
+    normColor: String(c.color).toLowerCase().trim(),
+    normCode: String(c.colorcode).toLowerCase().trim()
+  })));
+  
+  // Find matching color group - try multiple matching strategies
+  let colorGroup = null;
+  
+  // Strategy 1: Direct colorcode match (for hex codes or exact codes)
+  colorGroup = item.image_url.find(c => {
+    const colorCodeNorm = String(c.colorcode || "").toLowerCase().trim();
+    return colorCodeNorm === itemColorNorm;
+  });
+  
+  // Strategy 2: Direct color name match
+  if (!colorGroup) {
+    colorGroup = item.image_url.find(c => {
+      const colorNameNorm = String(c.color || "").toLowerCase().trim();
+      return colorNameNorm === itemColorNorm;
+    });
+  }
+  
+  // Strategy 3: Hex code matches colorcode (case-insensitive)
+  if (!colorGroup && /^#[0-9a-f]{6}$/i.test(itemColorNorm)) {
+    colorGroup = item.image_url.find(c => {
+      const colorCodeNorm = String(c.colorcode || "").toLowerCase().trim();
+      return colorCodeNorm === itemColorNorm;
+    });
+  }
+  
+  // Strategy 4: Try to match by partial color name (e.g., "red" matches "RED" or "Dark Red")
+  if (!colorGroup) {
+    const colorWords = itemColorNorm.split(/\s+/);
+    colorGroup = item.image_url.find(c => {
+      const colorNameNorm = String(c.color || "").toLowerCase().trim();
+      return colorWords.some(word => colorNameNorm.includes(word)) || colorNameNorm.includes(colorWords[0]);
+    });
+  }
+  
+  if (!colorGroup?.content) {
+    console.log(`⚠️ getStockLimitForItem: No color match for ${item.products_name} color="${itemColor}"`);
+    console.log(`   Tried matching against:`, item.image_url.map(c => c.color));
+    return null;
+  }
+  
+  console.log(`✅ Found color group: ${colorGroup.color}`);
+  
+  // Normalize size
+  let sizeNorm = String(sizeLabel || "").trim().toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
+  if (["XXL", "2XL", "2X"].includes(sizeNorm)) sizeNorm = "2XL";
+  if (["XXXL", "3XL", "3X"].includes(sizeNorm)) sizeNorm = "3XL";
+  
+  // Find matching size
+  const sizeData = colorGroup.content.find(c => {
+    const cNorm = String(c.size || "").trim().toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
+    let cNormFinal = cNorm;
+    if (["XXL", "2XL", "2X"].includes(cNorm)) cNormFinal = "2XL";
+    if (["XXXL", "3XL", "3X"].includes(cNorm)) cNormFinal = "3XL";
+    return cNormFinal === sizeNorm;
+  });
+  
+  if (!sizeData) {
+    console.log(`⚠️ getStockLimitForItem: Size "${sizeLabel}" not found for ${item.products_name} in color ${colorGroup.color}`);
+    return null;
+  }
+  
+  const stockLimit = Number(sizeData.minstock);
+  console.log(`✅ Stock for ${item.products_name} ${colorGroup.color} ${sizeLabel}: ${stockLimit}`);
+  return Number.isFinite(stockLimit) ? stockLimit : null;
+};
+
+// ✅ HELPER: Check if item exceeds stock
+const itemExceedsStock = (item, size, qty) => {
+  const stockLimit = getStockLimitForItem(item, size);
+  return stockLimit !== null && qty > stockLimit;
+};
+
+// ✅ HELPER: Get remaining stock for a size
+const getRemainingStock = (item, size) => {
+  const stockLimit = getStockLimitForItem(item, size);
+  return stockLimit;
 };
 
 /* ----------------- Invoice UI ----------------- */
@@ -820,58 +941,84 @@ const Cart = () => {
   }, [totalQuantity, actualData.length]);
 
   const printingCost = useMemo(() => {
-    // ✅ B2C Orders: Apply B2C printing charges per side
+    // ✅ Check if this is a B2B order
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
     
     const isINR = currencySymbol === '₹' || !currencySymbol;
+    const chargePerUnit = safeNum(printPerUnit, 0);
+    
+    // 🎯 SIMPLIFIED LOGIC (taking inspiration from B2C):
+    // B2B: Apply printing charge UNLESS explicitly marked as plain t-shirt
+    //      - If isPlainTshirt = true → 0 charge (plain t-shirt selected)
+    //      - Otherwise → Apply charge (user designed their t-shirt)
+    // B2C: Apply if quantity >= 5 (unchanged, design optional)
+    
+    console.log('🖨️ Printing Cost Calculation - Start:', {
+      isBulkOrder,
+      printPerUnit: chargePerUnit,
+      itemCount: actualData.length,
+      items: actualData.map(i => ({
+        name: i.products_name || i.name,
+        isPlainTshirt: i.isPlainTshirt,
+        hasDesign: !!i.design,
+        hasAdditionalFilesMeta: !!i.additionalFilesMeta,
+        additionalFilesCount: i.additionalFilesMeta?.length || 0
+      }))
+    });
     
     const cost = actualData.reduce((total, item) => {
       const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
-      const sides = countDesignSides(item);
+      const isPlainTshirt = item.isPlainTshirt === true; // ✅ Check plain t-shirt flag
       
-      // ✅ FIXED: No printing charges if there's no design (0 sides) - applies to BOTH B2B and B2C
-      if (sides === 0) {
-        console.log(`🖨️ No printing for ${item.products_name || item.name} (0 sides - plain t-shirt)`);
-        return total;
-      }
-      
-      let itemCost = 0;
-      let chargePerUnit = 0;
+      console.log(`📊 Processing item: "${item.products_name || item.name}"`, {
+        isBulkOrder,
+        isPlainTshirt,
+        qty,
+        hasDesign: !!item.design,
+        hasAdditionalFiles: !!item.additionalFilesMeta,
+        additionalFilesCount: item.additionalFilesMeta?.length || 0
+      });
       
       if (isBulkOrder) {
-        // ✅ B2B Orders: Use printPerUnit from charge plan (per unit, not per side)
-        chargePerUnit = safeNum(printPerUnit, 0);
-        itemCost = qty * chargePerUnit;
-        console.log(`🖨️ B2B Printing cost for ${item.products_name || item.name}:`, {
-          qty,
-          sides,
-          chargePerUnit,
-          itemCost,
-          source: 'charge_plan'
+        // ✅ B2B: Simple logic - Apply UNLESS it's explicitly a plain t-shirt
+        if (isPlainTshirt) {
+          // ✅ Plain t-shirt in B2B: 0 printing charge
+          console.log(`🖨️ B2B Plain T-Shirt - \"${item.products_name || item.name}\" - Printing Charge: 0`);
+          return total;
+        }
+        
+        // ✅ B2B: User designed their t-shirt (anything not explicitly plain) - Apply charge
+        const itemCost = qty * chargePerUnit;
+        console.log(`🖨️ B2B Designed T-Shirt - \"${item.products_name || item.name}\"`, {
+          qty, chargePerUnit, itemCost, reason: 'User designed their t-shirt'
         });
+        let finalCost = itemCost;
+        if (!isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
+          finalCost = applyLocationPricing(finalCost, priceIncrease, conversionRate);
+        }
+        return total + finalCost;
       } else {
-        // ✅ B2C Orders: Use B2C printing charge per side from settings
-        chargePerUnit = safeNum(b2cPrintingChargePerSide, 0);
-        itemCost = qty * sides * chargePerUnit;
-        console.log(`🖨️ B2C Printing cost for ${item.products_name || item.name}:`, {
-          qty,
-          sides,
-          chargePerUnit,
-          itemCost,
-          source: 'b2c_settings'
-        });
+        // ✅ B2C: Apply if qty >= 5 (wired with charge plan, design optional) - UNCHANGED
+        if (qty >= 5) {
+          const itemCost = qty * chargePerUnit;
+          console.log(`🖨️ B2C Printing (qty>=5) - \"${item.products_name || item.name}\"`, {
+            qty, chargePerUnit, itemCost, reason: `B2C qty(${qty}) >= 5 - charge plan applies`
+          });
+          let finalCost = itemCost;
+          if (!isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
+            finalCost = applyLocationPricing(finalCost, priceIncrease, conversionRate);
+          }
+          return total + finalCost;
+        } else {
+          console.log(`🖨️ B2C Skipped - \"${item.products_name || item.name}\" - qty(${qty}) < 5`);
+          return total;
+        }
       }
-      
-      // ✅ Apply conversion for non-INR currencies
-      if (!isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
-        itemCost = applyLocationPricing(itemCost, priceIncrease, conversionRate);
-      }
-      
-      return total + itemCost;
     }, 0);
-    console.log(`🖨️ Total printing cost: ${currencySymbol}${cost} (isINR: ${isINR}, isBulkOrder: ${actualData.some(item => item.isCorporate === true)})`);
+    
+    console.log(`🖨️ Total printing cost: ${currencySymbol}${cost}`);
     return cost;
-  }, [actualData, printPerUnit, b2cPrintingChargePerSide, currencySymbol, priceIncrease, conversionRate]);
+  }, [actualData, printPerUnit, currencySymbol, priceIncrease, conversionRate]);
 
   const pfCost = useMemo(() => {
     // ✅ Apply P&F charges for B2B orders only
@@ -1366,8 +1513,61 @@ const Cart = () => {
               return null;
             })()}
 
+            {/* Out of Stock Items Warning */}
+            {(() => {
+              // ✅ Check if any items exceed their stock limits
+              const outOfStockItems = [];
+              
+              actualData.forEach(item => {
+                Object.entries(item.quantity || {}).forEach(([size, qty]) => {
+                  if (qty <= 0) return;
+                  if (itemExceedsStock(item, size, qty)) {
+                    const stockLimit = getStockLimitForItem(item, size);
+                    const remaining = Math.max(0, stockLimit - qty);
+                    outOfStockItems.push({
+                      name: item.products_name || item.name,
+                      size,
+                      requested: qty,
+                      available: stockLimit,
+                      remaining
+                    });
+                  }
+                });
+              });
+              
+              if (outOfStockItems.length > 0) {
+                return (
+                  <div className="mb-4 p-3 bg-orange-900/40 border border-orange-500 rounded-lg">
+                    <p className="text-orange-300 text-sm font-semibold mb-2">⚠️ Stock Limit Exceeded</p>
+                    <p className="text-orange-200 text-xs mb-3">Reduce quantities below the available stock limit</p>
+                    {outOfStockItems.map((item, idx) => (
+                      <div key={idx} className="text-orange-200 text-xs mb-2 p-2 bg-orange-900/20 rounded">
+                        <p className="font-semibold">{item.name} • Size {item.size}</p>
+                        <p className="mt-1">📦 Available: {item.available} | Requested: {item.requested}</p>
+                        <p className="mt-1 text-orange-300">↓ Reduce by {item.requested - item.available} items ({item.remaining} items max for this size)</p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <button
-              className="w-full py-4 font-bold bg-yellow-400 text-black hover:bg-yellow-300 cursor-pointer"
+              className={`w-full py-4 font-bold ${
+                actualData.some(item => 
+                  Object.entries(item.quantity || {}).some(([size, qty]) => 
+                    qty > 0 && itemExceedsStock(item, size, qty)
+                  )
+                )
+                  ? 'bg-gray-500 text-gray-400 cursor-not-allowed opacity-60' 
+                  : 'bg-yellow-400 text-black hover:bg-yellow-300 cursor-pointer'
+              }`}
+              disabled={actualData.some(item => 
+                Object.entries(item.quantity || {}).some(([size, qty]) => 
+                  qty > 0 && itemExceedsStock(item, size, qty)
+                )
+              )}
               onClick={async () => {
                 // ✅ Check if cart is empty
                 if (!actualData || actualData.length === 0) {

@@ -66,7 +66,7 @@ export const CartProvider = ({ children }) => {
       localStorage.setItem("cart", JSON.stringify(cartForStorage));
       console.log("🛒 Cart saved to localStorage:", {
         itemCount: cartForStorage.length,
-        itemsWithDesign: cart.filter(i => !!i.design).length,
+        itemsWithDesign: cart.filter(i => !!i.design || !!i.additionalFilesMeta?.length).length,
         itemsWithPreviewImages: cart.filter(i => !!i.previewImages).length,
         itemsWithData: cartForStorage.map(i => ({
           id: i.id,

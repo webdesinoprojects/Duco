@@ -164,8 +164,8 @@ const OrderProcessing = () => {
   }, [location, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-100 py-4 overflow-y-auto">
+      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center my-auto">
         {status === 'processing' && (
           <>
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#E5C870] mx-auto mb-4"></div>

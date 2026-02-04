@@ -240,6 +240,9 @@ export default function OrderSuccess() {
           subtotal: formatted.subtotal,
           pf: formatted.charges.pf,
           printing: formatted.charges.printing,
+          pfCost: formatted.charges.pf,
+          printingCost: formatted.charges.printing,
+          gstPercent: taxInfo.gstRate || (taxInfo.type === 'INTERNATIONAL' ? 1 : 5),
           taxableAmount: formatted.taxableAmount,
           totalTax: formatted.totalTax,
           total: formatted.total,
@@ -248,8 +251,24 @@ export default function OrderSuccess() {
           currency: paymentCurrency,
         });
         
+        // ✅ Add formatCurrency function to invoice data for PDF rendering
+        const formatCurrency = (num) => {
+          const n = Number(num) || 0;
+          const isINR = paymentCurrency === 'INR' || !paymentCurrency;
+          
+          if (isINR) {
+            return `₹${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+          } else {
+            const symbol = currencySymbol || '$';
+            return `${symbol}${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+          }
+        };
+        
         if (isMounted) {
-          setInvoiceData(formatted);
+          setInvoiceData({
+            ...formatted,
+            formatCurrency,
+          });
           clearCart();
         }
       } catch (err) {
@@ -288,8 +307,8 @@ export default function OrderSuccess() {
 
   if (!invoiceData) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
+      <div className="flex items-center justify-center min-h-screen w-full bg-gray-100 py-4 overflow-y-auto">
+        <div className="text-center my-auto">
           <h2 className="text-xl font-semibold">Loading your order…</h2>
         </div>
       </div>

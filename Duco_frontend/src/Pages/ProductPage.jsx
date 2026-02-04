@@ -741,7 +741,12 @@ const ProductPage = () => {
                   }
                   addToCart({
                     id,
-                    design: [],
+                    design: {
+                      front: {},
+                      back: {},
+                      left: {},
+                      right: {}
+                    },
                     color: selectedColorCode,
                     quantity: qty,
                     colortext,
@@ -750,6 +755,7 @@ const ProductPage = () => {
                     isCorporate: product?.isCorporate || false, // From database
                     isBulkProduct: product?.isCorporate || false, // Flag for bulk items
                     category: product?.category || null, // Include category for validation
+                    isPlainTshirt: true // ✅ Mark as plain t-shirt for easy identification
                   });
                   setShowModal(false);
                   navigate("/cart");

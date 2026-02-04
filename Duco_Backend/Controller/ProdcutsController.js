@@ -65,10 +65,28 @@ const GetProducts = async (req, res) => {
   }
 };
 
-// ✅ GET SINGLE PRODUCT (fixed to include Printrove IDs)
+// ✅ GET SINGLE PRODUCT (fixed to include Printrove IDs and handle custom T-shirt IDs)
 const GetProductssingle = async (req, res) => {
   const { prodcutsid } = req.params;
   try {
+    // ✅ Check if this is a custom T-shirt ID (not a MongoDB ObjectId)
+    if (prodcutsid && prodcutsid.startsWith('custom-tshirt-')) {
+      console.log(`⚠️ Skipping product fetch for custom T-shirt ID: ${prodcutsid}`);
+      return res.status(404).json({ 
+        message: 'Custom T-shirt designs do not have product data',
+        isCustomTshirt: true 
+      });
+    }
+
+    // ✅ Validate if the ID is a valid MongoDB ObjectId format (24 hex chars)
+    if (!prodcutsid || !/^[0-9a-fA-F]{24}$/.test(prodcutsid)) {
+      console.log(`⚠️ Invalid product ID format: ${prodcutsid}`);
+      return res.status(400).json({ 
+        message: 'Invalid product ID format',
+        receivedId: prodcutsid 
+      });
+    }
+
     // Explicitly select the fields we need
     const data = await Product.findById(prodcutsid).select(
       'products_name image_url pricing Desciptions subcategory gender printroveProductId printroveVariantId isCorporate'

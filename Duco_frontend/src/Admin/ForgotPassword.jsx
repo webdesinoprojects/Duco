@@ -93,8 +93,8 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 p-6 py-4 overflow-y-auto">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 border border-gray-200 my-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Reset Admin Password</h1>
           <p className="text-sm text-gray-500 mt-1">
