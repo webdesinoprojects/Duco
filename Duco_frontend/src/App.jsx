@@ -34,6 +34,8 @@ import RefundReturnPolicy from "./Pages/RefundReturnPolicy.jsx";
 import ShippingPolicy from "./Pages/ShippingPolicy.jsx";
 import TermsConditions from "./Pages/TermsConditions.jsx";
 import ExportQuality from "./Pages/ExportQuality.jsx";
+import TrackOrder from "./Pages/TrackOrder.jsx";
+import InvoiceSet from "./Pages/InvoiceSet.jsx";
 
 /* ================= ADMIN ================= */
 import AdminLayout from "./Admin/AdminLayout .jsx";
@@ -132,6 +134,7 @@ const App = () => {
           <Route path="order-processing" element={<OrderProcessing />} />
           <Route path="order-success/:orderId" element={<OrderSuccess />} />
           <Route path="wallet/:userId" element={<WalletPage />} />
+          <Route path="wallet" element={<WalletPage />} />
           <Route path="order" element={<Order />} />
           <Route path="profile" element={<ProfilePanel />} />
           <Route path="privacy-policy" element={<PrivacyPolicy />} />
@@ -141,6 +144,8 @@ const App = () => {
           <Route path="exportquality" element={<ExportQuality />} />
           <Route path="blog" element={<Blog />} />
           <Route path="blog/:slug" element={<BlogPost />} />
+          <Route path="get/logistics/:id" element={<TrackOrder />} />
+          <Route path="invoice/:id" element={<InvoiceSet />} />
           <Route path=":slug" element={<CategoryPage />} />
         </Route>
 

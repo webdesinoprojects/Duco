@@ -474,7 +474,10 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
 
           <div className="flex flex-wrap items-center gap-3 mt-2">
             {/* Design Preview - Only show if item has design */}
-            {(item.design || item.previewImages) && (
+            {/* ✅ Only show Preview button if there are actual preview images OR design content OR additional files */}
+            {((item.previewImages && Object.values(item.previewImages).some(img => img && img !== 'MISSING' && !isBlankImage(img))) || 
+              (item.design && Object.values(item.design).some(side => side?.uploadedImage || side?.customText)) ||
+              (Array.isArray(item.additionalFilesMeta) && item.additionalFilesMeta.length > 0)) && (
               <button
                 onClick={() => {
                   console.log('🖼️ Preview button clicked - item data:', {
@@ -493,14 +496,20 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                   // ✅ Use preview images directly from item (now stored in cart)
                   if (item.previewImages) {
                     const previews = [
-                      item.previewImages.front ? { url: item.previewImages.front, view: 'Front' } : null,
-                      item.previewImages.back ? { url: item.previewImages.back, view: 'Back' } : null,
-                      item.previewImages.left ? { url: item.previewImages.left, view: 'Left' } : null,
-                      item.previewImages.right ? { url: item.previewImages.right, view: 'Right' } : null,
-                    ].filter(Boolean);
+                      (item.previewImages.front && item.previewImages.front !== 'MISSING' && !isBlankImage(item.previewImages.front)) ? { url: item.previewImages.front, view: 'Front' } : null,
+                      (item.previewImages.back && item.previewImages.back !== 'MISSING' && !isBlankImage(item.previewImages.back)) ? { url: item.previewImages.back, view: 'Back' } : null,
+                      (item.previewImages.left && item.previewImages.left !== 'MISSING' && !isBlankImage(item.previewImages.left)) ? { url: item.previewImages.left, view: 'Left' } : null,
+                      (item.previewImages.right && item.previewImages.right !== 'MISSING' && !isBlankImage(item.previewImages.right)) ? { url: item.previewImages.right, view: 'Right' } : null,
+                    ].filter(Boolean); // Filter out null values
                     
                     console.log('🖼️ Previews array after filter:', previews.map(p => ({ view: p.view, urlLength: p.url.length })));
-                    setPreviewImage(previews.length > 0 ? previews : null);
+                    if (previews.length > 0) {
+                      setPreviewImage(previews);
+                    } else if (Array.isArray(item.additionalFilesMeta) && item.additionalFilesMeta.length > 0) {
+                      setPreviewImage([]);
+                    } else {
+                      setPreviewImage(null);
+                    }
                   } else if (Array.isArray(item.design)) {
                     // Array format
                     setPreviewImage(item.design);
@@ -521,7 +530,12 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                     }
                     setPreviewImage(previews.length > 0 ? previews : null);
                   } else {
-                    setPreviewImage(null);
+                    // ✅ If only additional files exist (PDF/CDR), still open modal
+                    if (Array.isArray(item.additionalFilesMeta) && item.additionalFilesMeta.length > 0) {
+                      setPreviewImage([]);
+                    } else {
+                      setPreviewImage(null);
+                    }
                   }
                 }}
                 className="flex items-center gap-1 px-3 py-1.5 bg-[#E5C870] text-black text-sm rounded-md hover:bg-gray-800 hover:text-white transition"

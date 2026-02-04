@@ -1193,10 +1193,12 @@ const TshirtDesigner = () => {
       const sides = ['front', 'back', 'left', 'right'];
       const hasActualDesign = sides.some(side => 
         allDesigns[side]?.uploadedImage || (allDesigns[side]?.customText && allDesigns[side].customText.trim() !== "")
-      );
+      ) || (additionalFiles.length > 0);
       
       console.log("🎨 DESIGN CHECK: Does item have actual customization?", {
         hasActualDesign,
+        hasAdditionalFiles: additionalFiles.length > 0,
+        additionalFilesCount: additionalFiles.length,
         designDetails: sides.reduce((acc, side) => {
           acc[side] = {
             hasUploadedImage: !!allDesigns[side]?.uploadedImage,
