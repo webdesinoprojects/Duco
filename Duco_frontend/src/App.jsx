@@ -185,6 +185,27 @@ const App = () => {
             <Route path="orders" element={<OrderBulk />} />
             <Route path="debug" element={<EmployeeDebug />} />
           </Route>
+          <Route path="/employees" element={<EmployessLayout />}>
+            <Route index element={<EmployeeSection />} />
+            <Route path="inventory" element={<ProdcutsCreated />} />
+            <Route path="categories" element={<Category />} />
+            <Route path="products" element={<ProdcutsCreated />} />
+            <Route path="banner" element={<LandingPageManager />} />
+            <Route path="blog" element={<BlogManager />} />
+            <Route path="bulkorder" element={<OrderBulk />} />
+            <Route path="order" element={<OrderSection />} />
+            <Route path="logistics" element={<LogisticsManager />} />
+            <Route path="moneyset" element={<MoneySet />} />
+            <Route path="charges" element={<ChargePlanManager />} />
+            <Route path="corporate-settings" element={<CorporateSettings />} />
+            <Route path="bankdetails" element={<BankDetailsManager />} />
+            <Route path="employees" element={<EmployeesAccManager />} />
+            <Route path="users" element={<UserInfo />} />
+            <Route path="invoice" element={<Invoice />} />
+            <Route path="sales" element={<AnalyticsDashboard />} />
+            <Route path=":username/dashboard" element={<EmployeeSection />} />
+            <Route path=":username" element={<EmployeeSection />} />
+          </Route>
         </Route>
       </Routes>
     </ErrorBoundary>

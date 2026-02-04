@@ -43,27 +43,12 @@ const EmployeeLogin = () => {
         localStorage.setItem("employeeAuth", JSON.stringify(employeeAuthData));
         console.log("✅ Employee login successful, stored auth:", employeeAuthData);
         
-        // Dynamic URL mapping based on employee's assigned section
-        let redirectPath = "/employees/banners"; // default fallback
-        
-        if (data.url && typeof data.url === 'string') {
-          console.log("🎯 Employee URL:", data.url, "-> Mapping to route");
-          
-          // Extract the section from URL (e.g., "employees/gimme" -> "gimme")
-          const urlParts = data.url.split('/');
-          const section = urlParts[urlParts.length - 1]; // Get the last part
-          
-          if (section && section.trim()) {
-            // Use the section directly - the :section route will handle it
-            redirectPath = `/employees/${section.toLowerCase()}`;
-            console.log("✅ Dynamic route created:", redirectPath);
-          } else {
-            console.log("⚠️ No section found in URL, using default banners");
-          }
-        }
-        
+        // Redirect to username-based URL
+        const urlSlug = typeof data.url === 'string' ? data.url.split('/').pop() : '';
+        const username = (urlSlug || data.employee?.name || data.employee?.employeeid || form.email.split('@')[0] || 'employee').toLowerCase();
+        const redirectPath = `/employees/${username}/dashboard`;
+
         console.log("🚀 Redirecting to:", redirectPath);
-        
         navigate(redirectPath);
       } else {
         console.log("❌ Login failed:", data);

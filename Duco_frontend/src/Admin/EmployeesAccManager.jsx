@@ -157,10 +157,12 @@ const EmployeesAccManager = () => {
     }
     setSaving(true);
     try {
-      await createEmployeeAcc(form);
+      const createdEmployee = await createEmployeeAcc(form);
       setForm(emptyForm);
       await fetchAll();
-      alert("Employee created");
+      // ✅ Store password temporarily so admin can copy it
+      setStoredPassword(form.password);
+      alert("Employee created. Password stored for copying.");
     } catch (err) {
       alert(err.message);
     } finally {
@@ -193,8 +195,34 @@ const EmployeesAccManager = () => {
       const payload = { ...edit };
       if (!payload.password) delete payload.password; // do not send blank password
       await updateEmployeeAcc(editId, payload);
+      // update local state to reflect role/permissions changes immediately
+      setRows((prev) =>
+        prev.map((row) =>
+          row._id === editId
+            ? {
+                ...row,
+                ...payload,
+                employeesdetails: {
+                  ...(row.employeesdetails || {}),
+                  ...(payload.employeesdetails || {}),
+                },
+              }
+            : row
+        )
+      );
+      setSelectedEmployee((prev) =>
+        prev && prev._id === editId
+          ? {
+              ...prev,
+              ...payload,
+              employeesdetails: {
+                ...(prev.employeesdetails || {}),
+                ...(payload.employeesdetails || {}),
+              },
+            }
+          : prev
+      );
       setEditId(null);
-      await fetchAll();
       alert("Employee updated");
     } catch (err) {
       alert(err.message);
@@ -235,9 +263,10 @@ const EmployeesAccManager = () => {
 
   /* -----------------------------
      CREDENTIALS MODAL STATE
-  ------------------------------*/
+  ---------------------------------------*/
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [storedPassword, setStoredPassword] = useState(null); // ✅ Store password when created
 
   /* -----------------------------
      URL GENERATION & SHOW CREDENTIALS
@@ -253,37 +282,24 @@ const EmployeesAccManager = () => {
     // Set selected employee and show modal
     setSelectedEmployee(employee);
     setShowCredentialsModal(true);
+    // ✅ Note: storedPassword will be used from state if available
   };
 
   const handleCopyCredentials = () => {
-    const urlParts = selectedEmployee.url.split('/');
-    const section = urlParts[urlParts.length - 1];
+    const employeeName = (selectedEmployee.employeesdetails?.name || '').toLowerCase();
     const baseUrl = window.location.origin;
-    const directUrl = `${baseUrl}/employees/${section}`;
+    const directUrl = `${baseUrl}/employees/${employeeName}`;
+    
+    // ✅ Use stored password if available, otherwise show placeholder
+    const password = storedPassword || '[Password shown at creation time]';
     
     const credentials = `Employee Access Credentials
-
-Name: ${selectedEmployee.employeesdetails?.name || 'N/A'}
-Role: ${selectedEmployee.employeesdetails?.role || 'Employee'}
-Employee ID: ${selectedEmployee.employeeid}
-
-LOGIN CREDENTIALS:
+---------------------------
 Email: ${selectedEmployee.employeesdetails?.email}
-Password: [Set by admin during creation]
+Password: ${password}
 
-ACCESS URL:
-${directUrl}
-
-INSTRUCTIONS:
-1. Go to: ${baseUrl}/employee-login
-2. Enter your email and password
-3. You will be redirected to your dashboard
-4. Bookmark the URL for quick access
-
-Permissions:
-${selectedEmployee.employeesdetails?.role === 'Graphic Designer' ? '✓ Inventory, Categories, Products, Banner, Blog' : ''}
-${selectedEmployee.employeesdetails?.role === 'Order Manager' ? '✓ Bulk Orders, Orders, Logistics, Set Money, Charges Plan, Corporate Settings' : ''}
-${selectedEmployee.employeesdetails?.role === 'Accounting and Management' ? '✓ Bank Details, Employee Management, User Analysis, Invoice, Sales' : ''}`;
+Access URL:
+${directUrl}`;
 
     navigator.clipboard.writeText(credentials).then(() => {
       alert('✅ Credentials copied to clipboard!');
@@ -293,19 +309,39 @@ ${selectedEmployee.employeesdetails?.role === 'Accounting and Management' ? '✓
   };
 
   const handleOpenURL = () => {
-    const urlParts = selectedEmployee.url.split('/');
-    const section = urlParts[urlParts.length - 1];
     const baseUrl = window.location.origin;
-    const directUrl = `${baseUrl}/employees/${section}`;
+    const loginUrl = `${baseUrl}/employee-login`;
     
-    window.open(directUrl, '_blank', 'noopener,noreferrer');
+    window.open(loginUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyAccessURL = () => {
+    const employeeName = (selectedEmployee.employeesdetails?.name || '').toLowerCase();
+    const baseUrl = window.location.origin;
+    const directUrl = `${baseUrl}/employees/${employeeName}`;
+    
+    navigator.clipboard.writeText(directUrl).then(() => {
+      alert('✅ Access URL copied to clipboard!');
+    }).catch(() => {
+      alert('❌ Failed to copy. Please copy manually.');
+    });
   };
 
   /* ===========================================
      RENDER
      =========================================== */
   return (
-    <div className="min-h-screen" style={{ backgroundColor: BG, color: "#FFFFFF" }}>
+    <div className="min-h-screen employee-management" style={{ backgroundColor: BG, color: "#FFFFFF" }}>
+      <style>{`
+        .employee-management .text-gray-400 { color: #d1d5db; }
+        .employee-management .text-gray-300 { color: #e5e7eb; }
+        .employee-management .text-gray-500 { color: #cbd5e1; }
+        .employee-management input::placeholder,
+        .employee-management textarea::placeholder {
+          color: #cbd5e1;
+          opacity: 1;
+        }
+      `}</style>
       <div className="max-w-6xl mx-auto p-6">
         {/* HEADER */}
         <header className="mb-6 flex items-center justify-between">
@@ -711,7 +747,7 @@ ${selectedEmployee.employeesdetails?.role === 'Accounting and Management' ? '✓
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
                 {/* Employee Info */}
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                   <h4 className="font-semibold mb-3" style={{ color: ACCENT }}>Employee Information</h4>
@@ -745,8 +781,17 @@ ${selectedEmployee.employeesdetails?.role === 'Accounting and Management' ? '✓
                     </div>
                     <div>
                       <span className="text-gray-400">Password:</span>
-                      <p className="font-medium text-yellow-300">⚠️ [Set by admin during creation]</p>
-                      <p className="text-xs text-gray-400 mt-1">Note: Share the password you set when creating this employee account</p>
+                      {storedPassword ? (
+                        <>
+                          <p className="font-mono font-medium text-green-300">{storedPassword}</p>
+                          <p className="text-xs text-gray-400 mt-1">✅ Password available for copying</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-yellow-300">⚠️ [Password was set at creation time]</p>
+                          <p className="text-xs text-gray-400 mt-1">Note: Password is only shown once at employee creation</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -755,8 +800,18 @@ ${selectedEmployee.employeesdetails?.role === 'Accounting and Management' ? '✓
                 <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30">
                   <h4 className="font-semibold mb-3 text-blue-400">🔗 Access URL</h4>
                   <div className="space-y-2">
-                    <div className="bg-black/30 rounded-lg p-3 font-mono text-sm break-all">
-                      {window.location.origin}/employee-login
+                    <div className="flex items-center gap-2">
+                      <div className="bg-black/30 rounded-lg p-3 font-mono text-sm break-all flex-1">
+                        {window.location.origin}/employees/{(selectedEmployee.employeesdetails?.name || '').toLowerCase()}
+                      </div>
+                      <button
+                        onClick={handleCopyAccessURL}
+                        className="px-3 py-2 rounded-lg border transition text-sm"
+                        style={{ borderColor: ACCENT, color: ACCENT }}
+                        title="Copy Access URL"
+                      >
+                        📋 Copy
+                      </button>
                     </div>
                     <p className="text-xs text-gray-400">
                       Employee should go to this URL and login with their email and password
@@ -779,7 +834,7 @@ ${selectedEmployee.employeesdetails?.role === 'Accounting and Management' ? '✓
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                   <h4 className="font-semibold mb-3" style={{ color: ACCENT }}>📋 Instructions for Employee</h4>
                   <ol className="text-sm space-y-2 text-gray-300 list-decimal list-inside">
-                    <li>Go to: <span className="font-mono text-blue-400">{window.location.origin}/employee-login</span></li>
+                    <li>Go to: <span className="font-mono text-blue-400">{window.location.origin}/employees/{(selectedEmployee.employeesdetails?.name || '').toLowerCase()}</span></li>
                     <li>Enter your email: <span className="font-mono text-green-400">{selectedEmployee.employeesdetails?.email}</span></li>
                     <li>Enter the password provided by admin</li>
                     <li>You will be redirected to your dashboard</li>
@@ -793,8 +848,8 @@ ${selectedEmployee.employeesdetails?.role === 'Accounting and Management' ? '✓
                 <Button onClick={handleCopyCredentials}>
                   📋 Copy All Credentials
                 </Button>
-                <Button onClick={handleOpenURL}>
-                  🔗 Open Login Page
+                <Button type="button" onClick={handleOpenURL}>
+                  🔗 Sign In
                 </Button>
                 <GhostBtn onClick={() => setShowCredentialsModal(false)}>
                   Close

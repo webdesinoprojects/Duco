@@ -20,14 +20,12 @@ const EmployeePrivateRoute = () => {
       console.log("🔐 Parsed employeeAuth:", employeeAuth);
       
       // Validate that this is actually employee auth (not admin auth)
-      // Employee auth must have: email, employeeid, employee object, AND permissions
+      // Employee auth must have: email, employeeid, and employee object
       isValidEmployeeAuth = !!(
         employeeAuth.email && 
         employeeAuth.employeeid && 
         employeeAuth.employee &&
-        employeeAuth.employee.id &&
-        employeeAuth.employee.permissions &&
-        Object.keys(employeeAuth.employee.permissions).length > 0
+        (employeeAuth.employee.id || employeeAuth.employee._id || employeeAuth.employee.employeeid)
       );
       
       console.log("🔐 Is valid employee auth:", isValidEmployeeAuth);
@@ -51,12 +49,11 @@ const EmployeePrivateRoute = () => {
       localStorage.removeItem("employeeAuth");
     }
     
-    // If accessing a specific section, redirect to that section's auth page
+    // If accessing a specific section, redirect to employee login
     const pathParts = location.pathname.split('/');
-    if (pathParts.length >= 3 && pathParts[1] === 'employees') {
-      const section = pathParts[2];
-      console.log("🎯 Redirecting to section auth:", section);
-      return <Navigate to={`/auth/${section}`} replace />;
+    if (pathParts.length >= 3 && (pathParts[1] === 'employees' || pathParts[1] === 'auth')) {
+      console.log("🎯 Redirecting to employee login");
+      return <Navigate to="/employee-login" replace />;
     }
     
     console.log("🎯 Redirecting to employee login");

@@ -144,11 +144,23 @@ const App = () => {
         <Route path="/employee-login" element={<EmployeeLogin />} />
 
         {/* Protected group */}
-        <Route path="/employess" element={<EmployeePrivateRoute />}>
-          <Route element={<EmployessLayout />}>
-            <Route path="banners" element={<Banner />} />
+        <Route element={<EmployeePrivateRoute />}>
+          <Route path="/employees" element={<EmployessLayout />}>
+            <Route index element={<EmployessLayout />} />
+            <Route path="inventory" element={<ProdcutsCreated />} />
+            <Route path="categories" element={<Category />} />
             <Route path="products" element={<ProdcutsCreated />} />
-            <Route path="category" element={<Category />} />
+            <Route path="banner" element={<Banner />} />
+            <Route path="bulkorder" element={<OrderBulk />} />
+            <Route path="order" element={<OrderSection />} />
+            <Route path="logistics" element={<LogisticsManager />} />
+            <Route path="moneyset" element={<MoneySet />} />
+            <Route path="charges" element={<ChargePlanManager />} />
+            <Route path="bankdetails" element={<BankDetailsManager />} />
+            <Route path="employees" element={<EmployeesAccManager />} />
+            <Route path="users" element={<UserInfo />} />
+            <Route path="sales" element={<AnalyticsDashboard />} />
+            <Route path="invoice" element={<Invoice />} />
           </Route>
         </Route>
       </Routes>

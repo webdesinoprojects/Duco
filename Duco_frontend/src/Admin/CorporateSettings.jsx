@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const CorporateSettings = () => {
+  const location = useLocation();
+  const isEmployeeView = location.pathname.startsWith('/employees');
   const [settings, setSettings] = useState({
     minOrderQuantity: 100,
     bulkDiscountTiers: [
@@ -204,11 +207,39 @@ const CorporateSettings = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className={`p-6 max-w-6xl mx-auto ${isEmployeeView ? 'text-gray-100 employee-theme' : ''}`}>
+      {isEmployeeView && (
+        <style>{`
+          .employee-theme .text-gray-800, 
+          .employee-theme .text-gray-700, 
+          .employee-theme .text-gray-600, 
+          .employee-theme .text-gray-500 {
+            color: #e5e7eb !important;
+          }
+          .employee-theme .text-blue-900,
+          .employee-theme .text-green-600,
+          .employee-theme .text-gray-400 {
+            color: #d1d5db !important;
+          }
+          .employee-theme .bg-white .text-gray-800,
+          .employee-theme .bg-white .text-gray-700,
+          .employee-theme .bg-white .text-gray-600,
+          .employee-theme .bg-white .text-gray-500,
+          .employee-theme .bg-white .text-blue-900,
+          .employee-theme .bg-white .text-green-600,
+          .employee-theme .bg-white .text-gray-400 {
+            color: #111827 !important;
+          }
+          .employee-theme input::placeholder,
+          .employee-theme textarea::placeholder {
+            color: #9ca3af !important;
+          }
+        `}</style>
+      )}
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">🏢 Corporate/Bulk Order Settings</h1>
-        <p className="text-gray-600">Configure minimum order quantities, bulk discount tiers, and payment options for corporate customers</p>
+        <h1 className={`text-3xl font-bold mb-2 ${isEmployeeView ? 'text-gray-100' : 'text-gray-800'}`}>🏢 Corporate/Bulk Order Settings</h1>
+        <p className={`${isEmployeeView ? 'text-gray-300' : 'text-gray-600'}`}>Configure minimum order quantities, bulk discount tiers, and payment options for corporate customers</p>
       </div>
 
       {message && (

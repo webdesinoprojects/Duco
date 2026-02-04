@@ -343,9 +343,38 @@ export default function TrackOrder() {
               <div className="mb-6">
                 <h3 className="text-base font-semibold text-white mb-3">Customer Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InfoRow label="Name" value={trackingData.order.address?.fullName || trackingData.order.address?.name || 'N/A'} />
-                  <InfoRow label="Email" value={trackingData.order.address?.email || 'N/A'} />
-                  <InfoRow label="Phone" value={trackingData.order.address?.mobileNumber || trackingData.order.address?.phone || 'N/A'} />
+                  <InfoRow label="Name" value={
+                    trackingData.order.userId?.name || 
+                    trackingData.order.userId?.fullName ||
+                    trackingData.order.user?.name ||
+                    trackingData.order.user?.fullName ||
+                    trackingData.order.addresses?.shipping?.fullName ||
+                    trackingData.order.addresses?.shipping?.name ||
+                    trackingData.order.addresses?.billing?.fullName ||
+                    trackingData.order.addresses?.billing?.name ||
+                    trackingData.order.address?.fullName || 
+                    trackingData.order.address?.name || 
+                    'N/A'
+                  } />
+                  <InfoRow label="Email" value={
+                    trackingData.order.userId?.email || 
+                    trackingData.order.user?.email ||
+                    trackingData.order.addresses?.shipping?.email ||
+                    trackingData.order.addresses?.billing?.email ||
+                    trackingData.order.address?.email || 
+                    'N/A'
+                  } />
+                  <InfoRow label="Phone" value={
+                    trackingData.order.userId?.phone || 
+                    trackingData.order.user?.phone ||
+                    trackingData.order.addresses?.shipping?.mobileNumber ||
+                    trackingData.order.addresses?.shipping?.phone ||
+                    trackingData.order.addresses?.billing?.mobileNumber ||
+                    trackingData.order.addresses?.billing?.phone ||
+                    trackingData.order.address?.mobileNumber || 
+                    trackingData.order.address?.phone || 
+                    'N/A'
+                  } />
                   <InfoRow label="Order Date" value={fmtDate(trackingData.order.createdAt)} />
                 </div>
               </div>

@@ -61,6 +61,7 @@ const OrderDetailsCard = ({ orderId }) => {
   const [logistics, setLogistics] = useState([]); // ✅ store logistics data
   const [logisticsLoading, setLogisticsLoading] = useState(false);
   const [showDesignModal, setShowDesignModal] = useState(false); // ✅ Design modal state
+  const [customerInfo, setCustomerInfo] = useState(null); // ✅ Store customer info
 
   const statusOptions = [
     "Pending",
@@ -139,6 +140,37 @@ const OrderDetailsCard = ({ orderId }) => {
       }
     })();
   }, [orderId]);
+
+  // ✅ Fetch customer info from userId if it's just an ID
+  useEffect(() => {
+    const fetchCustomerInfo = async () => {
+      if (!order?.userId) return;
+      
+      try {
+        // If userId is already an object, no need to fetch
+        if (typeof order.userId === 'object') {
+          setCustomerInfo(order.userId);
+          return;
+        }
+        
+        // If userId is a string, fetch the user details
+        if (typeof order.userId === 'string') {
+          const res = await fetch(
+            `https://duco-67o5.onrender.com/api/users/${order.userId}`
+          );
+          if (!res.ok) {
+            console.warn("Failed to fetch customer info");
+            return;
+          }
+          const userData = await res.json();
+          setCustomerInfo(userData?.data || userData);
+        }
+      } catch (err) {
+        console.error("❌ Failed to fetch customer info:", err);
+      }
+    };
+    fetchCustomerInfo();
+  }, [order?.userId]);
 
   // ✅ Fetch all products (for fallback images)
   useEffect(() => {
@@ -229,8 +261,27 @@ const OrderDetailsCard = ({ orderId }) => {
         <div>
           <h3 className="text-lg font-semibold mb-2">Customer Information</h3>
           <div className="space-y-1">
-            <p>{order.address?.fullName}</p>
-            <p className="text-blue-600">{order.address?.mobileNumber}</p>
+            <p>{
+              customerInfo?.name || 
+              customerInfo?.fullName ||
+              order.userId?.name ||
+              order.userId?.fullName ||
+              order.address?.fullName || 
+              'N/A'
+            }</p>
+            <p className="text-blue-600">{
+              customerInfo?.phone ||
+              customerInfo?.email ||
+              order.userId?.phone ||
+              order.address?.mobileNumber || 
+              'N/A'
+            }</p>
+            <p className="text-gray-600">{
+              customerInfo?.email ||
+              order.userId?.email ||
+              order.address?.email ||
+              'N/A'
+            }</p>
             <p className="text-gray-600">
               {order.address?.houseNumber}, {order.address?.street},{" "}
               {order.address?.city}, {order.address?.state} -{" "}

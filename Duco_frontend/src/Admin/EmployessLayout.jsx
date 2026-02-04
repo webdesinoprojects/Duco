@@ -102,7 +102,76 @@ const EmployessLayout = () => {
       </nav>
 
       {/* Page Content */}
-      <main className="p-6">
+      <main className="p-6 employee-dashboard-text">
+        <style>{`
+          .employee-dashboard-text,
+          .employee-dashboard-text * {
+            color: #f3f4f6;
+          }
+          .employee-dashboard-text .bg-white,
+          .employee-dashboard-text .bg-white * {
+            color: #111827;
+          }
+          .employee-dashboard-text .bg-gray-50,
+          .employee-dashboard-text .bg-gray-50 *,
+          .employee-dashboard-text .bg-gray-100,
+          .employee-dashboard-text .bg-gray-100 *,
+          .employee-dashboard-text .bg-slate-50,
+          .employee-dashboard-text .bg-slate-50 *,
+          .employee-dashboard-text .bg-slate-100,
+          .employee-dashboard-text .bg-slate-100 *,
+          .employee-dashboard-text .bg-blue-50,
+          .employee-dashboard-text .bg-blue-50 *,
+          .employee-dashboard-text .bg-blue-100,
+          .employee-dashboard-text .bg-blue-100 *,
+          .employee-dashboard-text .bg-gradient-to-br,
+          .employee-dashboard-text .bg-gradient-to-br *,
+          .employee-dashboard-text .from-white,
+          .employee-dashboard-text .from-white *,
+          .employee-dashboard-text .via-slate-50,
+          .employee-dashboard-text .via-slate-50 *,
+          .employee-dashboard-text .to-white,
+          .employee-dashboard-text .to-white * {
+            color: #111827;
+          }
+          .employee-dashboard-text input::placeholder,
+          .employee-dashboard-text textarea::placeholder {
+            color: #cbd5f5;
+            opacity: 1;
+          }
+          .employee-dashboard-text .bg-white input::placeholder,
+          .employee-dashboard-text .bg-white textarea::placeholder {
+            color: #6b7280;
+            opacity: 1;
+          }
+          .employee-dashboard-text .bg-gray-50 input::placeholder,
+          .employee-dashboard-text .bg-gray-50 textarea::placeholder,
+          .employee-dashboard-text .bg-gray-100 input::placeholder,
+          .employee-dashboard-text .bg-gray-100 textarea::placeholder,
+          .employee-dashboard-text .bg-slate-50 input::placeholder,
+          .employee-dashboard-text .bg-slate-50 textarea::placeholder,
+          .employee-dashboard-text .bg-slate-100 input::placeholder,
+          .employee-dashboard-text .bg-slate-100 textarea::placeholder,
+          .employee-dashboard-text .bg-gradient-to-br input::placeholder,
+          .employee-dashboard-text .bg-gradient-to-br textarea::placeholder,
+          .employee-dashboard-text .from-white input::placeholder,
+          .employee-dashboard-text .from-white textarea::placeholder,
+          .employee-dashboard-text .via-slate-50 input::placeholder,
+          .employee-dashboard-text .via-slate-50 textarea::placeholder,
+          .employee-dashboard-text .to-white input::placeholder,
+          .employee-dashboard-text .to-white textarea::placeholder {
+            color: #6b7280;
+            opacity: 1;
+          }
+          .employee-dashboard-text ::selection {
+            background: #facc15 !important;
+            color: #111827 !important;
+          }
+          .employee-dashboard-text ::-moz-selection {
+            background: #facc15 !important;
+            color: #111827 !important;
+          }
+        `}</style>
         <Outlet />
       </main>
     </div>

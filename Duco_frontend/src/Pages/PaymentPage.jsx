@@ -1175,9 +1175,11 @@ const PaymentPage = () => {
                   </div>
                 </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-2">Processing Your Order</h3>
-              <p className="text-gray-600 text-sm mb-2">Please wait while we confirm your payment...</p>
-              <p className="text-gray-500 text-xs animate-pulse">This may take a few moments</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "120ms" }}></span>
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "240ms" }}></span>
+              </div>
             </div>
           </div>
         )}
