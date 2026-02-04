@@ -28,10 +28,19 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-const razorpay = new Razorpay({
-  key_id: RAZORPAY_KEY_ID,
-  key_secret: RAZORPAY_KEY_SECRET,
-});
+// ✅ DEFENSIVE CHECK: Prevent initialization if keys are completely missing
+if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+  console.error('❌ FATAL: Cannot initialize Razorpay - missing credentials');
+  console.error('💡 Required: RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env');
+  // Continue with null to allow server to start, but payment endpoints will fail gracefully
+}
+
+const razorpay = RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET 
+  ? new Razorpay({
+      key_id: RAZORPAY_KEY_ID,
+      key_secret: RAZORPAY_KEY_SECRET,
+    })
+  : null;
 
 // Create Razorpay order with partial payment support
 const createRazorpayOrder = async (req, res) => {
@@ -39,6 +48,17 @@ const createRazorpayOrder = async (req, res) => {
   console.log('⏰ Request received at:', new Date().toISOString());
   console.log('🔑 Razorpay Mode:', isTestMode ? '🧪 TEST' : isLiveMode ? '💰 LIVE' : '❌ UNKNOWN');
   console.log('🌐 Environment:', process.env.NODE_ENV);
+
+  // ✅ DEFENSIVE CHECK: Fail fast if Razorpay is not initialized
+  if (!razorpay) {
+    console.error('❌ FATAL: Razorpay not initialized - missing credentials');
+    console.error('💡 Required: Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment');
+    console.groupEnd();
+    return res.status(500).json({
+      error: 'Payment gateway not configured',
+      details: 'Razorpay credentials are missing. Please contact administrator.',
+    });
+  }
 
   try {
     console.log('🔍 STEP 1: Validating request body...');

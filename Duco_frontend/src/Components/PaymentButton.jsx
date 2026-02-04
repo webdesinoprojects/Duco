@@ -57,11 +57,21 @@ const PaymentButton = ({ orderData }) => {
       return;
     }
 
-    // ✅ CRITICAL: Use Razorpay key from environment variable (NEVER hardcode keys)
-    const razorpayKey = import.meta.env.RAZORPAY_KEY_ID || import.meta.env.VITE_RAZORPAY_KEY_ID;
+    // ✅ CRITICAL FIX: Vite only exposes env vars with VITE_ prefix to client code
+    // Read from VITE_RAZORPAY_KEY_ID (NOT RAZORPAY_KEY_ID)
+    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    
+    // ✅ Defensive check: Log all available env vars for debugging (production-safe)
+    console.log('🔍 Environment check:', {
+      hasViteKey: !!import.meta.env.VITE_RAZORPAY_KEY_ID,
+      mode: import.meta.env.MODE,
+      // DO NOT log actual key value in production
+    });
     
     if (!razorpayKey) {
       console.error('❌ CRITICAL: Razorpay key not configured in environment');
+      console.error('💡 Fix: Set VITE_RAZORPAY_KEY_ID in .env file (Vite requires VITE_ prefix)');
+      console.error('📋 Current env vars available:', Object.keys(import.meta.env));
       alert("Payment gateway is not properly configured. Please contact support.");
       return;
     }
