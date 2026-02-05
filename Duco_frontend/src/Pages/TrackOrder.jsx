@@ -92,7 +92,8 @@ export default function TrackOrder() {
       setLoading(true);
       setErr("");
 
-      // Fetch enhanced tracking data
+      // ✅ PERFORMANCE FIX: Fetch tracking data without auto-syncing
+      // This prevents blocking the page load when sync fails
       const trackingRes = await getOrderTracking(orderId);
       setTrackingData(trackingRes);
       setTimeline(trackingRes.timeline || []);
@@ -113,8 +114,16 @@ export default function TrackOrder() {
 
   const handleSync = async () => {
     if (!orderId || syncing) return;
+    
+    // ✅ Check if order has Printrove ID before attempting sync
+    if (!trackingData?.order?.printroveOrderId) {
+      setErr("This order doesn't have a Printrove order ID yet. Sync is not available.");
+      return;
+    }
+    
     try {
       setSyncing(true);
+      setErr(""); // Clear any previous errors
       await syncOrderStatus(orderId);
       // Refresh data after sync
       await fetchData();
@@ -235,16 +244,19 @@ export default function TrackOrder() {
               </button>
             )}
 
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="inline-flex items-center gap-2 rounded-xl px-3 py-2 font-semibold transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50"
-              style={{ backgroundColor: "transparent", color: ACCENT, border: `1px solid ${ACCENT}` }}
-              title="Sync with Printrove"
-            >
-              <FaSync className={`text-sm ${syncing ? 'animate-spin' : ''}`} />
-              <span className="text-sm md:text-base">{syncing ? 'Syncing...' : 'Sync'}</span>
-            </button>
+            {/* Only show Sync button if order has Printrove ID */}
+            {trackingData?.order?.printroveOrderId && (
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 font-semibold transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50"
+                style={{ backgroundColor: "transparent", color: ACCENT, border: `1px solid ${ACCENT}` }}
+                title="Sync with Printrove"
+              >
+                <FaSync className={`text-sm ${syncing ? 'animate-spin' : ''}`} />
+                <span className="text-sm md:text-base">{syncing ? 'Syncing...' : 'Sync'}</span>
+              </button>
+            )}
 
             <button
               onClick={fetchData}
@@ -344,36 +356,28 @@ export default function TrackOrder() {
                 <h3 className="text-base font-semibold text-white mb-3">Customer Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InfoRow label="Name" value={
+                    trackingData.order.addresses?.shipping?.fullName ||
+                    trackingData.order.address?.fullName || 
+                    trackingData.order.addresses?.billing?.fullName ||
                     trackingData.order.userId?.name || 
                     trackingData.order.userId?.fullName ||
                     trackingData.order.user?.name ||
                     trackingData.order.user?.fullName ||
-                    trackingData.order.addresses?.shipping?.fullName ||
-                    trackingData.order.addresses?.shipping?.name ||
-                    trackingData.order.addresses?.billing?.fullName ||
-                    trackingData.order.addresses?.billing?.name ||
-                    trackingData.order.address?.fullName || 
-                    trackingData.order.address?.name || 
                     'N/A'
                   } />
                   <InfoRow label="Email" value={
+                    trackingData.order.addresses?.shipping?.email ||
+                    trackingData.order.address?.email || 
+                    trackingData.order.addresses?.billing?.email ||
                     trackingData.order.userId?.email || 
                     trackingData.order.user?.email ||
-                    trackingData.order.addresses?.shipping?.email ||
-                    trackingData.order.addresses?.billing?.email ||
-                    trackingData.order.address?.email || 
                     'N/A'
                   } />
                   <InfoRow label="Phone" value={
-                    trackingData.order.userId?.phone || 
-                    trackingData.order.user?.phone ||
                     trackingData.order.addresses?.shipping?.mobileNumber ||
-                    trackingData.order.addresses?.shipping?.phone ||
-                    trackingData.order.addresses?.billing?.mobileNumber ||
-                    trackingData.order.addresses?.billing?.phone ||
                     trackingData.order.address?.mobileNumber || 
-                    trackingData.order.address?.phone || 
-                    'N/A'
+                    trackingData.order.addresses?.billing?.mobileNumber ||
+                    'Phone not available'
                   } />
                   <InfoRow label="Order Date" value={fmtDate(trackingData.order.createdAt)} />
                 </div>
@@ -441,11 +445,21 @@ export default function TrackOrder() {
                 <h3 className="text-base font-semibold text-white mb-3">Shipping Address</h3>
                 <div className="bg-gray-800 rounded-lg p-4">
                   <p className="text-sm text-gray-200 leading-relaxed">
-                    {trackingData.order.address?.fullName || trackingData.order.address?.name}<br />
-                    {trackingData.order.address?.houseNumber} {trackingData.order.address?.street}<br />
-                    {trackingData.order.address?.landmark && `${trackingData.order.address.landmark}, `}
-                    {trackingData.order.address?.city}, {trackingData.order.address?.state}<br />
-                    {trackingData.order.address?.country} - {trackingData.order.address?.pincode}
+                    {(() => {
+                      // ✅ Support both new (addresses.shipping) and legacy (address) structures
+                      const addr = trackingData.order.addresses?.shipping || trackingData.order.address;
+                      if (!addr) return 'Address not available';
+                      
+                      return (
+                        <>
+                          {addr.fullName || addr.name}<br />
+                          {addr.houseNumber} {addr.street}<br />
+                          {addr.landmark && `${addr.landmark}, `}
+                          {addr.city}, {addr.state}<br />
+                          {addr.country} - {addr.pincode}
+                        </>
+                      );
+                    })()}
                   </p>
                 </div>
               </div>
@@ -737,6 +751,7 @@ export default function TrackOrder() {
           walletLoading={walletLoading}
           walletBalance={walletBalance}
           syncing={syncing}
+          hasPrintroveId={!!trackingData?.order?.printroveOrderId}
         />
       </div>
     </div>
@@ -761,6 +776,7 @@ function InfoRow({ label, value }) {
 }
 
 function ProductCard({ product }) {
+  // ✅ PERFORMANCE FIX: Use CDN URLs or designImages, avoid base64
   const getFirstImageByColor = (product) => {
     if (!product?.image_url || !product.color) return null;
     const match = product.image_url.find(
@@ -769,10 +785,12 @@ function ProductCard({ product }) {
     return match?.url?.[0] || product.image_url?.[0]?.url?.[0] || null;
   };
 
-  const productImage = getFirstImageByColor(product) ||
-    product.previewImages?.front ||
-    product.image_url?.[0]?.url?.[0] ||
-    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik0xMDAgNzBDOTQuNDc3MiA3MCA5MCA3NC40NzcyIDkwIDgwVjEyMEM5MCA5NC40NzcyIDk0LjQ3NzIgOTAgMTAwIDkwSDEwMEMxMDUuNTIzIDkwIDExMCA5NC40NzcyIDExMCAxMjBWODBDMTEwIDc0LjQ3NzIgMTA1LjUyMyA3MCAxMDAgNzBaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMTAiIGZpbGw9IiM5Q0E0QUYiLz4KPC9zdmc+';
+  // ✅ Priority: Use CDN URLs from designImages (stored by backend), not base64
+  const productImage = 
+    product.designImages?.front || // Cloudinary URL from order
+    getFirstImageByColor(product) || // Product catalog image
+    product.image_url?.[0]?.url?.[0] || // Fallback catalog image
+    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMzc0MTUxIi8+CjxwYXRoIGQ9Ik0xMDAgNzBDOTQuNDc3MiA3MCA5MCA3NC40NzcyIDkwIDgwVjEyMEM5MCA5NC40NzcyIDk0LjQ3NzIgOTAgMTAwIDkwSDEwMEMxMDUuNTIzIDkwIDExMCA5NC40NzcyIDExMCAxMjBWODBDMTEwIDc0LjQ3NzIgMTA1LjUyMyA3MCAxMDAgNzBaIiBmaWxsPSIjNkI3Mjg0Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMTAiIGZpbGw9IiM5Q0E0QUYiLz4KPC9zdmc+'; // Placeholder SVG
 
   return (
     <div className="bg-gray-800 rounded-lg p-4 flex flex-col sm:flex-row gap-4">
@@ -857,16 +875,17 @@ function ProductCard({ product }) {
                 </div>
               )}
 
-              {/* Design Images */}
-              {product.previewImages && (
+              {/* ✅ PERFORMANCE FIX: Use designImages from order (CDN URLs), not previewImages (base64) */}
+              {product.designImages && Object.keys(product.designImages).length > 0 && (
                 <div className="flex gap-2 mt-2">
-                  {Object.entries(product.previewImages).map(([side, imageUrl]) =>
-                    imageUrl ? (
+                  {Object.entries(product.designImages).map(([side, imageUrl]) =>
+                    imageUrl && !imageUrl.startsWith('data:image') ? (
                       <div key={side} className="text-center">
                         <img
                           src={imageUrl}
                           alt={`${side} design`}
                           className="w-12 h-12 object-contain bg-gray-700 rounded border"
+                          loading="lazy"
                           onError={(e) => e.target.style.display = 'none'}
                         />
                         <span className="text-xs text-gray-400 capitalize">{side}</span>
@@ -937,9 +956,14 @@ function TimelineIcon({ type, isCompleted }) {
   }
 }
 
-function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, walletLoading, walletBalance, syncing }) {
+function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, walletLoading, walletBalance, syncing, hasPrintroveId }) {
   const hasTrack = !!onTrack;
-  const gridCols = hasTrack ? "grid-cols-4" : "grid-cols-3";
+  const hasSync = !!hasPrintroveId; // Only show sync if Printrove ID exists
+  
+  // Calculate grid columns based on available actions
+  let gridCols = "grid-cols-3"; // Default: Refresh, Invoice, Wallet
+  if (hasTrack && hasSync) gridCols = "grid-cols-5";
+  else if (hasTrack || hasSync) gridCols = "grid-cols-4";
 
   return (
     <div
@@ -959,15 +983,17 @@ function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, wall
           Refresh
         </button>
 
-        <button
-          onClick={onSync}
-          disabled={syncing}
-          className="w-full rounded-xl px-2 py-3 text-xs font-semibold transition active:scale-[0.99] focus:outline-none focus:ring-2 disabled:opacity-50 inline-flex items-center justify-center gap-1"
-          style={{ backgroundColor: "transparent", color: ACCENT, border: `1px solid ${ACCENT}` }}
-        >
-          <FaSync className={`text-xs ${syncing ? 'animate-spin' : ''}`} />
-          <span>{syncing ? 'Sync...' : 'Sync'}</span>
-        </button>
+        {hasSync && (
+          <button
+            onClick={onSync}
+            disabled={syncing}
+            className="w-full rounded-xl px-2 py-3 text-xs font-semibold transition active:scale-[0.99] focus:outline-none focus:ring-2 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+            style={{ backgroundColor: "transparent", color: ACCENT, border: `1px solid ${ACCENT}` }}
+          >
+            <FaSync className={`text-xs ${syncing ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'Sync...' : 'Sync'}</span>
+          </button>
+        )}
 
         {hasTrack && (
           <button
@@ -988,22 +1014,20 @@ function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, wall
           Invoice
         </button>
 
-        {!hasTrack && (
-          <button
-            onClick={onWallet}
-            className="w-full rounded-xl px-2 py-3 text-xs font-semibold transition active:scale-[0.99] focus:outline-none focus:ring-2 inline-flex items-center justify-center gap-1"
-            style={{ backgroundColor: "transparent", color: ACCENT, border: `1px solid ${ACCENT}` }}
-          >
-            <FaWallet className="text-xs" />
-            <span className="truncate">
-              {walletLoading
-                ? "Wallet…"
-                : walletBalance === null
-                  ? "Wallet"
-                  : `₹${walletBalance.toLocaleString()}`}
-            </span>
-          </button>
-        )}
+        <button
+          onClick={onWallet}
+          className="w-full rounded-xl px-2 py-3 text-xs font-semibold transition active:scale-[0.99] focus:outline-none focus:ring-2 inline-flex items-center justify-center gap-1"
+          style={{ backgroundColor: "transparent", color: ACCENT, border: `1px solid ${ACCENT}` }}
+        >
+          <FaWallet className="text-xs" />
+          <span className="truncate">
+            {walletLoading
+              ? "Wallet…"
+              : walletBalance === null
+                ? "Wallet"
+                : `₹${walletBalance.toLocaleString()}`}
+          </span>
+        </button>
       </div>
     </div>
   );

@@ -177,30 +177,80 @@ exports.createOrder = async (req, res) => {
 // ---------------- GET ORDERS BY USER ----------------
 // ================================================================
 exports.getOrdersByUser = async (req, res) => {
+  const startTime = Date.now();
+  console.log(`[${new Date().toISOString()}] 📨 GET /api/order/user/:userId called`);
+  
   try {
     const userId = req.params.userId || req.user?._id;
+    console.log(`[${new Date().toISOString()}] 👤 User ID: ${userId}`);
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      console.error(`[${new Date().toISOString()}] ❌ Invalid userId`);
       return res.status(400).json({ error: 'Invalid or missing userId' });
     }
 
-    const sort = req.query.sort || '-createdAt';
-    const orders = await Order.find({ user: userId })
-      .populate('user', 'name email')
-      .sort(sort)
-      .lean();
+    // ✅ FAST: Fetch orders with product data for display
+    let orders = [];
+    const dbStart = Date.now();
+    
+    try {
+      // Include products field with essential display fields
+      orders = await Order.find({ user: userId })
+        .select('_id status createdAt updatedAt totalPay price paymentmode products items printroveOrderId')
+        .populate('products', 'products_name name image_url image previewImages design price')
+        .limit(100)
+        .sort({ createdAt: -1 })
+        .lean()
+        .exec();
+      
+      const dbTime = Date.now() - dbStart;
+      console.log(`[${new Date().toISOString()}] ✅ DB query took ${dbTime}ms, found ${orders.length} orders`);
+      
+      // ✅ FILTER OUT INVALID ORDERS: Remove orders with empty/invalid products
+      // This prevents frontend crashes from legacy/broken orders
+      const beforeFilter = orders.length;
+      orders = orders.filter(order => {
+        const products = order.products || [];
+        // Keep order only if it has at least one valid product object
+        const hasValidProduct = Array.isArray(products) && 
+          products.length > 0 && 
+          products[0] && 
+          typeof products[0] === 'object' && 
+          Object.keys(products[0]).length > 0;
+        
+        if (!hasValidProduct) {
+          console.warn(`⚠️ Filtering out order ${order._id} - invalid products array`);
+        }
+        
+        return hasValidProduct;
+      });
+      
+      if (beforeFilter !== orders.length) {
+        console.log(`[${new Date().toISOString()}] ✅ Filtered ${beforeFilter - orders.length} invalid orders, ${orders.length} valid remaining`);
+      }
+    } catch (dbErr) {
+      const dbTime = Date.now() - dbStart;
+      console.error(`[${new Date().toISOString()}] ❌ DB error after ${dbTime}ms:`, dbErr.message);
+      orders = [];
+    }
 
-    const enrichedOrders = await Promise.all(
-      orders.map(async (o) => ({
-        ...o,
-        items: await enrichOrderProducts(o.products || []),
-      }))
-    );
-
-    return res.json(enrichedOrders);
+    // ✅ ALWAYS respond immediately
+    const totalTime = Date.now() - startTime;
+    console.log(`[${new Date().toISOString()}] 📤 Responding with ${orders.length} orders (${totalTime}ms total)`);
+    
+    res.status(200).json({
+      data: orders || [],
+      success: true,
+      _debug: { totalMs: totalTime, count: orders.length }
+    });
   } catch (err) {
-    console.error('getOrdersByUser error:', err);
-    return res.status(500).json({ error: 'Failed to fetch orders' });
+    const totalTime = Date.now() - startTime;
+    console.error(`[${new Date().toISOString()}] ❌ Outer error after ${totalTime}ms:`, err.message);
+    res.status(200).json({
+      data: [],
+      success: false,
+      error: err.message
+    });
   }
 };
 
@@ -253,11 +303,34 @@ exports.getAllOrders = async (req, res) => {
         .maxTimeMS(10000); // 10 second timeout
 
       console.log(`✅ Found ${orders.length} orders (sorted by newest first)`);
+      
+      // ✅ FILTER OUT INVALID ORDERS: Remove orders with empty/invalid products
+      // This prevents admin panels from showing broken legacy orders
+      const beforeFilter = orders.length;
+      const validOrders = orders.filter(order => {
+        const products = order.products || [];
+        // Keep order only if it has at least one valid product object
+        const hasValidProduct = Array.isArray(products) && 
+          products.length > 0 && 
+          products[0] && 
+          typeof products[0] === 'object' && 
+          Object.keys(products[0]).length > 0;
+        
+        if (!hasValidProduct) {
+          console.warn(`⚠️ Admin filter: Excluding order ${order._id || order.orderId} - invalid products array`);
+        }
+        
+        return hasValidProduct;
+      });
+      
+      if (beforeFilter !== validOrders.length) {
+        console.log(`✅ Filtered ${beforeFilter - validOrders.length} invalid orders, ${validOrders.length} valid remaining`);
+      }
 
       // Return raw orders without enrichment for speed
       res.json({
         success: true,
-        orders: orders,
+        orders: validOrders,
         pagination: {
           currentPage: page,
           totalPages: Math.ceil(totalOrders / limit),

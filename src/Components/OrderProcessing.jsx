@@ -114,8 +114,45 @@ const OrderProcessing = () => {
   }, [navigate, paymentId, orderData, paymentmode]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] text-white text-xl font-semibold">
-      Processing your order, please wait...
+    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] px-4">
+      <style>{`
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        
+        .loading-spinner {
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          border: 3px solid rgba(229, 200, 112, 0.3);
+          border-radius: 50%;
+          border-top: 3px solid #E5C870;
+          animation: spin 1s linear infinite;
+        }
+      `}</style>
+      
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md text-center">
+        <h1 className="text-2xl font-semibold text-[#0A0A0A] mb-8">
+          Processing Your Order
+        </h1>
+        
+        <button
+          disabled
+          className="w-full py-3 px-4 bg-[#E5C870] text-black rounded-lg font-semibold flex items-center justify-center gap-3 cursor-not-allowed opacity-90"
+        >
+          <div className="loading-spinner"></div>
+          <span>Order is processing...</span>
+        </button>
+        
+        <p className="mt-6 text-sm text-gray-600">
+          Please don't close this window while we process your order.
+        </p>
+      </div>
     </div>
   );
 };

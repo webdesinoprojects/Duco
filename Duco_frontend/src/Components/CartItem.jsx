@@ -85,9 +85,16 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
         const p = Array.isArray(data) ? data[0] : data;
         setProductData(p);
         console.log(`✅ Product data loaded for ${item.id}:`, {
+          productName: p?.products_name,
           hasImageUrl: !!p?.image_url,
           imageUrlLength: p?.image_url?.length,
-          colors: p?.image_url?.map(c => ({ color: c.color, colorcode: c.colorcode, hasContent: !!c.content }))
+          colors: p?.image_url?.map(c => ({ 
+            color: c.color, 
+            colorcode: c.colorcode, 
+            hasContent: !!c.content,
+            contentLength: c.content?.length,
+            stockData: c.content?.map(s => ({ size: s.size, stock: s.minstock }))
+          }))
         });
       } catch (err) {
         console.error(`❌ Failed to fetch product stock for ${item.id}:`, err.message);
@@ -113,10 +120,10 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
       return 9999;
     }
     
+    // ✅ CRITICAL FIX: While loading, return null to disable increment
     if (!productData) {
-      console.warn(`⚠️ CartItem: productData not loaded yet for ${item.products_name || item.name}`);
-      // ✅ Return reasonable default (100) for regular items while loading
-      return 100;
+      console.warn(`⚠️ CartItem: productData not loaded yet for ${item.products_name || item.name} - BLOCKING increment`);
+      return null; // Return null to disable + button while loading
     }
 
     if (!item.color) {
@@ -401,6 +408,12 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                               
                               console.log(`➕ + button clicked for ${size}: current=${count}, limit=${stockLimit}, willBe=${newQty}`);
                               
+                              // ✅ CRITICAL FIX: Block if stock data not loaded yet
+                              if (stockLimit === null) {
+                                toast.error('Loading stock data, please wait...');
+                                return;
+                              }
+                              
                               // Block increment if stock limit is 0 or exceeded
                               if (typeof stockLimit === "number" && newQty > stockLimit) {
                                 if (stockLimit === 0) {
@@ -420,6 +433,11 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
                             title="Increase quantity"
                             disabled={(() => {
                               const stockLimit = getSizeStockLimit(size);
+                              // ✅ CRITICAL FIX: Disable if stock data not loaded OR if at/over limit
+                              if (stockLimit === null) {
+                                console.log(`🚫 + button DISABLED for ${size}: stock data loading`);
+                                return true;
+                              }
                               const isDisabled = typeof stockLimit === "number" && count >= stockLimit;
                               if (isDisabled) {
                                 console.log(`🚫 + button DISABLED for ${size}: count=${count}, limit=${stockLimit}`);

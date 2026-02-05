@@ -1651,6 +1651,81 @@ const Cart = () => {
                   return;
                 }
 
+                // ✅ CRITICAL: Validate stock availability before checkout
+                try {
+                  console.log('🔍 Validating stock for all items before checkout...');
+                  
+                  for (const item of actualData) {
+                    // Skip B2B/Corporate items (no stock constraints)
+                    if (item.isCorporate === true) {
+                      console.log(`🏢 Skipping stock check for B2B item: ${item.products_name || item.name}`);
+                      continue;
+                    }
+                    
+                    // Fetch fresh product data to check stock
+                    const productData = await getproducts();
+                    const product = productData.find(p => p._id === item.id);
+                    
+                    if (!product || !product.image_url) {
+                      console.warn(`⚠️ Product data not found for: ${item.products_name || item.name}`);
+                      continue;
+                    }
+                    
+                    // Find color group
+                    const itemColorNorm = String(item.color || "").toLowerCase().trim();
+                    const colorGroup = product.image_url.find((c) => {
+                      const colorCodeNorm = String(c.colorcode || "").toLowerCase().trim();
+                      const colorNameNorm = String(c.color || "").toLowerCase().trim();
+                      return colorCodeNorm === itemColorNorm || colorNameNorm === itemColorNorm;
+                    });
+                    
+                    if (!colorGroup || !colorGroup.content) {
+                      console.warn(`⚠️ Color group not found for: ${item.products_name || item.name}, color: ${item.color}`);
+                      continue;
+                    }
+                    
+                    // Check stock for each size in cart
+                    for (const [size, qty] of Object.entries(item.quantity || {})) {
+                      const requestedQty = Number(qty);
+                      if (requestedQty <= 0) continue;
+                      
+                      // Normalize size for matching
+                      const normalizeSize = (value) => {
+                        const raw = String(value || "").trim().toUpperCase();
+                        const cleaned = raw.replace(/\s+/g, "").replace(/-/g, "");
+                        if (["XXL", "2XL", "2X"].includes(cleaned)) return "2XL";
+                        if (["XXXL", "3XL", "3X"].includes(cleaned)) return "3XL";
+                        return cleaned;
+                      };
+                      
+                      const target = normalizeSize(size);
+                      const sizeData = colorGroup.content.find(c => normalizeSize(c.size) === target);
+                      
+                      if (!sizeData) {
+                        console.warn(`⚠️ Size data not found for: ${item.products_name || item.name}, size: ${size}`);
+                        continue;
+                      }
+                      
+                      const availableStock = Number(sizeData.minstock) || 0;
+                      
+                      console.log(`📦 Stock check: ${item.products_name || item.name} - Size: ${size}, Requested: ${requestedQty}, Available: ${availableStock}`);
+                      
+                      if (requestedQty > availableStock) {
+                        toast.error(`❌ Insufficient stock for "${item.products_name || item.name}" - Size ${size}. Available: ${availableStock}, Requested: ${requestedQty}. Please reduce quantity or remove from cart.`, {
+                          autoClose: 8000,
+                        });
+                        return; // Block checkout
+                      }
+                    }
+                  }
+                  
+                  console.log('✅ All items have sufficient stock');
+                } catch (error) {
+                  console.error('❌ Error validating stock:', error);
+                  toast.error('Unable to validate stock availability. Please try again.');
+                  return;
+                }
+
                 // ✅ Check minimum quantity for bulk orders
                 try {
                   console.log('🔍 Minimum order quantity from settings:', minOrderQty);

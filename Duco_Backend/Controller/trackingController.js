@@ -116,53 +116,80 @@ const getPrintroveOrderStatus = async (req, res) => {
 
 // Get orders by user with tracking info
 const getUserOrdersWithTracking = async (req, res) => {
+  const startTime = Date.now();
+  console.log(`[${new Date().toISOString()}] 📨 GET /api/user/:userId/orders called`);
+  
   try {
     const { userId } = req.params;
+    console.log(`[${new Date().toISOString()}] 👤 User ID: ${userId}`);
     
     if (!userId) {
+      console.error(`[${new Date().toISOString()}] ❌ No userId in params`);
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    const orders = await Order.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .populate('user', 'name email phone')
-      .lean();
+    // ✅ FAST: Fetch orders with essential product data for display
+    let orders = [];
+    const dbStart = Date.now();
+    
+    try {
+      // Include products field so OrderCart can display real product data
+      orders = await Order.find({ user: userId })
+        .select('_id status createdAt updatedAt totalPay price paymentmode products items printroveOrderId')
+        .populate('products', 'products_name name image_url image previewImages design price')
+        .limit(100)
+        .sort({ createdAt: -1 })
+        .lean()
+        .exec();
+      
+      const dbTime = Date.now() - dbStart;
+      console.log(`[${new Date().toISOString()}] ✅ DB query took ${dbTime}ms, found ${orders.length} orders`);
+      
+      // ✅ FILTER OUT INVALID ORDERS: Remove orders with empty/invalid products
+      // This prevents frontend crashes from legacy/broken orders
+      const beforeFilter = orders.length;
+      orders = orders.filter(order => {
+        const products = order.products || [];
+        // Keep order only if it has at least one valid product object
+        const hasValidProduct = Array.isArray(products) && 
+          products.length > 0 && 
+          products[0] && 
+          typeof products[0] === 'object' && 
+          Object.keys(products[0]).length > 0;
+        
+        if (!hasValidProduct) {
+          console.warn(`⚠️ Filtering out order ${order._id} - invalid products array`);
+        }
+        
+        return hasValidProduct;
+      });
+      
+      if (beforeFilter !== orders.length) {
+        console.log(`[${new Date().toISOString()}] ✅ Filtered ${beforeFilter - orders.length} invalid orders, ${orders.length} valid remaining`);
+      }
+    } catch (dbErr) {
+      const dbTime = Date.now() - dbStart;
+      console.error(`[${new Date().toISOString()}] ❌ DB error after ${dbTime}ms:`, dbErr.message);
+      orders = [];
+    }
 
-    // Add tracking status for each order
-    const ordersWithTracking = orders.map(order => ({
-      ...order,
-      canTrack: !!order.printroveTrackingUrl || !!order.printroveOrderId,
-      trackingUrl: order.printroveTrackingUrl,
-      hasLogistics: false // Will be updated if logistics exist
-    }));
-
-    // Check which orders have logistics entries
-    const orderIds = orders.map(o => o._id);
-    const logisticsCounts = await Logistic.aggregate([
-      { $match: { orderId: { $in: orderIds } } },
-      { $group: { _id: '$orderId', count: { $sum: 1 } } }
-    ]);
-
-    // Update hasLogistics flag
-    const logisticsMap = {};
-    logisticsCounts.forEach(item => {
-      logisticsMap[item._id.toString()] = item.count > 0;
-    });
-
-    ordersWithTracking.forEach(order => {
-      order.hasLogistics = logisticsMap[order._id.toString()] || false;
-    });
-
-    res.json({
+    // ✅ ALWAYS respond immediately with no further delays
+    const totalTime = Date.now() - startTime;
+    console.log(`[${new Date().toISOString()}] 📤 Responding with ${orders.length} orders (${totalTime}ms total)`);
+    
+    res.status(200).json({
       success: true,
-      orders: ordersWithTracking
+      orders: orders || [],
+      _debug: { totalMs: totalTime, count: orders.length }
     });
 
   } catch (error) {
-    console.error('Error getting user orders with tracking:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to get user orders' 
+    const totalTime = Date.now() - startTime;
+    console.error(`[${new Date().toISOString()}] ❌ Outer error after ${totalTime}ms:`, error.message);
+    res.status(200).json({
+      success: false,
+      orders: [],
+      error: error.message
     });
   }
 };

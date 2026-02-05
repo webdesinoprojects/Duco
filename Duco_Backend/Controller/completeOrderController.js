@@ -43,6 +43,199 @@ function sumQuantity(obj) {
   return Object.values(obj || {}).reduce((acc, q) => acc + safeNum(q, 0), 0);
 }
 
+// ✅ Helper: Check if value is base64 image data
+function isBase64Image(value) {
+  if (typeof value !== 'string') return false;
+  
+  // ✅ Check for data URL format (data:image/...)
+  if (value.startsWith('data:image/')) return true;
+  
+  // ✅ Check for explicit base64 encoding
+  if (value.includes('base64,')) return true;
+  
+  // ✅ Check for base64 pattern: Long string with specific base64 characteristics
+  // Base64 uses A-Z, a-z, 0-9, +, /, = characters
+  // For images, usually > 1000 chars and contains = padding at end
+  if (value.length > 1000 && 
+      !value.startsWith('http') && 
+      !value.startsWith('/') &&
+      !value.startsWith('.') &&
+      /^[A-Za-z0-9+/]*={0,2}$/.test(value)) {
+    return true;
+  }
+  
+  return false;
+}
+
+// ✅ Helper: Recursively remove base64 from any object/array
+function stripBase64Deep(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripBase64Deep(item))
+      .filter((item) => item !== undefined);
+  }
+
+  if (value && typeof value === 'object') {
+    const cleaned = {};
+    Object.entries(value).forEach(([key, val]) => {
+      // Skip base64 fields entirely
+      if (isBase64Image(val)) {
+        return;
+      }
+      const next = stripBase64Deep(val);
+      if (next !== undefined) {
+        cleaned[key] = next;
+      }
+    });
+    return cleaned;
+  }
+
+  // Remove base64 strings
+  if (isBase64Image(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+// ✅ Clean items array: Remove ALL base64 data from products
+function cleanItemsForDatabase(items) {
+  if (!Array.isArray(items)) return [];
+  
+  console.log('🧹 Cleaning items array - removing base64 data...');
+  
+  const cleaned = items.map((item, index) => {
+    const cleanedItem = stripBase64Deep(item);
+    
+    // Log what was cleaned
+    const originalSize = JSON.stringify(item).length;
+    const cleanedSize = JSON.stringify(cleanedItem).length;
+    const savedBytes = originalSize - cleanedSize;
+    
+    if (savedBytes > 1000) {
+      console.log(`  ✅ Item ${index}: Removed ${(savedBytes / 1024).toFixed(1)} KB of base64 data`);
+    }
+    
+    return cleanedItem;
+  });
+  
+  console.log('✅ Items cleaned successfully');
+  return cleaned;
+}
+
+// ✅ MANDATORY: Remove ALL base64 data from order after Cloudinary upload
+async function removeBase64FromOrder(orderId) {
+  try {
+    console.log(`🧹 Removing base64 images from order ${orderId} (post-upload cleanup)`);
+    
+    const order = await Order.findById(orderId);
+    if (!order) {
+      console.warn(`⚠️ Order ${orderId} not found for base64 cleanup`);
+      return;
+    }
+
+    // ✅ Clean the products/items array
+    if (order.products && Array.isArray(order.products)) {
+      const originalSize = JSON.stringify(order.products).length;
+      order.products = order.products.map(product => stripBase64Deep(product));
+      const newSize = JSON.stringify(order.products).length;
+      const removedBytes = originalSize - newSize;
+      
+      if (removedBytes > 0) {
+        console.log(`  ✅ Removed ${(removedBytes / 1024).toFixed(1)} KB of base64 from products`);
+      }
+    }
+
+    // ✅ Clean the items array (if present - for backward compatibility)
+    if (order.items && Array.isArray(order.items)) {
+      const originalSize = JSON.stringify(order.items).length;
+      order.items = order.items.map(item => stripBase64Deep(item));
+      const newSize = JSON.stringify(order.items).length;
+      const removedBytes = originalSize - newSize;
+      
+      if (removedBytes > 0) {
+        console.log(`  ✅ Removed ${(removedBytes / 1024).toFixed(1)} KB of base64 from items`);
+      }
+    }
+
+    await order.save();
+    console.log(`✅ Base64 data removed from order ${orderId}`);
+  } catch (error) {
+    console.error(`❌ Error removing base64 from order ${orderId}:`, error.message);
+  }
+}
+
+// ✅ STRICT VALIDATION: Ensure no empty products objects
+function validateProductsArray(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { valid: false, error: 'Order must contain at least one product' };
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const product = items[i];
+    
+    // ❌ HARD GUARD: Detect empty objects
+    if (!product || typeof product !== 'object' || Object.keys(product).length === 0) {
+      return { 
+        valid: false, 
+        error: `Product at index ${i} is empty or invalid` 
+      };
+    }
+
+    // ❌ REQUIRED: Product ID
+    const productId = product.product || product.productId || product._id || product.id;
+    if (!productId) {
+      return { 
+        valid: false, 
+        error: `Product at index ${i} missing product ID` 
+      };
+    }
+
+    // ❌ REQUIRED: Product name
+    const productName = product.products_name || product.name;
+    if (!productName || typeof productName !== 'string') {
+      return { 
+        valid: false, 
+        error: `Product at index ${i} missing product name` 
+      };
+    }
+
+    // ❌ REQUIRED: Quantity
+    const hasQuantity = product.quantity && 
+      (typeof product.quantity === 'number' || 
+       (typeof product.quantity === 'object' && Object.keys(product.quantity).length > 0));
+    
+    if (!hasQuantity) {
+      return { 
+        valid: false, 
+        error: `Product at index ${i} missing valid quantity` 
+      };
+    }
+
+    // ❌ REQUIRED: Price
+    const price = safeNum(product.price, -1);
+    if (price < 0) {
+      return { 
+        valid: false, 
+        error: `Product at index ${i} missing valid price` 
+      };
+    }
+
+    // ❌ OPTIONAL BUT RECOMMENDED: Image source
+    const hasImage = 
+      product.previewImages?.front ||
+      product.design?.frontView ||
+      product.image_url?.[0]?.url?.[0] ||
+      product.image;
+
+    if (!hasImage) {
+      console.warn(`⚠️ Product at index ${i} has no image source (will use placeholder)`);
+    }
+  }
+
+  return { valid: true };
+}
+
 // ✅ Helper to detect currency from country
 function getCurrencyFromCountry(country) {
   if (!country) return 'INR';
@@ -743,8 +936,22 @@ const completeOrder = async (req, res) => {
     const items = Array.isArray(orderData.items) ? orderData.items : [];
     const totalPay = safeNum(orderData.totalPay, 0);
     
+    // ✅ CRITICAL: Validate products array BEFORE creating order
+    const productValidation = validateProductsArray(items);
+    if (!productValidation.valid) {
+      console.error('❌ Product validation failed:', productValidation.error);
+      return res.status(400).json({ 
+        success: false, 
+        message: productValidation.error 
+      });
+    }
+    
+    // ✅ CRITICAL: Clean items array - Remove ALL base64 data before saving to DB
+    // Note: Design images will be uploaded to Cloudinary in background
+    const cleanedItems = cleanItemsForDatabase(items);
+    
     // ✅ Validate stock before creating order
-    const outOfStockItems = await validateStock(items);
+    const outOfStockItems = await validateStock(cleanedItems);
     if (outOfStockItems.length > 0) {
       console.error('❌ Stock validation failed:', outOfStockItems);
       return res.status(400).json({
@@ -930,7 +1137,7 @@ const completeOrder = async (req, res) => {
         const deliveryExpectedDate = await getEstimatedDeliveryDate();
         
         const orderPayload = {
-          products: items,
+          products: cleanedItems,
           price: totalPay, // INR price (for Razorpay)
           totalPay: totalPay,
           user,
@@ -966,7 +1173,7 @@ const completeOrder = async (req, res) => {
           console.warn('⚠️ Duplicate orderId detected, retrying...');
           const deliveryExpectedDate = await getEstimatedDeliveryDate();
           order = await Order.create({
-            products: items,
+            products: cleanedItems,
             price: totalPay,
             totalPay: totalPay,
             ...(addresses ? { addresses } : { address: legacyAddress }),
@@ -1018,23 +1225,27 @@ const completeOrder = async (req, res) => {
         console.error('Stock reduction failed (store pickup):', e);
       }
 
-      // ✅ Upload design images to Cloudinary
-      try {
-        const designImages = await extractAndUploadDesignImages(items, order._id.toString());
-        if (Object.keys(designImages).length > 0) {
-          order.designImages = designImages;
-          await order.save();
-          console.log('✅ Design images uploaded and saved to order');
-        }
-      } catch (e) {
-        console.error('Design image upload failed (store pickup):', e);
-      }
-
       // ✅ Clean up processing cache on success
       if (paymentId && paymentId !== 'manual_payment') {
         const cacheKey = `${paymentId}_${paymentmode}`;
         processingCache.delete(cacheKey);
       }
+
+      // ✅ ASYNC background task: Upload design images AFTER response sent
+      setImmediate(async () => {
+        try {
+          const designImages = await extractAndUploadDesignImages(items, order._id.toString());
+          if (Object.keys(designImages).length > 0) {
+            await Order.findByIdAndUpdate(order._id, { designImages });
+            console.log('✅ Design images uploaded and saved to order (async - store pickup)');
+            
+            // ✅ MANDATORY: Remove base64 from order after upload
+            await removeBase64FromOrder(order._id.toString());
+          }
+        } catch (e) {
+          console.error('Design image upload failed async (store pickup):', e);
+        }
+      });
 
       return res.status(200).json({ success: true, order });
     }
@@ -1047,7 +1258,7 @@ const completeOrder = async (req, res) => {
       const deliveryExpectedDate = await getEstimatedDeliveryDate();
       
       order = await Order.create({
-        products: items,
+        products: cleanedItems,
         price: totalPay,
         totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
         ...(addresses ? { addresses } : { address: legacyAddress }),
@@ -1093,23 +1304,27 @@ const completeOrder = async (req, res) => {
         console.error('Stock reduction failed (netbanking):', e);
       }
 
-      // ✅ Upload design images to Cloudinary
-      try {
-        const designImages = await extractAndUploadDesignImages(items, order._id.toString());
-        if (Object.keys(designImages).length > 0) {
-          order.designImages = designImages;
-          await order.save();
-          console.log('✅ Design images uploaded and saved to order');
-        }
-      } catch (e) {
-        console.error('Design image upload failed (netbanking):', e);
-      }
-
       // ✅ Clean up processing cache on success
       if (paymentId && paymentId !== 'manual_payment') {
         const cacheKey = `${paymentId}_${paymentmode}`;
         processingCache.delete(cacheKey);
       }
+
+      // ✅ ASYNC background task: Upload design images AFTER response sent
+      setImmediate(async () => {
+        try {
+          const designImages = await extractAndUploadDesignImages(items, order._id.toString());
+          if (Object.keys(designImages).length > 0) {
+            await Order.findByIdAndUpdate(order._id, { designImages });
+            console.log('✅ Design images uploaded and saved to order (async - netbanking)');
+            
+            // ✅ MANDATORY: Remove base64 from order after upload
+            await removeBase64FromOrder(order._id.toString());
+          }
+        } catch (e) {
+          console.error('Design image upload failed async (netbanking):', e);
+        }
+      });
 
       return res.status(200).json({ success: true, order });
     }
@@ -1126,7 +1341,7 @@ const completeOrder = async (req, res) => {
         const deliveryExpectedDate = await getEstimatedDeliveryDate();
         
         order = await Order.create({
-          products: items,
+          products: cleanedItems,
           price: totalPay,
           totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
           ...(addresses ? { addresses } : { address: legacyAddress }),
@@ -1155,7 +1370,7 @@ const completeOrder = async (req, res) => {
           console.warn('⚠️ Duplicate orderId detected, retrying...');
           const deliveryExpectedDate = await getEstimatedDeliveryDate();
           order = await Order.create({
-            products: items,
+            products: cleanedItems,
             price: totalPay,
             totalPay: totalPay,
             ...(addresses ? { addresses } : { address: legacyAddress }),
@@ -1201,23 +1416,27 @@ const completeOrder = async (req, res) => {
         console.error('Stock reduction failed (razorpay):', e);
       }
 
-      // ✅ Upload design images to Cloudinary
-      try {
-        const designImages = await extractAndUploadDesignImages(items, order._id.toString());
-        if (Object.keys(designImages).length > 0) {
-          order.designImages = designImages;
-          await order.save();
-          console.log('✅ Design images uploaded and saved to order');
-        }
-      } catch (e) {
-        console.error('Design image upload failed (razorpay):', e);
-      }
-
       // ✅ Clean up processing cache on success
       if (paymentId && paymentId !== 'manual_payment') {
         const cacheKey = `${paymentId}_${paymentmode}`;
         processingCache.delete(cacheKey);
       }
+
+      // ✅ ASYNC background task: Upload design images AFTER response sent
+      setImmediate(async () => {
+        try {
+          const designImages = await extractAndUploadDesignImages(items, order._id.toString());
+          if (Object.keys(designImages).length > 0) {
+            await Order.findByIdAndUpdate(order._id, { designImages });
+            console.log('✅ Design images uploaded and saved to order (async - razorpay)');
+            
+            // ✅ MANDATORY: Remove base64 from order after upload
+            await removeBase64FromOrder(order._id.toString());
+          }
+        } catch (e) {
+          console.error('Design image upload failed async (razorpay):', e);
+        }
+      });
 
       return res.status(200).json({ success: true, order });
     }
@@ -1234,7 +1453,7 @@ const completeOrder = async (req, res) => {
         const deliveryExpectedDate = await getEstimatedDeliveryDate();
         
         order = await Order.create({
-          products: items,
+          products: cleanedItems,
           price: totalPay,
           totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
           ...(addresses ? { addresses } : { address: legacyAddress }),
@@ -1263,7 +1482,7 @@ const completeOrder = async (req, res) => {
           console.warn('⚠️ Duplicate orderId detected, retrying...');
           const deliveryExpectedDate = await getEstimatedDeliveryDate();
           order = await Order.create({
-            products: items,
+            products: cleanedItems,
             price: totalPay,
             totalPay: totalPay,
             ...(addresses ? { addresses } : { address: legacyAddress }),
@@ -1314,23 +1533,27 @@ const completeOrder = async (req, res) => {
         console.error('Stock reduction failed (50%):', e);
       }
 
-      // ✅ Upload design images to Cloudinary
-      try {
-        const designImages = await extractAndUploadDesignImages(items, order._id.toString());
-        if (Object.keys(designImages).length > 0) {
-          order.designImages = designImages;
-          await order.save();
-          console.log('✅ Design images uploaded and saved to order');
-        }
-      } catch (e) {
-        console.error('Design image upload failed (50%):', e);
-      }
-
       // ✅ Clean up processing cache on success
       if (paymentId && paymentId !== 'manual_payment') {
         const cacheKey = `${paymentId}_${paymentmode}`;
         processingCache.delete(cacheKey);
       }
+
+      // ✅ ASYNC background task: Upload design images AFTER response sent
+      setImmediate(async () => {
+        try {
+          const designImages = await extractAndUploadDesignImages(items, order._id.toString());
+          if (Object.keys(designImages).length > 0) {
+            await Order.findByIdAndUpdate(order._id, { designImages });
+            console.log('✅ Design images uploaded and saved to order (async - 50%)');
+            
+            // ✅ MANDATORY: Remove base64 from order after upload
+            await removeBase64FromOrder(order._id.toString());
+          }
+        } catch (e) {
+          console.error('Design image upload failed async (50%):', e);
+        }
+      });
 
       return res.status(200).json({ success: true, order });
     }
@@ -1396,9 +1619,25 @@ const getOrderById = async (req, res) => {
 const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 }).lean();
+    
+    // ✅ FILTER OUT INVALID ORDERS: Remove orders with empty/invalid products
+    const validOrders = orders.filter(order => {
+      const products = order.products || [];
+      const hasValidProduct = Array.isArray(products) && 
+        products.length > 0 && 
+        products[0] && 
+        typeof products[0] === 'object' && 
+        Object.keys(products[0]).length > 0;
+      
+      if (!hasValidProduct) {
+        console.warn(`⚠️ getAllOrders filter: Excluding order ${order._id} - invalid products`);
+      }
+      
+      return hasValidProduct;
+    });
 
     const enrichedOrders = await Promise.all(
-      orders.map(async (o) => {
+      validOrders.map(async (o) => {
         const enrichedProducts = await Promise.all(
           (o.products || []).map(async (p) => {
             const product = { ...p };

@@ -19,7 +19,21 @@ const DesignSchema = new Schema(
         default:null
     },
     design: {
-      type: [Schema.Types.Mixed], // can hold array of objects
+      type: [Schema.Types.Mixed], // design metadata only (no raw image data)
+      default: []
+    },
+    // ✅ Store Cloudinary preview image metadata only
+    previewImages: {
+      type: [
+        {
+          view: {
+            type: String,
+            enum: ['front', 'back', 'left', 'right']
+          },
+          url: { type: String },
+          publicId: { type: String }
+        }
+      ],
       default: []
     },
     // ✅ Store additional files metadata only

@@ -504,11 +504,14 @@ const PaymentPage = () => {
         localStorage.setItem("lastOrderMeta", JSON.stringify(paymentMeta));
       }
 
+      const pendingUploads = [];
       if (orderId && normalizedPayload.items && Array.isArray(normalizedPayload.items)) {
         for (const item of normalizedPayload.items) {
           if (item.previewImages && Object.keys(item.previewImages).length > 0) {
-            console.log("🖼 Uploading design images for item:", item.name);
-            await uploadDesignImagesForOrder(orderId, item.previewImages);
+            pendingUploads.push({
+              name: item.name,
+              previewImages: item.previewImages
+            });
           }
         }
       }
@@ -516,6 +519,23 @@ const PaymentPage = () => {
       toast.success(successMsg);
 
       if (orderId) {
+        if (pendingUploads.length > 0) {
+          setTimeout(() => {
+            pendingUploads.forEach((item) => {
+              console.log("🖼 Uploading design images for item:", item.name);
+              uploadDesignImagesForOrder(orderId, item.previewImages)
+                .then(() => {
+                  console.log("✅ Design images uploaded successfully");
+                })
+                .catch((uploadError) => {
+                  console.warn(
+                    "⚠️ Design image upload failed:",
+                    uploadError?.message || uploadError
+                  );
+                });
+            });
+          }, 0);
+        }
         navigate(`/order-success/${orderId}`, {
           replace: true,
           state: { order, paymentMeta },

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext } from "react";
 import OrderCart from "../Components/OrderCart";
 import { FaShoppingBag, FaSync } from "react-icons/fa";
 import BoxOfProdcuts from "../Components/BoxOfProdcuts";
-import { fetchOrdersByUser } from "../Service/APIservice";
 import { getUserOrdersWithTracking, bulkSyncOrderStatuses } from "../Service/trackingApi";
 import { UserContext } from "../ContextAPI/UserContext.jsx";
 
@@ -21,33 +20,48 @@ const Order = () => {
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
+    let isComponentMounted = true;
+
+    const filterValidOrders = (orders) =>
+      Array.isArray(orders)
+        ? orders.filter(
+            (item) => Array.isArray(item?.products) && item.products.length > 0
+          )
+        : [];
+
     const loadOrders = async () => {
       if (!user?._id) {
-        setLoading(false);
+        if (isComponentMounted) {
+          setLoading(false);
+        }
         return;
       }
+
       try {
         setLoading(true);
-        // Try to get enhanced tracking data first
-        try {
-          const trackingOrders = await getUserOrdersWithTracking(user._id);
-          console.log("User Orders with Tracking:", trackingOrders);
-          setOrder(trackingOrders.orders || []);
-        } catch (trackingError) {
-          console.warn("Enhanced tracking failed, falling back to basic orders:", trackingError);
-          // Fallback to basic order fetch
-          const orders = await fetchOrdersByUser(user._id);
-          console.log("User Orders (fallback):", orders);
-          setOrder(orders.data || orders);
+        const trackingOrders = await getUserOrdersWithTracking(user._id);
+        const orderData = trackingOrders?.orders || trackingOrders?.data || [];
+        const validOrders = filterValidOrders(orderData);
+
+        if (isComponentMounted) {
+          setOrder(validOrders);
         }
       } catch (error) {
-        console.error("Error loading orders:", error);
-        setOrder([]);
+        if (isComponentMounted) {
+          setOrder([]);
+        }
       } finally {
-        setLoading(false);
+        if (isComponentMounted) {
+          setLoading(false);
+        }
       }
     };
+
     loadOrders();
+
+    return () => {
+      isComponentMounted = false;
+    };
   }, [user]);
 
   const handleSyncAll = async () => {
@@ -58,10 +72,15 @@ const Order = () => {
       // Reload orders after sync
       if (user?._id) {
         const trackingOrders = await getUserOrdersWithTracking(user._id);
-        setOrder(trackingOrders.orders || []);
+        const orderData = trackingOrders?.orders || trackingOrders?.data || [];
+        const validOrders = Array.isArray(orderData)
+          ? orderData.filter(
+              (item) => Array.isArray(item?.products) && item.products.length > 0
+            )
+          : [];
+        setOrder(validOrders);
       }
     } catch (error) {
-      console.error("Bulk sync failed:", error);
     } finally {
       setSyncing(false);
     }
@@ -119,21 +138,6 @@ const Order = () => {
           ))}
         </div>
       )}
-
-      <section className="mt-5">
-        <div>
-          <h3 className="text-start font-bold text-white text-2xl">
-            Related Products
-          </h3>
-
-          <div className="mt-5 overflow-x-auto  scrollbar-none [&::-webkit-scrollbar]:hidden">
-            <div className="flex gap-4 w-max">
-              <BoxOfProdcuts />
-              <BoxOfProdcuts />
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

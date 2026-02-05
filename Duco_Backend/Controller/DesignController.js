@@ -1,5 +1,91 @@
 // controllers/DesignController.js
 const Design = require('../DataBase/Models/DesignModel');
+const { uploadBase64ToCloudinary } = require('../utils/cloudinaryUpload');
+
+const DESIGN_VIEWS = ['front', 'back', 'left', 'right'];
+
+const isBase64Image = (value) => {
+  if (typeof value !== 'string') return false;
+  return value.startsWith('data:image/') || value.includes('base64,');
+};
+
+const removeBase64Deep = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => removeBase64Deep(item))
+      .filter((item) => item !== undefined);
+  }
+
+  if (value && typeof value === 'object') {
+    const cleaned = {};
+    Object.entries(value).forEach(([key, val]) => {
+      if (isBase64Image(val)) {
+        return;
+      }
+      const next = removeBase64Deep(val);
+      if (next !== undefined) {
+        cleaned[key] = next;
+      }
+    });
+    return cleaned;
+  }
+
+  if (isBase64Image(value)) {
+    return undefined;
+  }
+
+  return value;
+};
+
+const extractPreviewImages = (design) => {
+  const previews = [];
+  if (!Array.isArray(design) || design.length === 0) {
+    return previews;
+  }
+
+  const firstDesign = design[0] || {};
+
+  DESIGN_VIEWS.forEach((view) => {
+    const viewData = firstDesign?.[view];
+    const uploadedImage = viewData?.uploadedImage;
+    const previewImage = firstDesign?.previewImages?.[view];
+
+    if (isBase64Image(uploadedImage)) {
+      previews.push({ view, data: uploadedImage });
+      return;
+    }
+
+    if (isBase64Image(previewImage)) {
+      previews.push({ view, data: previewImage });
+    }
+  });
+
+  return previews;
+};
+
+const uploadPreviewImages = async (previews, userId) => {
+  const results = [];
+  for (const item of previews) {
+    try {
+      const uploaded = await uploadBase64ToCloudinary(
+        item.data,
+        `design-${item.view}-${userId}-${Date.now()}`,
+        `duco/designs/${userId}`
+      );
+      if (uploaded?.url) {
+        results.push({
+          view: item.view,
+          url: uploaded.url,
+          publicId: uploaded.publicId || undefined
+        });
+      }
+    } catch (error) {
+      console.error(`❌ Failed to upload ${item.view} preview:`, error.message);
+    }
+  }
+
+  return results;
+};
 
 // 👉 Create Design
 const createDesign = async (req, res) => {
@@ -57,11 +143,18 @@ const createDesign = async (req, res) => {
       });
     }
 
+    // ✅ Upload preview images to Cloudinary and strip base64 from design
+    const previewCandidates = extractPreviewImages(design);
+    const previewImages = await uploadPreviewImages(previewCandidates, user);
+
+    cleanedDesign = removeBase64Deep(cleanedDesign);
+
     const newDesign = new Design({
       user,
       products,
       cutomerprodcuts,
       design: cleanedDesign,
+      previewImages,
       additionalFilesMeta
     });
 
@@ -111,9 +204,11 @@ const getDesignsByUser = async (req, res) => {
       count: designs.length,
       designs: designs.map(d => ({
         _id: d._id,
-        hasPreviewImages: !!d.previewImages,
+        hasPreviewImages: Array.isArray(d.previewImages) && d.previewImages.length > 0,
         hasFiles: d.additionalFilesMeta?.length > 0,
-        previewImagesKeys: d.previewImages ? Object.keys(d.previewImages) : []
+        previewImagesKeys: Array.isArray(d.previewImages)
+          ? d.previewImages.map((img) => img.view)
+          : []
       }))
     });
 

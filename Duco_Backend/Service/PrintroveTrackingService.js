@@ -272,35 +272,107 @@ class PrintroveTrackingService {
   // Get comprehensive tracking info for an order
   async getTrackingInfo(orderId) {
     try {
+      // ✅ PERFORMANCE FIX: Exclude large base64 image fields from products
       const order = await Order.findById(orderId)
-        .populate('user', 'name email phone')
-        .lean(); // Use lean() for better performance with large product data
+        .populate('user') // ✅ Populate ALL user fields including address array
+        .lean(); // Use lean() for better performance
       
       if (!order) {
         throw new Error(`Order ${orderId} not found`);
       }
 
+      // ✅ FIX: Find matching phone from user's saved addresses
+      if (order.user && order.user.address && Array.isArray(order.user.address)) {
+        const shippingAddr = order.addresses?.shipping || order.address;
+        if (shippingAddr) {
+          // Find matching address in user's saved addresses
+          const matchingAddress = order.user.address.find(addr => 
+            addr.fullName === shippingAddr.fullName &&
+            addr.city === shippingAddr.city &&
+            addr.pincode === shippingAddr.pincode
+          );
+          
+          // If found, inject mobileNumber into order addresses
+          if (matchingAddress && matchingAddress.mobileNumber) {
+            if (order.addresses?.shipping) {
+              order.addresses.shipping.mobileNumber = matchingAddress.mobileNumber;
+            }
+            if (order.address) {
+              order.address.mobileNumber = matchingAddress.mobileNumber;
+            }
+          }
+        }
+      }
+
+      // ✅ CRITICAL: Remove base64 images from products to prevent slow loading
+      if (order.products && Array.isArray(order.products)) {
+        order.products = order.products.map(product => {
+          // Create a clean copy without base64 data
+          const cleanProduct = { ...product };
+          
+          // Remove base64 previewImages (keep only if they're CDN URLs)
+          if (cleanProduct.previewImages) {
+            const cleanPreviewImages = {};
+            for (const [view, imageData] of Object.entries(cleanProduct.previewImages)) {
+              // Only keep if it's a URL (not base64)
+              if (typeof imageData === 'string' && !imageData.startsWith('data:image')) {
+                cleanPreviewImages[view] = imageData;
+              }
+            }
+            cleanProduct.previewImages = Object.keys(cleanPreviewImages).length > 0 ? cleanPreviewImages : null;
+          }
+          
+          // Remove base64 from design object
+          if (cleanProduct.design) {
+            const cleanDesign = { ...cleanProduct.design };
+            
+            // Remove base64 from design.previewImages
+            if (cleanDesign.previewImages) {
+              const cleanDesignPreviewImages = {};
+              for (const [view, imageData] of Object.entries(cleanDesign.previewImages)) {
+                if (typeof imageData === 'string' && !imageData.startsWith('data:image')) {
+                  cleanDesignPreviewImages[view] = imageData;
+                }
+              }
+              cleanDesign.previewImages = Object.keys(cleanDesignPreviewImages).length > 0 ? cleanDesignPreviewImages : null;
+            }
+            
+            // Remove base64 from design.front/back/left/right.uploadedImage
+            ['front', 'back', 'left', 'right'].forEach(side => {
+              if (cleanDesign[side] && cleanDesign[side].uploadedImage) {
+                if (typeof cleanDesign[side].uploadedImage === 'string' && cleanDesign[side].uploadedImage.startsWith('data:image')) {
+                  delete cleanDesign[side].uploadedImage;
+                }
+              }
+            });
+            
+            cleanProduct.design = cleanDesign;
+          }
+          
+          return cleanProduct;
+        });
+      }
+
+      // ✅ Also clean designImages at order level if they contain base64
+      if (order.designImages) {
+        const cleanDesignImages = {};
+        for (const [view, imageData] of Object.entries(order.designImages)) {
+          if (typeof imageData === 'string' && !imageData.startsWith('data:image')) {
+            cleanDesignImages[view] = imageData;
+          }
+        }
+        order.designImages = Object.keys(cleanDesignImages).length > 0 ? cleanDesignImages : null;
+      }
+
       let printroveData = null;
       let trackingError = null;
 
-      // Try to get fresh Printrove data if available
+      // ✅ PERFORMANCE FIX: Don't auto-sync on every page load
+      // Only use stored Printrove data, let user manually sync if needed
       if (order.printroveOrderId) {
-        try {
-          const syncResult = await this.syncOrderStatus(orderId);
-          if (syncResult.success) {
-            printroveData = syncResult.printroveData;
-            // Refresh order data after sync
-            const updatedOrder = await Order.findById(orderId)
-              .populate('user', 'name email phone')
-              .lean();
-            Object.assign(order, updatedOrder);
-          } else {
-            trackingError = syncResult.error;
-          }
-        } catch (error) {
-          trackingError = error.message;
-          console.warn(`Could not sync Printrove data for order ${orderId}:`, error.message);
-        }
+        console.log(`📦 Order has Printrove ID: ${order.printroveOrderId} (stored data will be used)`);
+        // Use stored Printrove data from order document
+        // Manual sync available via separate endpoint
       }
 
       // Prepare tracking timeline with Printrove data
@@ -326,11 +398,10 @@ class PrintroveTrackingService {
         });
       }
 
-      // Add Printrove-specific events - use stored dates first, then fresh data
-      const pOrder = printroveData?.order;
+      // Add Printrove-specific events - use stored dates from order document
       
       // Add production received event
-      const receivedDate = order.printroveReceivedDate || (pOrder?.received_date ? new Date(pOrder.received_date) : null);
+      const receivedDate = order.printroveReceivedDate;
       if (receivedDate) {
         timeline.push({
           status: 'Production Started',
@@ -342,7 +413,7 @@ class PrintroveTrackingService {
       }
 
       // Add dispatch event
-      const dispatchDate = order.printroveDispatchDate || (pOrder?.dispatch_date ? new Date(pOrder.dispatch_date) : null);
+      const dispatchDate = order.printroveDispatchDate;
       if (dispatchDate) {
         timeline.push({
           status: 'Dispatched',
@@ -354,7 +425,7 @@ class PrintroveTrackingService {
       }
 
       // Add shipped event
-      const shippedDate = order.printroveShippedDate || (pOrder?.shipped_date ? new Date(pOrder.shipped_date) : null);
+      const shippedDate = order.printroveShippedDate;
       if (shippedDate) {
         timeline.push({
           status: 'Shipped',
@@ -366,7 +437,7 @@ class PrintroveTrackingService {
       }
 
       // Add delivered event
-      const deliveredDate = order.printroveDeliveredDate || (pOrder?.delivered_date ? new Date(pOrder.delivered_date) : null);
+      const deliveredDate = order.printroveDeliveredDate;
       if (deliveredDate) {
         timeline.push({
           status: 'Delivered',
