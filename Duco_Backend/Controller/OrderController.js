@@ -189,15 +189,13 @@ exports.getOrdersByUser = async (req, res) => {
       return res.status(400).json({ error: 'Invalid or missing userId' });
     }
 
-    // ✅ FAST: Fetch orders with product data for display
+    // ✅ PERFORMANCE FIX: Exclude base64 images from orders
     let orders = [];
     const dbStart = Date.now();
     
     try {
-      // Include products field with essential display fields
       orders = await Order.find({ user: userId })
-        .select('_id status createdAt updatedAt totalPay price paymentmode products items printroveOrderId')
-        .populate('products', 'products_name name image_url image previewImages design price')
+        .select('_id status createdAt updatedAt totalPay price paymentmode products items printroveOrderId designImages')
         .limit(100)
         .sort({ createdAt: -1 })
         .lean()
@@ -206,12 +204,46 @@ exports.getOrdersByUser = async (req, res) => {
       const dbTime = Date.now() - dbStart;
       console.log(`[${new Date().toISOString()}] ✅ DB query took ${dbTime}ms, found ${orders.length} orders`);
       
-      // ✅ FILTER OUT INVALID ORDERS: Remove orders with empty/invalid products
-      // This prevents frontend crashes from legacy/broken orders
+      // ✅ CRITICAL: Remove base64 images from products array
+      orders = orders.map(order => {
+        if (order.products && Array.isArray(order.products)) {
+          order.products = order.products.map(product => {
+            const cleanProduct = { ...product };
+            
+            // Remove base64 previewImages
+            if (cleanProduct.previewImages) {
+              const cleanPreviewImages = {};
+              for (const [view, imageData] of Object.entries(cleanProduct.previewImages)) {
+                if (typeof imageData === 'string' && !imageData.startsWith('data:image')) {
+                  cleanPreviewImages[view] = imageData;
+                }
+              }
+              cleanProduct.previewImages = Object.keys(cleanPreviewImages).length > 0 ? cleanPreviewImages : null;
+            }
+            
+            // Remove base64 from design object
+            if (cleanProduct.design) {
+              const cleanDesign = { ...cleanProduct.design };
+              ['front', 'back', 'left', 'right'].forEach(side => {
+                if (cleanDesign[side] && cleanDesign[side].uploadedImage && 
+                    typeof cleanDesign[side].uploadedImage === 'string' && 
+                    cleanDesign[side].uploadedImage.startsWith('data:image')) {
+                  delete cleanDesign[side].uploadedImage;
+                }
+              });
+              cleanProduct.design = cleanDesign;
+            }
+            
+            return cleanProduct;
+          });
+        }
+        return order;
+      });
+      
+      // ✅ FILTER OUT INVALID ORDERS
       const beforeFilter = orders.length;
       orders = orders.filter(order => {
         const products = order.products || [];
-        // Keep order only if it has at least one valid product object
         const hasValidProduct = Array.isArray(products) && 
           products.length > 0 && 
           products[0] && 
@@ -234,7 +266,6 @@ exports.getOrdersByUser = async (req, res) => {
       orders = [];
     }
 
-    // ✅ ALWAYS respond immediately
     const totalTime = Date.now() - startTime;
     console.log(`[${new Date().toISOString()}] 📤 Responding with ${orders.length} orders (${totalTime}ms total)`);
     
@@ -293,23 +324,47 @@ exports.getAllOrders = async (req, res) => {
       const totalOrders = await Order.countDocuments(filter).maxTimeMS(5000);
       console.log(`📦 Total orders in DB: ${totalOrders}`);
 
-      // ✅ Fetch orders with proper sorting (newest first)
+      // ✅ PERFORMANCE FIX: Exclude base64 images from products
       console.log(`📦 Executing find query with sort...`);
       const orders = await Order.find(filter)
-        .sort({ createdAt: -1 }) // ✅ Sort by newest first BEFORE pagination
+        .select('-products.previewImages -products.design.front.uploadedImage -products.design.back.uploadedImage -products.design.left.uploadedImage -products.design.right.uploadedImage')
+        .sort({ createdAt: -1 })
         .limit(limit)
         .skip(skip)
         .lean()
-        .maxTimeMS(10000); // 10 second timeout
+        .maxTimeMS(10000);
 
       console.log(`✅ Found ${orders.length} orders (sorted by newest first)`);
       
-      // ✅ FILTER OUT INVALID ORDERS: Remove orders with empty/invalid products
-      // This prevents admin panels from showing broken legacy orders
-      const beforeFilter = orders.length;
-      const validOrders = orders.filter(order => {
+      // ✅ CRITICAL: Remove any remaining base64 from products
+      const cleanedOrders = orders.map(order => {
+        if (order.products && Array.isArray(order.products)) {
+          order.products = order.products.map(product => {
+            const cleanProduct = { ...product };
+            
+            // Remove base64 from design object
+            if (cleanProduct.design) {
+              const cleanDesign = { ...cleanProduct.design };
+              ['front', 'back', 'left', 'right'].forEach(side => {
+                if (cleanDesign[side] && cleanDesign[side].uploadedImage && 
+                    typeof cleanDesign[side].uploadedImage === 'string' && 
+                    cleanDesign[side].uploadedImage.startsWith('data:image')) {
+                  delete cleanDesign[side].uploadedImage;
+                }
+              });
+              cleanProduct.design = cleanDesign;
+            }
+            
+            return cleanProduct;
+          });
+        }
+        return order;
+      });
+      
+      // ✅ FILTER OUT INVALID ORDERS
+      const beforeFilter = cleanedOrders.length;
+      const validOrders = cleanedOrders.filter(order => {
         const products = order.products || [];
-        // Keep order only if it has at least one valid product object
         const hasValidProduct = Array.isArray(products) && 
           products.length > 0 && 
           products[0] && 

@@ -57,8 +57,29 @@ const CreateProdcuts = async (req, res) => {
 // ✅ GET ALL PRODUCTS
 const GetProducts = async (req, res) => {
   try {
-    const data = await Product.find();
-    res.status(200).json(data);
+    // ✅ PERFORMANCE FIX: Exclude base64 images from response
+    const data = await Product.find()
+      .select('-design.previewImages -design.front.uploadedImage -design.back.uploadedImage -design.left.uploadedImage -design.right.uploadedImage')
+      .lean();
+    
+    // ✅ Additional cleanup: Remove any remaining base64 from design objects
+    const cleanedData = data.map(product => {
+      if (product.design) {
+        const cleanDesign = { ...product.design };
+        // Remove base64 from each side
+        ['front', 'back', 'left', 'right'].forEach(side => {
+          if (cleanDesign[side] && cleanDesign[side].uploadedImage && 
+              typeof cleanDesign[side].uploadedImage === 'string' && 
+              cleanDesign[side].uploadedImage.startsWith('data:image')) {
+            delete cleanDesign[side].uploadedImage;
+          }
+        });
+        product.design = cleanDesign;
+      }
+      return product;
+    });
+    
+    res.status(200).json(cleanedData);
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ message: 'Internal Server Error' });
