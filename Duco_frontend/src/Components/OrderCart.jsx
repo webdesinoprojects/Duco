@@ -15,22 +15,40 @@ const OrderCart = ({ order }) => {
     typeof value === "string" && /^https?:\/\//i.test(value);
 
   /* -------------------- thumbnail -------------------- */
-  const getThumbnail = (p) => {
+  const getThumbnail = (p, orderData) => {
     if (!p) return null;
 
+    // Check product previewImages
     if (isUrl(p?.previewImages?.front)) return p.previewImages.front;
+    
+    // Check product design (front, not frontView)
+    if (isUrl(p?.design?.front)) return p.design.front;
     if (isUrl(p?.design?.frontView)) return p.design.frontView;
 
+    // Check order-level designImages
+    if (orderData?.designImages) {
+      if (isUrl(orderData.designImages?.front)) return orderData.designImages.front;
+      if (Array.isArray(orderData.designImages) && orderData.designImages.length > 0) {
+        if (isUrl(orderData.designImages[0])) return orderData.designImages[0];
+      }
+    }
+
+    // Check product image_url array
     const imageUrl = p?.image_url?.[0]?.url?.[0];
     if (isUrl(imageUrl)) return imageUrl;
+    
+    // Check direct image_url if it's a string
+    if (isUrl(p?.image_url?.[0]?.url)) return p.image_url[0].url;
+    
+    // Check product image
     if (isUrl(p?.image)) return p.image;
 
     return null;
   };
 
   useEffect(() => {
-    setImage(getThumbnail(product));
-  }, [product]);
+    setImage(getThumbnail(product, order));
+  }, [product, order]);
 
   /* -------------------- ALWAYS RENDER ORDER -------------------- */
   return (

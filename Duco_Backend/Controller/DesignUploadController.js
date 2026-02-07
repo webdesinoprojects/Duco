@@ -30,11 +30,31 @@ const uploadDesignForOrder = async (req, res) => {
 
     console.log(`📦 Processing design upload for order: ${orderId}`);
 
-    // ✅ If designImages are provided directly in request body, use them
-    let imagesToStore = designImages || {};
+    // ✅ CRITICAL: Always upload to Cloudinary, never save base64
+    let imagesToStore = {};
 
+    // If designImages are provided in request body, upload them to Cloudinary
+    if (designImages && Object.keys(designImages).length > 0) {
+      console.log('📸 Design images provided in request body, uploading to Cloudinary...');
+      
+      // Check if they're base64 or already URLs
+      const needsUpload = Object.values(designImages).some(img => 
+        img && typeof img === 'string' && img.startsWith('data:image/')
+      );
+      
+      if (needsUpload) {
+        const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload');
+        imagesToStore = await uploadDesignPreviewImages(designImages, orderId);
+        console.log('✅ Uploaded provided images to Cloudinary:', Object.keys(imagesToStore));
+      } else {
+        // Already URLs, use them
+        imagesToStore = designImages;
+        console.log('✅ Using provided Cloudinary URLs');
+      }
+    }
     // Otherwise, extract and upload design images from order products
-    if (!designImages || Object.keys(designImages).length === 0) {
+    else {
+      console.log('📸 No images in request body, extracting from order products...');
       imagesToStore = await uploadOrderDesignImages(order, order.products);
     }
 

@@ -138,14 +138,22 @@ exports.getTotalsForQty = async (req, res) => {
     const subtotal = Number(req.query.subtotal ?? req.body?.subtotal ?? 0);
     const plan = await getOrCreateSinglePlan();
 
-    // ✅ Get per-unit rates from tiers
-    const packaging = findTierValue(plan.pakageingandforwarding, qty, "pakageingandforwarding");
-    const printing = findTierValue(plan.printingcost, qty, 'printingcost');
+    // ✅ Find the matching tier for P&F
+    const pfTier = plan.pakageingandforwarding.find((t) => qty >= t.minqty && qty <= t.maxqty);
+    const packaging = pfTier ? pfTier.cost : 0;
+    const pfMinQty = plan.pakageingandforwarding[0]?.minqty || 1;
+    
+    // ✅ Find the matching tier for Printing
+    const printTier = plan.printingcost.find((t) => qty >= t.minqty && qty <= t.maxqty);
+    const printing = printTier ? printTier.cost : 0;
+    const printMinQty = plan.printingcost[0]?.minqty || 1;
+    
+    // Get GST rate (this always applies)
     const gstPercent = findTierValue(plan.gst, qty, 'gst');
 
-    // ✅ Compute totals
-    const pfTotal = packaging * qty;
-    const printTotal = printing * qty;
+    // ✅ Compute totals - P&F and Printing are 0 if qty < minimum threshold
+    const pfTotal = qty >= pfMinQty ? packaging * qty : 0;
+    const printTotal = qty >= printMinQty ? printing * qty : 0;
     const gstAmount = ((subtotal + pfTotal + printTotal) * gstPercent) / 100;
 
     res.json({
@@ -153,8 +161,8 @@ exports.getTotalsForQty = async (req, res) => {
       data: {
         qty,
         perUnit: {
-          pakageingandforwarding: packaging,
-          printingcost: printing,
+          pakageingandforwarding: qty >= pfMinQty ? packaging : 0,
+          printingcost: qty >= printMinQty ? printing : 0,
           gstPercent: gstPercent,
         },
         totals: {
@@ -165,6 +173,14 @@ exports.getTotalsForQty = async (req, res) => {
           subtotal,
           grandTotal: subtotal + pfTotal + printTotal + gstAmount,
         },
+        _debug: {
+          pfMinQty,
+          printMinQty,
+          qtyMeetsPfThreshold: qty >= pfMinQty,
+          qtyMeetsPrintThreshold: qty >= printMinQty,
+          pfApplied: pfTotal > 0,
+          printApplied: printTotal > 0
+        }
       },
     });
   } catch (e) {
@@ -183,12 +199,18 @@ exports.getRatesForQty = async (req, res) => {
     }
 
     const plan = await getOrCreateSinglePlan();
-    const packaging = findTierValue(
-      plan.pakageingandforwarding,
-      qty,
-      'pakageingandforwarding'
-    );
-    const printing = findTierValue(plan.printingcost, qty, 'printingcost');
+    
+    // ✅ Find the matching tier for P&F
+    const pfTier = plan.pakageingandforwarding.find((t) => qty >= t.minqty && qty <= t.maxqty);
+    const packaging = pfTier ? pfTier.cost : 0;
+    const pfMinQty = plan.pakageingandforwarding[0]?.minqty || 1;
+    
+    // ✅ Find the matching tier for Printing
+    const printTier = plan.printingcost.find((t) => qty >= t.minqty && qty <= t.maxqty);
+    const printing = printTier ? printTier.cost : 0;
+    const printMinQty = plan.printingcost[0]?.minqty || 1;
+    
+    // Get GST rate (this always applies)
     const gstPercent = findTierValue(plan.gst, qty, 'gst');
 
     res.json({
@@ -196,8 +218,8 @@ exports.getRatesForQty = async (req, res) => {
       data: {
         qty,
         perUnit: { 
-          pakageingandforwarding: packaging, 
-          printingcost: printing,
+          pakageingandforwarding: qty >= pfMinQty ? packaging : 0,
+          printingcost: qty >= printMinQty ? printing : 0,
           gstPercent: gstPercent,
         },
         gstPercent,

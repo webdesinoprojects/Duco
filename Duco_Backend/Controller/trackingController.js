@@ -1,4 +1,5 @@
 // Controller for Order Tracking and Status Management
+const mongoose = require('mongoose');
 const Order = require('../DataBase/Models/OrderModel');
 const Logistic = require('../DataBase/Models/LogisticModel');
 const PrintroveTrackingService = require('../Service/PrintroveTrackingService');
@@ -114,7 +115,7 @@ const getPrintroveOrderStatus = async (req, res) => {
   }
 };
 
-// Get orders by user with tracking info
+// Get orders by user with tracking info - OPTIMIZED for performance
 const getUserOrdersWithTracking = async (req, res) => {
   const startTime = Date.now();
   console.log(`[${new Date().toISOString()}] 📨 GET /api/user/:userId/orders called`);
@@ -128,77 +129,78 @@ const getUserOrdersWithTracking = async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    // ✅ PERFORMANCE FIX: Exclude base64 images from response
-    let orders = [];
+    // ✅ OPTIMIZED: Fetch minimal fields + first product only
+    // This reduces data transfer and JSON parsing time
     const dbStart = Date.now();
+    let orders = [];
     
     try {
-      orders = await Order.find({ user: userId })
-        .select('_id status createdAt updatedAt totalPay price paymentmode products items printroveOrderId designImages')
-        .limit(100)
-        .sort({ createdAt: -1 })
-        .lean()
-        .exec();
+      orders = await Order.aggregate([
+        // Stage 1: Match user's orders
+        { $match: { user: new mongoose.Types.ObjectId(userId) } },
+        
+        // Stage 2: Sort by newest first
+        { $sort: { createdAt: -1 } },
+        
+        // Stage 3: Limit to 100 orders
+        { $limit: 100 },
+        
+        // Stage 4: Project ONLY essential fields
+        {
+          $project: {
+            _id: 1,
+            orderId: 1,
+            status: 1,
+            createdAt: 1,
+            totalPay: 1,
+            price: 1,
+            currency: 1,
+            displayPrice: 1,
+            orderType: 1,
+            printroveOrderId: 1,
+            hasLogistics: 1,
+            trackingUrl: 1,
+            // Include designImages for thumbnail (Cloudinary URLs only, small)
+            designImages: 1,
+            // Include ONLY first product with minimal fields + image data
+            products: {
+              $cond: {
+                if: { $isArray: '$products' },
+                then: {
+                  $map: {
+                    input: { $slice: ['$products', 1] }, // Only first product
+                    as: 'product',
+                    in: {
+                      _id: '$$product._id',
+                      name: '$$product.name',
+                      products_name: '$$product.products_name',
+                      product_name: '$$product.product_name',
+                      image: '$$product.image',
+                      // Include design.front for thumbnail (Cloudinary URL, small)
+                      design: {
+                        front: '$$product.design.front'
+                      },
+                      // Include ONLY first image_url for thumbnail
+                      image_url: {
+                        $cond: {
+                          if: { $isArray: '$$product.image_url' },
+                          then: [{ $arrayElemAt: ['$$product.image_url', 0] }],
+                          else: '$$product.image_url'
+                        }
+                      }
+                    }
+                  }
+                },
+                else: []
+              }
+            }
+          }
+        }
+      ]).allowDiskUse(true);
       
       const dbTime = Date.now() - dbStart;
       console.log(`[${new Date().toISOString()}] ✅ DB query took ${dbTime}ms, found ${orders.length} orders`);
       
-      // ✅ CRITICAL: Remove base64 images from products
-      orders = orders.map(order => {
-        if (order.products && Array.isArray(order.products)) {
-          order.products = order.products.map(product => {
-            const cleanProduct = { ...product };
-            
-            // Remove base64 previewImages
-            if (cleanProduct.previewImages) {
-              const cleanPreviewImages = {};
-              for (const [view, imageData] of Object.entries(cleanProduct.previewImages)) {
-                if (typeof imageData === 'string' && !imageData.startsWith('data:image')) {
-                  cleanPreviewImages[view] = imageData;
-                }
-              }
-              cleanProduct.previewImages = Object.keys(cleanPreviewImages).length > 0 ? cleanPreviewImages : null;
-            }
-            
-            // Remove base64 from design
-            if (cleanProduct.design) {
-              const cleanDesign = { ...cleanProduct.design };
-              ['front', 'back', 'left', 'right'].forEach(side => {
-                if (cleanDesign[side] && cleanDesign[side].uploadedImage && 
-                    typeof cleanDesign[side].uploadedImage === 'string' && 
-                    cleanDesign[side].uploadedImage.startsWith('data:image')) {
-                  delete cleanDesign[side].uploadedImage;
-                }
-              });
-              cleanProduct.design = cleanDesign;
-            }
-            
-            return cleanProduct;
-          });
-        }
-        return order;
-      });
-      
-      // ✅ FILTER OUT INVALID ORDERS
-      const beforeFilter = orders.length;
-      orders = orders.filter(order => {
-        const products = order.products || [];
-        const hasValidProduct = Array.isArray(products) && 
-          products.length > 0 && 
-          products[0] && 
-          typeof products[0] === 'object' && 
-          Object.keys(products[0]).length > 0;
-        
-        if (!hasValidProduct) {
-          console.warn(`⚠️ Filtering out order ${order._id} - invalid products array`);
-        }
-        
-        return hasValidProduct;
-      });
-      
-      if (beforeFilter !== orders.length) {
-        console.log(`[${new Date().toISOString()}] ✅ Filtered ${beforeFilter - orders.length} invalid orders, ${orders.length} valid remaining`);
-      }
     } catch (dbErr) {
       const dbTime = Date.now() - dbStart;
       console.error(`[${new Date().toISOString()}] ❌ DB error after ${dbTime}ms:`, dbErr.message);

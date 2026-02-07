@@ -57,23 +57,24 @@ const CreateProdcuts = async (req, res) => {
 // ✅ GET ALL PRODUCTS
 const GetProducts = async (req, res) => {
   try {
-    // ✅ PERFORMANCE FIX: Exclude base64 images from response
-    const data = await Product.find()
-      .select('-design.previewImages -design.front.uploadedImage -design.back.uploadedImage -design.left.uploadedImage -design.right.uploadedImage')
-      .lean();
+    // ✅ PERFORMANCE FIX: Fetch all products then remove base64
+    const data = await Product.find().lean();
     
-    // ✅ Additional cleanup: Remove any remaining base64 from design objects
+    // ✅ Remove ALL base64 from products
     const cleanedData = data.map(product => {
       if (product.design) {
         const cleanDesign = { ...product.design };
-        // Remove base64 from each side
+        
+        // Remove previewImages completely
+        delete cleanDesign.previewImages;
+        
+        // Remove uploadedImage from each side
         ['front', 'back', 'left', 'right'].forEach(side => {
-          if (cleanDesign[side] && cleanDesign[side].uploadedImage && 
-              typeof cleanDesign[side].uploadedImage === 'string' && 
-              cleanDesign[side].uploadedImage.startsWith('data:image')) {
+          if (cleanDesign[side]) {
             delete cleanDesign[side].uploadedImage;
           }
         });
+        
         product.design = cleanDesign;
       }
       return product;

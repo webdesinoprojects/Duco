@@ -190,7 +190,12 @@ const OrderBulk = () => {
           <div className="space-y-4">
             {orders.map((order) => {
               const first = order?.products?.[0] || order?.items?.[0] || {};
-              const email = order?.address?.email || order?.user?.email || "N/A";
+              
+              // ✅ Handle both old and new address formats
+              const addressObj = order?.addresses?.billing || order?.address;
+              const email = addressObj?.email || order?.user?.email || "N/A";
+              const fullName = addressObj?.fullName || "No name";
+              const city = addressObj?.city || "";
 
               return (
                 <div
@@ -264,8 +269,8 @@ const OrderBulk = () => {
                         })}
                       </p>
                       <p className="text-gray-700 mt-1">
-                        {order?.address?.fullName
-                          ? `${order.address.fullName} • ${order.address.city || ""}`
+                        {fullName !== "No name"
+                          ? `${fullName} • ${city}`
                           : "No address"}
                       </p>
                       <p className="text-gray-500">📧 {email}</p>

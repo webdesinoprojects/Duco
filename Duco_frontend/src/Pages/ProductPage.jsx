@@ -526,6 +526,20 @@ const ProductPage = () => {
             {product?.products_name}
           </h1>
 
+          {/* Product Description */}
+          {product?.Desciptions && product.Desciptions.length > 0 && (
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 border border-gray-700">
+              <h3 className="text-lg font-semibold text-white mb-2">Description</h3>
+              <div className="space-y-2">
+                {product.Desciptions.map((desc, index) => (
+                  <p key={index} className="text-sm text-gray-300 leading-relaxed">
+                    {desc}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
           <p className="text-2xl font-semibold">
             {currencySymbol}
             {price}
@@ -602,20 +616,48 @@ const ProductPage = () => {
               {SIZES.map((s) => {
                 const stockLimit = getSizeStockLimit(s);
                 const isOutOfStock = stockLimit === 0;
+                
+                // ✅ Define stock level thresholds
+                const LOW_STOCK_THRESHOLD = 10; // Yellow if stock <= 10
+                const isLowStock = stockLimit > 0 && stockLimit <= LOW_STOCK_THRESHOLD;
+                const isInStock = stockLimit > LOW_STOCK_THRESHOLD;
+                
+                // ✅ Determine colors based on stock level
+                let borderColor, bgColor, textColor, labelColor, stockTextColor;
+                
+                if (isOutOfStock) {
+                  // Red for out of stock
+                  borderColor = "border-red-500";
+                  bgColor = "bg-red-900/20";
+                  textColor = "text-red-300";
+                  labelColor = "text-red-400";
+                  stockTextColor = "text-red-400";
+                } else if (isLowStock) {
+                  // Yellow for low stock
+                  borderColor = "border-yellow-500";
+                  bgColor = "bg-yellow-900/20";
+                  textColor = "text-yellow-300";
+                  labelColor = "text-yellow-400";
+                  stockTextColor = "text-yellow-400";
+                } else {
+                  // Green for good stock
+                  borderColor = "border-green-500";
+                  bgColor = "bg-green-900/20";
+                  textColor = "text-green-300";
+                  labelColor = "text-green-400";
+                  stockTextColor = "text-green-400";
+                }
+                
                 return (
                   <label key={s} className="flex flex-col items-center gap-1">
-                    <span className={`text-sm font-medium ${
-                      isOutOfStock ? "text-red-400" : "text-white"
-                    }`}>
+                    <span className={`text-sm font-medium ${labelColor}`}>
                       {s}
                     </span>
                     <input
                       type="text"
                       inputMode="numeric"
-                      className={`h-12 w-16 rounded-xl border text-center focus:outline-none focus:ring-2 ${
-                        isOutOfStock
-                          ? "border-red-500 bg-red-900/20 text-red-300 cursor-not-allowed"
-                          : "border-slate-300 text-white focus:ring-sky-400"
+                      className={`h-12 w-16 rounded-xl border-2 text-center focus:outline-none focus:ring-2 ${borderColor} ${bgColor} ${textColor} ${
+                        isOutOfStock ? "cursor-not-allowed" : "focus:ring-sky-400"
                       }`}
                       value={qty[s] === 0 ? "" : qty[s]}
                       onChange={(e) => handleQty(s, e.target.value)}
@@ -623,10 +665,8 @@ const ProductPage = () => {
                       disabled={isOutOfStock}
                     />
                     {typeof stockLimit === "number" && (
-                      <span className={`text-xs ${
-                        isOutOfStock ? "text-red-400" : "text-gray-400"
-                      }`}>
-                        {isOutOfStock ? "Out of stock" : `Stock: ${stockLimit}`}
+                      <span className={`text-xs font-medium ${stockTextColor}`}>
+                        {isOutOfStock ? "Out of stock" : isLowStock ? `Low: ${stockLimit}` : `Stock: ${stockLimit}`}
                       </span>
                     )}
                   </label>

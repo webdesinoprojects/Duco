@@ -337,6 +337,7 @@ async function extractAndUploadDesignImages(products, orderId) {
       hasDesign: !!firstProduct.design,
       previewImagesKeys: firstProduct.previewImages ? Object.keys(firstProduct.previewImages) : [],
       designKeys: firstProduct.design ? Object.keys(firstProduct.design) : [],
+      designType: Array.isArray(firstProduct.design) ? 'array' : typeof firstProduct.design,
     });
 
     // ✅ CRITICAL: Check for previewImages at top level first (from loaded designs)
@@ -351,13 +352,23 @@ async function extractAndUploadDesignImages(products, orderId) {
     }
 
     // Check for preview images in product design
-    if (firstProduct.design && typeof firstProduct.design === 'object') {
-      const design = firstProduct.design;
-      
+    let designObj = firstProduct.design;
+    
+    // ✅ CRITICAL FIX: Handle design as array (from TShirtDesigner - new designs)
+    if (Array.isArray(designObj) && designObj.length > 0) {
+      console.log('📸 Design is an array, using first element');
+      designObj = designObj[0];
+    }
+    // ✅ If design is already an object (loaded designs), use it directly
+    else if (designObj && typeof designObj === 'object' && !Array.isArray(designObj)) {
+      console.log('📸 Design is an object (loaded design)');
+    }
+    
+    if (designObj && typeof designObj === 'object') {
       // Extract preview images from design object
-      if (design.previewImages && typeof design.previewImages === 'object') {
+      if (designObj.previewImages && typeof designObj.previewImages === 'object') {
         console.log('📸 Found previewImages in design object');
-        for (const [key, value] of Object.entries(design.previewImages)) {
+        for (const [key, value] of Object.entries(designObj.previewImages)) {
           if (value && typeof value === 'string' && value.length > 100 && !previewImages[key]) {
             previewImages[key] = value;
             console.log(`  ✅ ${key}: ${value.substring(0, 50)}... (${value.length} chars)`);
@@ -365,22 +376,27 @@ async function extractAndUploadDesignImages(products, orderId) {
         }
       }
       
-      // Also check for direct front/back/left/right views
-      if (design.front?.uploadedImage && typeof design.front.uploadedImage === 'string' && design.front.uploadedImage.length > 100 && !previewImages.front) {
-        previewImages.front = design.front.uploadedImage;
-        console.log(`  ✅ front (from design.front.uploadedImage): ${design.front.uploadedImage.substring(0, 50)}...`);
-      }
-      if (design.back?.uploadedImage && typeof design.back.uploadedImage === 'string' && design.back.uploadedImage.length > 100 && !previewImages.back) {
-        previewImages.back = design.back.uploadedImage;
-        console.log(`  ✅ back (from design.back.uploadedImage): ${design.back.uploadedImage.substring(0, 50)}...`);
-      }
-      if (design.left?.uploadedImage && typeof design.left.uploadedImage === 'string' && design.left.uploadedImage.length > 100 && !previewImages.left) {
-        previewImages.left = design.left.uploadedImage;
-        console.log(`  ✅ left (from design.left.uploadedImage): ${design.left.uploadedImage.substring(0, 50)}...`);
-      }
-      if (design.right?.uploadedImage && typeof design.right.uploadedImage === 'string' && design.right.uploadedImage.length > 100 && !previewImages.right) {
-        previewImages.right = design.right.uploadedImage;
-        console.log(`  ✅ right (from design.right.uploadedImage): ${design.right.uploadedImage.substring(0, 50)}...`);
+      // ✅ CRITICAL FIX: Check for direct front/back/left/right (multiple patterns)
+      for (const view of ['front', 'back', 'left', 'right']) {
+        if (previewImages[view]) continue; // Skip if already found
+        
+        const viewData = designObj[view];
+        
+        // Pattern 1: Direct base64 string
+        if (typeof viewData === 'string' && viewData.length > 100) {
+          previewImages[view] = viewData;
+          console.log(`  ✅ ${view} (direct string): ${viewData.substring(0, 50)}... (${viewData.length} chars)`);
+        }
+        // Pattern 2: Object with uploadedImage (FROM TSHIRTDESIGNER)
+        else if (viewData && typeof viewData === 'object' && viewData.uploadedImage && typeof viewData.uploadedImage === 'string' && viewData.uploadedImage.length > 100) {
+          previewImages[view] = viewData.uploadedImage;
+          console.log(`  ✅ ${view} (from uploadedImage): ${viewData.uploadedImage.substring(0, 50)}... (${viewData.uploadedImage.length} chars)`);
+        }
+        // Pattern 3: Object with url
+        else if (viewData && typeof viewData === 'object' && viewData.url && typeof viewData.url === 'string' && viewData.url.length > 100) {
+          previewImages[view] = viewData.url;
+          console.log(`  ✅ ${view} (from url): ${viewData.url.substring(0, 50)}...`);
+        }
       }
     }
 
@@ -388,10 +404,21 @@ async function extractAndUploadDesignImages(products, orderId) {
     if (Object.keys(previewImages).length > 0) {
       console.log('📸 Found preview images, uploading to Cloudinary...', {
         count: Object.keys(previewImages).length,
-        views: Object.keys(previewImages)
+        views: Object.keys(previewImages),
+        sizes: Object.keys(previewImages).map(view => ({
+          view,
+          size: previewImages[view] ? `${(previewImages[view].length / 1024).toFixed(2)} KB` : 'null'
+        }))
       });
+      
       const uploadedImages = await uploadDesignPreviewImages(previewImages, orderId);
-      console.log('✅ Design images uploaded:', uploadedImages);
+      
+      console.log('✅ Cloudinary upload result:', {
+        uploadedCount: Object.keys(uploadedImages).length,
+        uploadedViews: Object.keys(uploadedImages),
+        allAreUrls: Object.values(uploadedImages).every(url => url && url.startsWith('http'))
+      });
+      
       return uploadedImages;
     }
 
@@ -400,12 +427,15 @@ async function extractAndUploadDesignImages(products, orderId) {
       keys: Object.keys(firstProduct),
       hasPreviewImages: !!firstProduct.previewImages,
       hasDesign: !!firstProduct.design,
-      designStructure: firstProduct.design ? {
-        keys: Object.keys(firstProduct.design),
-        hasFront: !!firstProduct.design.front,
-        hasBack: !!firstProduct.design.back,
-        hasLeft: !!firstProduct.design.left,
-        hasRight: !!firstProduct.design.right,
+      designIsArray: Array.isArray(firstProduct.design),
+      designStructure: designObj ? {
+        keys: Object.keys(designObj),
+        hasFront: !!designObj.front,
+        hasBack: !!designObj.back,
+        hasLeft: !!designObj.left,
+        hasRight: !!designObj.right,
+        frontType: typeof designObj.front,
+        frontHasUploadedImage: designObj.front && typeof designObj.front === 'object' ? !!designObj.front.uploadedImage : false,
       } : null
     });
     return {};
@@ -499,7 +529,7 @@ async function reduceProductStock(items) {
         console.warn(`⚠️ Could not find matching color/size combination for stock reduction:`, {
           productName: product.products_name,
           color,
-          size
+          quantityObj
         });
       }
     } catch (error) {
@@ -946,8 +976,12 @@ const completeOrder = async (req, res) => {
       });
     }
     
-    // ✅ CRITICAL: Clean items array - Remove ALL base64 data before saving to DB
-    // Note: Design images will be uploaded to Cloudinary in background
+    // ✅ CRITICAL: Upload design images to Cloudinary FIRST, then clean items
+    console.log('📸 Uploading design images to Cloudinary BEFORE creating order...');
+    const designImages = await extractAndUploadDesignImages(items, `temp-${Date.now()}`);
+    console.log('✅ Design images uploaded:', designImages);
+    
+    // ✅ Now clean items array - Remove ALL base64 data before saving to DB
     const cleanedItems = cleanItemsForDatabase(items);
     
     // ✅ Validate stock before creating order
@@ -1231,21 +1265,12 @@ const completeOrder = async (req, res) => {
         processingCache.delete(cacheKey);
       }
 
-      // ✅ ASYNC background task: Upload design images AFTER response sent
-      setImmediate(async () => {
-        try {
-          const designImages = await extractAndUploadDesignImages(items, order._id.toString());
-          if (Object.keys(designImages).length > 0) {
-            await Order.findByIdAndUpdate(order._id, { designImages });
-            console.log('✅ Design images uploaded and saved to order (async - store pickup)');
-            
-            // ✅ MANDATORY: Remove base64 from order after upload
-            await removeBase64FromOrder(order._id.toString());
-          }
-        } catch (e) {
-          console.error('Design image upload failed async (store pickup):', e);
-        }
-      });
+      // ✅ Save Cloudinary URLs to order (already uploaded above)
+      if (Object.keys(designImages).length > 0) {
+        order.designImages = designImages;
+        await order.save();
+        console.log('✅ Design images saved to order (store pickup)');
+      }
 
       return res.status(200).json({ success: true, order });
     }
@@ -1310,21 +1335,12 @@ const completeOrder = async (req, res) => {
         processingCache.delete(cacheKey);
       }
 
-      // ✅ ASYNC background task: Upload design images AFTER response sent
-      setImmediate(async () => {
-        try {
-          const designImages = await extractAndUploadDesignImages(items, order._id.toString());
-          if (Object.keys(designImages).length > 0) {
-            await Order.findByIdAndUpdate(order._id, { designImages });
-            console.log('✅ Design images uploaded and saved to order (async - netbanking)');
-            
-            // ✅ MANDATORY: Remove base64 from order after upload
-            await removeBase64FromOrder(order._id.toString());
-          }
-        } catch (e) {
-          console.error('Design image upload failed async (netbanking):', e);
-        }
-      });
+      // ✅ Save Cloudinary URLs to order (already uploaded above)
+      if (Object.keys(designImages).length > 0) {
+        order.designImages = designImages;
+        await order.save();
+        console.log('✅ Design images saved to order (netbanking)');
+      }
 
       return res.status(200).json({ success: true, order });
     }
@@ -1422,21 +1438,12 @@ const completeOrder = async (req, res) => {
         processingCache.delete(cacheKey);
       }
 
-      // ✅ ASYNC background task: Upload design images AFTER response sent
-      setImmediate(async () => {
-        try {
-          const designImages = await extractAndUploadDesignImages(items, order._id.toString());
-          if (Object.keys(designImages).length > 0) {
-            await Order.findByIdAndUpdate(order._id, { designImages });
-            console.log('✅ Design images uploaded and saved to order (async - razorpay)');
-            
-            // ✅ MANDATORY: Remove base64 from order after upload
-            await removeBase64FromOrder(order._id.toString());
-          }
-        } catch (e) {
-          console.error('Design image upload failed async (razorpay):', e);
-        }
-      });
+      // ✅ Save Cloudinary URLs to order (already uploaded above)
+      if (Object.keys(designImages).length > 0) {
+        order.designImages = designImages;
+        await order.save();
+        console.log('✅ Design images saved to order (online)');
+      }
 
       return res.status(200).json({ success: true, order });
     }
@@ -1539,21 +1546,12 @@ const completeOrder = async (req, res) => {
         processingCache.delete(cacheKey);
       }
 
-      // ✅ ASYNC background task: Upload design images AFTER response sent
-      setImmediate(async () => {
-        try {
-          const designImages = await extractAndUploadDesignImages(items, order._id.toString());
-          if (Object.keys(designImages).length > 0) {
-            await Order.findByIdAndUpdate(order._id, { designImages });
-            console.log('✅ Design images uploaded and saved to order (async - 50%)');
-            
-            // ✅ MANDATORY: Remove base64 from order after upload
-            await removeBase64FromOrder(order._id.toString());
-          }
-        } catch (e) {
-          console.error('Design image upload failed async (50%):', e);
-        }
-      });
+      // ✅ Save Cloudinary URLs to order (already uploaded above)
+      if (Object.keys(designImages).length > 0) {
+        order.designImages = designImages;
+        await order.save();
+        console.log('✅ Design images saved to order (50%)');
+      }
 
       return res.status(200).json({ success: true, order });
     }

@@ -324,10 +324,10 @@ exports.getAllOrders = async (req, res) => {
       const totalOrders = await Order.countDocuments(filter).maxTimeMS(5000);
       console.log(`📦 Total orders in DB: ${totalOrders}`);
 
-      // ✅ PERFORMANCE FIX: Exclude base64 images from products
+      // ✅ PERFORMANCE FIX: Fetch without base64 fields, clean in memory
       console.log(`📦 Executing find query with sort...`);
       const orders = await Order.find(filter)
-        .select('-products.previewImages -products.design.front.uploadedImage -products.design.back.uploadedImage -products.design.left.uploadedImage -products.design.right.uploadedImage')
+        .select('-products.previewImages -products.design.previewImages')
         .sort({ createdAt: -1 })
         .limit(limit)
         .skip(skip)
@@ -336,19 +336,20 @@ exports.getAllOrders = async (req, res) => {
 
       console.log(`✅ Found ${orders.length} orders (sorted by newest first)`);
       
-      // ✅ CRITICAL: Remove any remaining base64 from products
+      // ✅ Additional cleanup: Remove any remaining base64 (belt and suspenders)
       const cleanedOrders = orders.map(order => {
         if (order.products && Array.isArray(order.products)) {
           order.products = order.products.map(product => {
             const cleanProduct = { ...product };
             
-            // Remove base64 from design object
+            // Remove any remaining base64 fields
+            delete cleanProduct.previewImages;
+            
             if (cleanProduct.design) {
               const cleanDesign = { ...cleanProduct.design };
+              delete cleanDesign.previewImages;
               ['front', 'back', 'left', 'right'].forEach(side => {
-                if (cleanDesign[side] && cleanDesign[side].uploadedImage && 
-                    typeof cleanDesign[side].uploadedImage === 'string' && 
-                    cleanDesign[side].uploadedImage.startsWith('data:image')) {
+                if (cleanDesign[side]) {
                   delete cleanDesign[side].uploadedImage;
                 }
               });

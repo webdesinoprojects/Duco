@@ -41,42 +41,59 @@ const uploadOrderDesignImages = async (order, products) => {
     }
     
     // Extract preview images from product design
-    if (firstProduct.design && typeof firstProduct.design === 'object') {
-      const design = firstProduct.design;
-      
+    let designObj = firstProduct.design;
+    
+    // ✅ CRITICAL FIX: Handle design as array (from TShirtDesigner - new designs)
+    if (Array.isArray(designObj) && designObj.length > 0) {
+      console.log('📸 Design is an array, using first element');
+      designObj = designObj[0];
+    }
+    // ✅ If design is already an object (loaded designs), use it directly
+    else if (designObj && typeof designObj === 'object' && !Array.isArray(designObj)) {
+      console.log('📸 Design is an object (loaded design)');
+    }
+    
+    if (designObj && typeof designObj === 'object') {
       // Extract preview images from design object
-      if (design.previewImages && typeof design.previewImages === 'object') {
+      if (designObj.previewImages && typeof designObj.previewImages === 'object') {
         console.log('📸 Found previewImages in design object');
-        for (const [key, value] of Object.entries(design.previewImages)) {
-          if (value && typeof value === 'string' && value.length > 100) {
+        for (const [key, value] of Object.entries(designObj.previewImages)) {
+          if (value && typeof value === 'string' && value.length > 100 && !previewImages[key]) {
             previewImages[key] = value;
             console.log(`  ✅ ${key}: ${value.substring(0, 50)}... (${value.length} chars)`);
           }
         }
       }
       
-      // Also check for direct front/back/left/right views
-      if (design.front?.uploadedImage && typeof design.front.uploadedImage === 'string' && design.front.uploadedImage.length > 100) {
-        previewImages.front = design.front.uploadedImage;
-        console.log(`  ✅ front (from design.front.uploadedImage): ${design.front.uploadedImage.substring(0, 50)}...`);
-      }
-      if (design.back?.uploadedImage && typeof design.back.uploadedImage === 'string' && design.back.uploadedImage.length > 100) {
-        previewImages.back = design.back.uploadedImage;
-        console.log(`  ✅ back (from design.back.uploadedImage): ${design.back.uploadedImage.substring(0, 50)}...`);
-      }
-      if (design.left?.uploadedImage && typeof design.left.uploadedImage === 'string' && design.left.uploadedImage.length > 100) {
-        previewImages.left = design.left.uploadedImage;
-        console.log(`  ✅ left (from design.left.uploadedImage): ${design.left.uploadedImage.substring(0, 50)}...`);
-      }
-      if (design.right?.uploadedImage && typeof design.right.uploadedImage === 'string' && design.right.uploadedImage.length > 100) {
-        previewImages.right = design.right.uploadedImage;
-        console.log(`  ✅ right (from design.right.uploadedImage): ${design.right.uploadedImage.substring(0, 50)}...`);
+      // ✅ CRITICAL FIX: Check for direct front/back/left/right as strings (base64 from canvas)
+      // This is the most common case for custom designs from TShirtDesigner
+      for (const view of ['front', 'back', 'left', 'right']) {
+        const viewData = designObj[view];
+        
+        // Skip if already found
+        if (previewImages[view]) continue;
+        
+        // 1. Check if it's a direct base64 string (MOST COMMON for custom designs)
+        if (typeof viewData === 'string' && viewData.length > 100) {
+          previewImages[view] = viewData;
+          console.log(`  ✅ ${view} (direct string): ${viewData.substring(0, 50)}... (${viewData.length} chars)`);
+        }
+        // 2. Check if it's an object with uploadedImage (FROM TSHIRTDESIGNER)
+        else if (viewData && typeof viewData === 'object' && viewData.uploadedImage && typeof viewData.uploadedImage === 'string' && viewData.uploadedImage.length > 100) {
+          previewImages[view] = viewData.uploadedImage;
+          console.log(`  ✅ ${view} (from uploadedImage): ${viewData.uploadedImage.substring(0, 50)}... (${viewData.uploadedImage.length} chars)`);
+        }
+        // 3. Check if it's an object with url
+        else if (viewData && typeof viewData === 'object' && viewData.url && typeof viewData.url === 'string' && viewData.url.length > 100) {
+          previewImages[view] = viewData.url;
+          console.log(`  ✅ ${view} (from url): ${viewData.url.substring(0, 50)}...`);
+        }
       }
     }
 
-    // If we found preview images, try to upload them to Cloudinary
+    // If we found preview images, upload them to Cloudinary
     if (Object.keys(previewImages).length > 0) {
-      console.log('📸 Found preview images, attempting Cloudinary upload...', {
+      console.log('📸 Found preview images, uploading to Cloudinary...', {
         count: Object.keys(previewImages).length,
         views: Object.keys(previewImages)
       });
@@ -84,18 +101,20 @@ const uploadOrderDesignImages = async (order, products) => {
       try {
         const uploadedImages = await uploadDesignPreviewImages(previewImages, order._id.toString());
         
-        // ✅ If Cloudinary upload succeeded, return those URLs
+        // ✅ CRITICAL: ONLY return if Cloudinary upload succeeded
         if (Object.keys(uploadedImages).length > 0) {
           console.log('✅ Design images uploaded to Cloudinary:', uploadedImages);
           return uploadedImages;
+        } else {
+          console.error('❌ Cloudinary upload returned empty object - NO IMAGES SAVED');
+          return {};
         }
       } catch (cloudinaryError) {
-        console.warn('⚠️ Cloudinary upload failed, using base64 data URLs as fallback:', cloudinaryError.message);
+        console.error('❌ Cloudinary upload FAILED - NO IMAGES SAVED:', cloudinaryError.message);
+        // ✅ CRITICAL: DO NOT save base64 to database as fallback!
+        // Return empty object so order is created without images
+        return {};
       }
-      
-      // ✅ Fallback: Return base64 data URLs directly
-      console.log('📸 Using base64 data URLs as fallback');
-      return previewImages;
     }
 
     console.log('⚠️ No preview images found in product design or previewImages');
