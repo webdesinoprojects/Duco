@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import UserCard from "../Admin/Components/UserCard";
+import { API_BASE_URL } from '../config/api';
 
 const UserInfo = () => {
   const [user, setUser] = useState([]);
@@ -17,7 +18,7 @@ const UserInfo = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get("https://duco-67o5.onrender.com/user/get?limit=100");
+        const res = await axios.get(`${API_BASE_URL}/user/get?limit=100`);
         
         if (Array.isArray(res.data)) {
           setUser(res.data);

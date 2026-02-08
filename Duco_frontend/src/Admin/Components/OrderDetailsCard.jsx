@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getLogisticsByOrder } from "../../Service/logisticsApi";
 import DesignPreviewModal from "./DesignPreviewModal";
+import { API_BASE_URL } from "../../config/api";
 
 const SIZE_ORDER = ["S", "M", "L", "XL", "2XL", "3XL"];
 
@@ -75,7 +76,7 @@ const OrderDetailsCard = ({ orderId }) => {
     setOrder((prev) => ({ ...prev, status: newStatus }));
     try {
       await fetch(
-        `https://duco-67o5.onrender.com/api/order/update/${orderId}`,
+        `${API_BASE_URL}/api/order/update/${orderId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -92,7 +93,7 @@ const OrderDetailsCard = ({ orderId }) => {
     setOrder((prev) => ({ ...prev, deliveryExpectedDate: newDate }));
     try {
       await fetch(
-        `https://duco-67o5.onrender.com/api/order/update/${orderId}`,
+        `${API_BASE_URL}/api/order/update/${orderId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -128,7 +129,7 @@ const OrderDetailsCard = ({ orderId }) => {
       try {
         console.log("📡 Fetching order:", orderId);
         const res = await fetch(
-          `https://duco-67o5.onrender.com/api/order/${orderId}`
+          `${API_BASE_URL}/api/order/${orderId}`
         );
         const data = await res.json();
         console.log("🧾 Order fetched:", data);
@@ -156,7 +157,7 @@ const OrderDetailsCard = ({ orderId }) => {
         // If userId is a string, fetch the user details
         if (typeof order.userId === 'string') {
           const res = await fetch(
-            `https://duco-67o5.onrender.com/api/users/${order.userId}`
+            `${API_BASE_URL}/api/users/${order.userId}`
           );
           if (!res.ok) {
             console.warn("Failed to fetch customer info");
@@ -176,7 +177,7 @@ const OrderDetailsCard = ({ orderId }) => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("https://duco-67o5.onrender.com/api/products");
+        const res = await fetch(`${API_BASE_URL}/api/products`);
         const data = await res.json();
         if (Array.isArray(data)) setAllProducts(data);
       } catch (err) {

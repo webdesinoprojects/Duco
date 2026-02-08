@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 const ProductsUpdate = () => {
   const location = useLocation();
@@ -29,7 +30,7 @@ const ProductsUpdate = () => {
   useEffect(() => {
     const getSubCategories = async () => {
       try {
-        const res = await axios.get("https://duco-67o5.onrender.com/subcategory/getallsubctg");
+        const res = await axios.get(`${API_BASE_URL}/subcategory/getallsubctg`);
         setSubcategories(res.data.subCategory || []);
       } catch (err) {
         console.error("Error fetching subcategories:", err);
@@ -126,7 +127,7 @@ const ProductsUpdate = () => {
     e.preventDefault();
     try {
       const id = productData?._id;
-      const res = await axios.put(`https://duco-67o5.onrender.com/products/update/${id}`, formData);
+      const res = await axios.put(`${API_BASE_URL}/products/update/${id}`, formData);
       alert(res?.data?.message || "Product updated successfully");
       navigate("/admin");
     } catch (error) {

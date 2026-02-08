@@ -240,21 +240,19 @@ exports.getOrdersByUser = async (req, res) => {
         return order;
       });
       
-      // ✅ FILTER OUT INVALID ORDERS
+      // ✅ FILTER OUT TRULY INVALID ORDERS (only those with no products at all)
       const beforeFilter = orders.length;
       orders = orders.filter(order => {
         const products = order.products || [];
-        const hasValidProduct = Array.isArray(products) && 
-          products.length > 0 && 
-          products[0] && 
-          typeof products[0] === 'object' && 
-          Object.keys(products[0]).length > 0;
+        // Only filter out orders that have NO products array or empty array
+        // Don't filter based on product content - that's too aggressive
+        const hasProducts = Array.isArray(products) && products.length > 0;
         
-        if (!hasValidProduct) {
-          console.warn(`⚠️ Filtering out order ${order._id} - invalid products array`);
+        if (!hasProducts) {
+          console.warn(`⚠️ Filtering out order ${order._id} - no products array`);
         }
         
-        return hasValidProduct;
+        return hasProducts;
       });
       
       if (beforeFilter !== orders.length) {
@@ -327,7 +325,6 @@ exports.getAllOrders = async (req, res) => {
       // ✅ PERFORMANCE FIX: Fetch without base64 fields, clean in memory
       console.log(`📦 Executing find query with sort...`);
       const orders = await Order.find(filter)
-        .select('-products.previewImages -products.design.previewImages')
         .sort({ createdAt: -1 })
         .limit(limit)
         .skip(skip)
@@ -362,21 +359,19 @@ exports.getAllOrders = async (req, res) => {
         return order;
       });
       
-      // ✅ FILTER OUT INVALID ORDERS
+      // ✅ FILTER OUT TRULY INVALID ORDERS (only those with no products at all)
       const beforeFilter = cleanedOrders.length;
       const validOrders = cleanedOrders.filter(order => {
         const products = order.products || [];
-        const hasValidProduct = Array.isArray(products) && 
-          products.length > 0 && 
-          products[0] && 
-          typeof products[0] === 'object' && 
-          Object.keys(products[0]).length > 0;
+        // Only filter out orders that have NO products array or empty array
+        // Don't filter based on product content - that's too aggressive
+        const hasProducts = Array.isArray(products) && products.length > 0;
         
-        if (!hasValidProduct) {
-          console.warn(`⚠️ Admin filter: Excluding order ${order._id || order.orderId} - invalid products array`);
+        if (!hasProducts) {
+          console.warn(`⚠️ Admin filter: Excluding order ${order._id || order.orderId} - no products array`);
         }
         
-        return hasValidProduct;
+        return hasProducts;
       });
       
       if (beforeFilter !== validOrders.length) {

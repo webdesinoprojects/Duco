@@ -1597,7 +1597,8 @@ const Cart = () => {
                     qty: Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0)
                   }));
 
-                  const stockResponse = await fetch('https://duco-67o5.onrender.com/api/stock/bulk-check', {
+                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+                  const stockResponse = await fetch(`${API_BASE}/api/stock/bulk-check`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ items: stockCheckItems })

@@ -9,6 +9,8 @@ import { FaSync, FaEye, FaEdit, FaExternalLinkAlt, FaShippingFast } from 'react-
 
 const ACCENT = "#E5C870";
 
+import { API_BASE_URL } from '../config/api';
+
 const TrackingManager = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ const TrackingManager = () => {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://duco-67o5.onrender.com/api/admin/orders?limit=100');
+      const response = await fetch(`${API_BASE_URL}/api/admin/orders?limit=100`);
       const data = await response.json();
       
       // Handle both old format and new paginated format
