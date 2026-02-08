@@ -608,6 +608,8 @@ export default function LogisticsManager() {
           
           ${invoice.tax?.type === 'INTERNATIONAL' ? `
             ${invoice.tax?.taxRate && totals?.taxAmt > 0 ? `<div><strong>Service Charge (${invoice.tax.taxRate}%):</strong> ${currencySymbol}${(totals?.taxAmt || 0).toFixed(2)}</div>` : ''}
+          ` : invoice.tax?.type === 'B2C_NO_TAX' ? `
+            <div style="font-style: italic;"><em>Including taxes</em></div>
           ` : `
             ${invoice.tax?.cgstRate ? `<div><strong>CGST (${invoice.tax.cgstRate}%):</strong> ${currencySymbol}${(totals?.cgstAmt || 0).toFixed(2)}</div>` : ''}
             ${invoice.tax?.sgstRate ? `<div><strong>SGST (${invoice.tax.sgstRate}%):</strong> ${currencySymbol}${(totals?.sgstAmt || 0).toFixed(2)}</div>` : ''}
@@ -617,6 +619,23 @@ export default function LogisticsManager() {
           <div class="grand-total">
             <strong>Grand Total:</strong> ${currencySymbol}${(totals?.grandTotal || 0).toFixed(2)}
           </div>
+          
+          ${invoice.paymentmode === '50%' && invoice.amountPaid > 0 && invoice.amountPaid < totals?.grandTotal ? `
+            <div style="background-color: #e8f5e9; padding: 8px; margin-top: 10px;">
+              <strong>Paid Amount:</strong> ${currencySymbol}${(invoice.amountPaid || 0).toFixed(2)}
+            </div>
+            <div style="background-color: #fff3e0; padding: 8px;">
+              <strong>Left Amount:</strong> ${currencySymbol}${((totals?.grandTotal || 0) - (invoice.amountPaid || 0)).toFixed(2)}
+            </div>
+          ` : invoice.amountPaid > 0 && invoice.amountPaid >= totals?.grandTotal ? `
+            <div style="background-color: #e8f5e9; padding: 8px; margin-top: 10px;">
+              <strong>Paid Amount:</strong> ${currencySymbol}${(invoice.amountPaid || 0).toFixed(2)}
+            </div>
+          ` : invoice.amountPaid === 0 ? `
+            <div style="background-color: #fff3e0; padding: 8px; margin-top: 10px;">
+              <strong>Left Amount:</strong> ${currencySymbol}${(totals?.grandTotal || 0).toFixed(2)}
+            </div>
+          ` : ''}
         </div>
 
         ${invoice.notes ? `<div style="margin-top: 30px;"><strong>Notes:</strong><br>${invoice.notes}</div>` : ''}

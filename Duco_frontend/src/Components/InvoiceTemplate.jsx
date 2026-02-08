@@ -74,7 +74,11 @@ export const InvoiceTemplate = ({ data }) => {
     conversionRate = 1, // ✅ Add conversion rate
   } = data;
 
-  const displayAmount = paymentmode === '50%' && amountPaid > 0 ? amountPaid : total;
+  // ✅ PARTIAL PAYMENT: Calculate paid and left amounts
+  const paidAmount = Number(amountPaid) || 0;
+  const leftAmount = total - paidAmount;
+  const hasPartialPayment = paidAmount > 0 && paidAmount < total;
+  
   const currencyName = currencyNames[currency] || "Rupees";
   const totalQty = (items || []).reduce((sum, it) => sum + Number(it.qty || 0), 0);
 
@@ -84,6 +88,9 @@ export const InvoiceTemplate = ({ data }) => {
   const igstAmount = Number(tax?.igstAmount || 0);
   const taxAmount = Number(tax?.taxAmount || 0);
   const totalTax = cgstAmount + sgstAmount + igstAmount + taxAmount;
+  
+  // ✅ B2C TAX: Check if this is B2C (no tax display)
+  const isB2C = tax?.type === 'B2C_NO_TAX';
 
   return (
     <div style={{
@@ -319,17 +326,17 @@ export const InvoiceTemplate = ({ data }) => {
                 </tr>
               )}
               
-              {/* B2C_NO_TAX: No tax */}
-              {tax?.type === 'B2C_NO_TAX' && (
+              {/* ✅ B2C_NO_TAX: Show "Including taxes" text only (NO numeric values) */}
+              {isB2C && (
                 <tr>
-                  <td style={{ padding: "3px 8px", textAlign: "left" }}>Tax</td>
-                  <td style={{ padding: "3px 8px", textAlign: "right" }}>@ 0.00 %</td>
-                  <td style={{ padding: "3px 8px", textAlign: "right" }}>0.00</td>
+                  <td style={{ padding: "3px 8px", textAlign: "left", fontStyle: "italic" }} colSpan="3">
+                    Including taxes
+                  </td>
                 </tr>
               )}
               
               {/* Fallback for old invoices without type */}
-              {!tax?.type && cgstAmount > 0 && (
+              {!tax?.type && !isB2C && cgstAmount > 0 && (
                 <>
                   <tr>
                     <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : SGST</td>
@@ -348,100 +355,135 @@ export const InvoiceTemplate = ({ data }) => {
                 <td style={{ padding: "4px 8px" }}>Grand Total</td>
                 <td style={{ padding: "4px 8px", textAlign: "center" }}>{totalQty.toFixed(2)} Pcs.</td>
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>-</td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>{displayAmount.toFixed(2)}</td>
+                <td style={{ padding: "4px 8px", textAlign: "right" }}>{total.toFixed(2)}</td>
               </tr>
+              
+              {/* ✅ PARTIAL PAYMENT: Show Paid and Left amounts */}
+              {hasPartialPayment && (
+                <>
+                  <tr style={{ backgroundColor: "#e8f5e9" }}>
+                    <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Paid Amount</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{paidAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr style={{ backgroundColor: "#fff3e0" }}>
+                    <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Left Amount</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{leftAmount.toFixed(2)}</td>
+                  </tr>
+                </>
+              )}
+              
+              {/* ✅ FULL PAYMENT: Show only Paid Amount if fully paid */}
+              {paidAmount > 0 && paidAmount >= total && (
+                <tr style={{ backgroundColor: "#e8f5e9" }}>
+                  <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Paid Amount</td>
+                  <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
+                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{paidAmount.toFixed(2)}</td>
+                </tr>
+              )}
+              
+              {/* ✅ NO PAYMENT: Show only Left Amount if nothing paid */}
+              {paidAmount === 0 && (
+                <tr style={{ backgroundColor: "#fff3e0" }}>
+                  <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Left Amount</td>
+                  <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
+                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{total.toFixed(2)}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* TAX BREAKDOWN TABLE */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px", border: "1px solid #000" }}>
-        <thead>
-          <tr style={{ backgroundColor: "#f5f5f5" }}>
-            <th style={{ border: "1px solid #000", padding: "4px" }}>Tax Rate</th>
-            <th style={{ border: "1px solid #000", padding: "4px" }}>Taxable Amt.</th>
-            
-            {/* INTRASTATE_CGST_SGST: Show CGST and SGST columns */}
-            {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
-              <>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
-              </>
-            )}
-            
-            {/* INTERSTATE: Show IGST column */}
-            {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
-              <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
-            )}
-            
-            {/* INTERNATIONAL: Show TAX column */}
-            {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
-              <th style={{ border: "1px solid #000", padding: "4px" }}>TAX Amt.</th>
-            )}
-            
-            {/* Fallback for old invoices */}
-            {!tax?.type && cgstAmount > 0 && (
-              <>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
-                <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
-              </>
-            )}
-            
-            <th style={{ border: "1px solid #000", padding: "4px" }}>Total Tax</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            {/* Tax Rate */}
-            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "center" }}>
-              {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && `${((tax?.cgstRate || 0) + (tax?.sgstRate || 0)).toFixed(2)}%`}
-              {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && `${(tax?.igstRate || 5).toFixed(2)}%`}
-              {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && `${(tax?.taxRate || 1).toFixed(2)}%`}
-              {tax?.type === 'B2C_NO_TAX' && `0%`}
-              {!tax?.type && cgstAmount > 0 && `${((tax?.cgstRate || 0) + (tax?.sgstRate || 0)).toFixed(2)}%`}
-            </td>
+      {/* TAX BREAKDOWN TABLE - Hide for B2C */}
+      {!isB2C && (
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "8px", border: "1px solid #000" }}>
+          <thead>
+            <tr style={{ backgroundColor: "#f5f5f5" }}>
+              <th style={{ border: "1px solid #000", padding: "4px" }}>Tax Rate</th>
+              <th style={{ border: "1px solid #000", padding: "4px" }}>Taxable Amt.</th>
+              
+              {/* INTRASTATE_CGST_SGST: Show CGST and SGST columns */}
+              {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
+                <>
+                  <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
+                  <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
+                </>
+              )}
+              
+              {/* INTERSTATE: Show IGST column */}
+              {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
+                <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
+              )}
+              
+              {/* INTERNATIONAL: Show TAX column */}
+              {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
+                <th style={{ border: "1px solid #000", padding: "4px" }}>TAX Amt.</th>
+              )}
+              
+              {/* Fallback for old invoices */}
+              {!tax?.type && cgstAmount > 0 && (
+                <>
+                  <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
+                  <th style={{ border: "1px solid #000", padding: "4px" }}>SGST Amt.</th>
+                </>
+              )}
+              
+              <th style={{ border: "1px solid #000", padding: "4px" }}>Total Tax</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {/* Tax Rate */}
+              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "center" }}>
+                {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && `${((tax?.cgstRate || 0) + (tax?.sgstRate || 0)).toFixed(2)}%`}
+                {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && `${(tax?.igstRate || 5).toFixed(2)}%`}
+                {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && `${(tax?.taxRate || 1).toFixed(2)}%`}
+                {!tax?.type && cgstAmount > 0 && `${((tax?.cgstRate || 0) + (tax?.sgstRate || 0)).toFixed(2)}%`}
+              </td>
 
-            {/* Taxable Amount */}
-            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
+              {/* Taxable Amount */}
+              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
 
-            {/* INTRASTATE_CGST_SGST: CGST and SGST amounts */}
-            {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
-              <>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{cgstAmount.toFixed(2)}</td>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{sgstAmount.toFixed(2)}</td>
-              </>
-            )}
+              {/* INTRASTATE_CGST_SGST: CGST and SGST amounts */}
+              {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
+                <>
+                  <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{cgstAmount.toFixed(2)}</td>
+                  <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{sgstAmount.toFixed(2)}</td>
+                </>
+              )}
 
-            {/* INTERSTATE: IGST amount */}
-            {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
-              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{igstAmount.toFixed(2)}</td>
-            )}
+              {/* INTERSTATE: IGST amount */}
+              {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
+                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{igstAmount.toFixed(2)}</td>
+              )}
 
-            {/* INTERNATIONAL: Service Charge amount (NOT GST) */}
-            {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
-              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{taxAmount.toFixed(2)}</td>
-            )}
+              {/* INTERNATIONAL: Service Charge amount (NOT GST) */}
+              {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
+                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{taxAmount.toFixed(2)}</td>
+              )}
 
-            {/* Fallback for old invoices */}
-            {!tax?.type && cgstAmount > 0 && (
-              <>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{cgstAmount.toFixed(2)}</td>
-                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{sgstAmount.toFixed(2)}</td>
-              </>
-            )}
+              {/* Fallback for old invoices */}
+              {!tax?.type && cgstAmount > 0 && (
+                <>
+                  <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{cgstAmount.toFixed(2)}</td>
+                  <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{sgstAmount.toFixed(2)}</td>
+                </>
+              )}
 
-            {/* Total Tax */}
-            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>
-              {totalTax.toFixed(2)}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              {/* Total Tax */}
+              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>
+                {totalTax.toFixed(2)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
 
       {/* AMOUNT IN WORDS */}
       <div style={{ marginBottom: "8px", paddingBottom: "5px", borderBottom: "1px solid #000", fontWeight: "bold" }}>
-        {currencyName} {numberToWords(Math.round(displayAmount))} Only
+        {currencyName} {numberToWords(Math.round(total))} Only
       </div>
 
       {/* TERMS AND SIGNATURE */}
