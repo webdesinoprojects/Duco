@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
 
 const AdminCartItem = ({ product }) => {
   const navigator = useNavigate();
+  const location = useLocation();
   const [openColors, setOpenColors] = useState(false); // toggle for all colors
 
   // Calculate total stock and identify low/out of stock
@@ -13,7 +14,16 @@ const AdminCartItem = ({ product }) => {
   const isLowStock = totalStock > 0 && totalStock <= 10;
 
   const onEdit = async (id) => {
-    navigator(`/admin/edit/${id}`, { state: product?.fulldetails });
+    // ✅ Context-aware routing: Check if we're in employee or admin context
+    const isEmployeeContext = location.pathname.startsWith('/employees') || location.pathname.startsWith('/employee');
+    
+    if (isEmployeeContext) {
+      // Employee context: Navigate to employee edit route
+      navigator(`/employees/edit/${id}`, { state: product?.fulldetails });
+    } else {
+      // Admin context: Navigate to admin edit route
+      navigator(`/admin/edit/${id}`, { state: product?.fulldetails });
+    }
   };
 
   const onDeleted = async (id) => {

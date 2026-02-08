@@ -188,6 +188,7 @@ const App = () => {
           <Route path="/employees" element={<EmployessLayout />}>
             <Route index element={<EmployeeSection />} />
             <Route path="inventory" element={<Adminhome />} />
+            <Route path="edit/:id" element={<ProductsUpdate />} />
             <Route path="categories" element={<Category />} />
             <Route path="products" element={<ProdcutsCreated />} />
             <Route path="banner" element={<LandingPageManager />} />

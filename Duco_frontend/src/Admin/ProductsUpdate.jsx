@@ -129,7 +129,17 @@ const ProductsUpdate = () => {
       const id = productData?._id;
       const res = await axios.put(`${API_BASE_URL}/products/update/${id}`, formData);
       alert(res?.data?.message || "Product updated successfully");
-      navigate("/admin");
+      
+      // ✅ Context-aware navigation: Return to correct dashboard
+      const isEmployeeContext = location.pathname.startsWith('/employees') || location.pathname.startsWith('/employee');
+      
+      if (isEmployeeContext) {
+        // Employee context: Navigate back to employee inventory
+        navigate("/employees/inventory");
+      } else {
+        // Admin context: Navigate back to admin home
+        navigate("/admin");
+      }
     } catch (error) {
       console.error('Error updating product:', error);
       alert("Something went wrong while updating product");
