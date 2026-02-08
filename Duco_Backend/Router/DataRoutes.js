@@ -11,7 +11,7 @@ const INITIAL_DOC = {
     address: "SADIJA COMPOUND AVANTI VIHAR LIG 64\nNEAR BANK OF BARODA , RAIPUR C.G",
     gstin: "22AAICD1719N1ZM",
     cin: "U52601CT2020PTC010997",
-    email: "ducoart1@gmail.com",
+    email: "Duco@ducoart.com",
     pan: "",
     iec: "",
     gst: "",

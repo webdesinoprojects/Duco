@@ -52,8 +52,19 @@ export const normalizeInvoiceData = (invoice, totals) => {
   const grandTotal = totals?.grandTotal || 0;
   const displayTotal = paymentmode === '50%' && amountPaid > 0 ? amountPaid : grandTotal;
 
-  // Extract tax info
+  // Extract tax info from invoice
   const tax = invoice.tax || {};
+  
+  // ✅ CRITICAL FIX: Use recalculated tax amounts from totals (backend computeTotals)
+  // The backend computeTotals function recalculates tax amounts from rates
+  // This ensures existing orders show correct service charge amounts
+  if (totals) {
+    tax.cgstAmount = totals.cgstAmt || 0;
+    tax.sgstAmount = totals.sgstAmt || 0;
+    tax.igstAmount = totals.igstAmt || 0;
+    tax.taxAmount = totals.taxAmt || 0; // ✅ International 1% service charge
+    tax.totalTax = totals.totalTaxAmt || 0;
+  }
 
   // Extract additional files
   const additionalFilesMeta = invoice.additionalFilesMeta || [];

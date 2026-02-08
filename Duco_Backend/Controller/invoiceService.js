@@ -104,6 +104,7 @@ async function createInvoice(data) {
     cgstAmount: taxInfo.cgstAmount,
     sgstAmount: taxInfo.sgstAmount,
     igstAmount: taxInfo.igstAmount,
+    taxAmount: taxInfo.taxAmount, // ✅ International 1% charge
     totalTax: taxInfo.totalTax,
     type: taxInfo.type,
     label: taxInfo.label

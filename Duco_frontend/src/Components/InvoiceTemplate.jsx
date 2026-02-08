@@ -110,6 +110,13 @@ export const InvoiceTemplate = ({ data }) => {
         <p style={{ margin: "1px 0", fontSize: "10px" }}>SADIJA COMPOUND AVANTI VIHAR LIG 64</p>
         <p style={{ margin: "1px 0", fontSize: "10px" }}>NEAR BANK OF BARODA , RAIPUR C.G</p>
         <p style={{ margin: "1px 0", fontSize: "10px" }}>CIN : {company.cin || "U52601CT2020PTC010997"}</p>
+        {/* ✅ Show PAN and IEC only for international invoices */}
+        {tax?.type === 'INTERNATIONAL' && (
+          <>
+            {company.pan && <p style={{ margin: "1px 0", fontSize: "10px" }}>PAN : {company.pan}</p>}
+            {company.iec && <p style={{ margin: "1px 0", fontSize: "10px" }}>IEC : {company.iec}</p>}
+          </>
+        )}
         <p style={{ margin: "1px 0", fontSize: "10px" }}>email : {company.email}</p>
       </div>
 
@@ -303,10 +310,10 @@ export const InvoiceTemplate = ({ data }) => {
                 </tr>
               )}
               
-              {/* INTERNATIONAL: 1% TAX */}
-              {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
+              {/* INTERNATIONAL: 1% Service Charge (NOT GST) */}
+              {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && taxAmount > 0 && (
                 <tr>
-                  <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : TAX</td>
+                  <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : Service Charge</td>
                   <td style={{ padding: "3px 8px", textAlign: "right" }}>@ {(tax?.taxRate || 1).toFixed(2)} %</td>
                   <td style={{ padding: "3px 8px", textAlign: "right" }}>{taxAmount.toFixed(2)}</td>
                 </tr>
@@ -411,7 +418,7 @@ export const InvoiceTemplate = ({ data }) => {
               <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{igstAmount.toFixed(2)}</td>
             )}
 
-            {/* INTERNATIONAL: TAX amount */}
+            {/* INTERNATIONAL: Service Charge amount (NOT GST) */}
             {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
               <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{taxAmount.toFixed(2)}</td>
             )}
@@ -425,7 +432,9 @@ export const InvoiceTemplate = ({ data }) => {
             )}
 
             {/* Total Tax */}
-            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{totalTax.toFixed(2)}</td>
+            <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>
+              {totalTax.toFixed(2)}
+            </td>
           </tr>
         </tbody>
       </table>

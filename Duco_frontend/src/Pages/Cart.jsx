@@ -276,6 +276,13 @@ const InvoiceDucoTailwind = ({ data }) => {
         </h2>
         <p>{data.company.address}</p>
         <p>GSTIN: {data.company.gstin}</p>
+        {/* ✅ Show PAN and IEC only for international invoices */}
+        {data.taxType === 'INTERNATIONAL' && (
+          <>
+            {data.company.pan && <p>PAN: {data.company.pan}</p>}
+            {data.company.iec && <p>IEC: {data.company.iec}</p>}
+          </>
+        )}
         <p>Email: {data.company.email}</p>
       </div>
 
@@ -433,18 +440,7 @@ const InvoiceDucoTailwind = ({ data }) => {
                     </tr>
                   )}
                   
-                  {/* INTERNATIONAL: Show TAX only (Outside India) */}
-                  {taxType === 'INTERNATIONAL' && (
-                    <tr>
-                      <td style={{ padding: "6px" }}>Add: TAX (1%)</td>
-                      <td style={{ textAlign: "center", padding: "6px" }}>
-                        {data.formatCurrency(taxAmount)}
-                      </td>
-                      <td style={{ textAlign: "right", padding: "6px" }}>
-                        {data.formatCurrency(taxableAmount + taxAmount)}
-                      </td>
-                    </tr>
-                  )}
+                  {/* INTERNATIONAL: No tax applicable - tax row hidden */}
                   
                   {/* B2C_NO_TAX: Show no tax (B2C orders) */}
                   {taxType === 'B2C_NO_TAX' && (
@@ -1904,7 +1900,7 @@ const Cart = () => {
               name: "DUCO ART PRIVATE LIMITED",
               address: "123 Teen Murti Marg, New Delhi, India",
               gstin: "22AAICD1719N1ZM",
-              email: "support@ducoart.com",
+              email: "Duco@ducoart.com",
             },
             invoice: {
               number: "TEST-" + Math.floor(Math.random() * 10000),

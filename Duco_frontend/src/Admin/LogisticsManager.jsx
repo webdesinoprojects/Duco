@@ -537,6 +537,8 @@ export default function LogisticsManager() {
             <h2>${invoice.company?.name || ''}</h2>
             <p>${invoice.company?.address || ''}</p>
             <p>GSTIN: ${invoice.company?.gstin || ''}</p>
+            ${invoice.tax?.type === 'INTERNATIONAL' && invoice.company?.pan ? `<p>PAN: ${invoice.company.pan}</p>` : ''}
+            ${invoice.tax?.type === 'INTERNATIONAL' && invoice.company?.iec ? `<p>IEC: ${invoice.company.iec}</p>` : ''}
           </div>
         </div>
 
@@ -605,7 +607,7 @@ export default function LogisticsManager() {
           <div><strong>Taxable Value:</strong> ${currencySymbol}${(totals?.taxableValue || 0).toFixed(2)}</div>
           
           ${invoice.tax?.type === 'INTERNATIONAL' ? `
-            <div><strong>${invoice.tax?.label || 'TAX'} (${invoice.tax?.taxRate || 0}%):</strong> ${currencySymbol}${(totals?.taxAmt || 0).toFixed(2)}</div>
+            ${invoice.tax?.taxRate && totals?.taxAmt > 0 ? `<div><strong>Service Charge (${invoice.tax.taxRate}%):</strong> ${currencySymbol}${(totals?.taxAmt || 0).toFixed(2)}</div>` : ''}
           ` : `
             ${invoice.tax?.cgstRate ? `<div><strong>CGST (${invoice.tax.cgstRate}%):</strong> ${currencySymbol}${(totals?.cgstAmt || 0).toFixed(2)}</div>` : ''}
             ${invoice.tax?.sgstRate ? `<div><strong>SGST (${invoice.tax.sgstRate}%):</strong> ${currencySymbol}${(totals?.sgstAmt || 0).toFixed(2)}</div>` : ''}

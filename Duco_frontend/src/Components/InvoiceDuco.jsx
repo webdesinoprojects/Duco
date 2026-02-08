@@ -266,6 +266,13 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
           <div>
             GSTIN : <strong>{d.company?.gstin}</strong>
           </div>
+          {/* ✅ Show PAN and IEC only for international invoices */}
+          {d.tax?.type === 'INTERNATIONAL' && (
+            <>
+              {d.company?.pan && <div>PAN : <strong>{d.company.pan}</strong></div>}
+              {d.company?.iec && <div>IEC : <strong>{d.company.iec}</strong></div>}
+            </>
+          )}
           <div className="mt-1 text-lg font-bold">{d.company?.name}</div>
           <div className="whitespace-pre-line">{d.company?.address}</div>
         </div>
@@ -333,18 +340,22 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
                 </tr>
               )}
 
-              {/* ✅ Only show tax for B2B orders */}
+              {/* ✅ Tax display for B2B orders */}
               {calc.isB2B && (
                 calc.isInternational ? (
-                  <tr>
-                    <td className="border p-1">
-                      Add: TAX
-                    </td>
-                    <td className="border p-1 text-center">
-                      {fmtINR(calc.tax)}
-                    </td>
-                  </tr>
+                  // International: 1% Service Charge (NOT GST)
+                  calc.tax > 0 && (
+                    <tr>
+                      <td className="border p-1">
+                        Add: Service Charge
+                      </td>
+                      <td className="border p-1 text-center">
+                        {fmtINR(calc.tax)}
+                      </td>
+                    </tr>
+                  )
                 ) : calc.isHomeState ? (
+                  // Home state (Chhattisgarh): 5% IGST
                   <tr>
                     <td className="border p-1">
                       Add: IGST
@@ -354,6 +365,7 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
                     </td>
                   </tr>
                 ) : (
+                  // Outside home state: 2.5% CGST + 2.5% SGST
                   <>
                     <tr>
                       <td className="border p-1">
