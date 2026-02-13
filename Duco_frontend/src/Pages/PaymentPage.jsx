@@ -492,7 +492,8 @@ const PaymentPage = () => {
       console.log("🚨 PAYMENT MODE SENT TO BACKEND:", mode);
       console.log("🧾 ORDER PAYLOAD", normalizedPayload);
       console.log("✅ FINAL PAYMENTMODE IN BODY:", normalizedPayload.paymentmode);
-      console.log("📦 ITEMS BEING SENT:", JSON.stringify(normalizedPayload.items, null, 2));
+      console.log("� DISCOUNT IN PAYLOAD:", normalizedPayload.discount);
+      console.log("�📦 ITEMS BEING SENT:", JSON.stringify(normalizedPayload.items, null, 2));
 
       setIsProcessing(true);
       const res = await completeOrder(paymentId, normalizedPayload.paymentmode, normalizedPayload);
@@ -973,124 +974,6 @@ const PaymentPage = () => {
             paymentMethod.toLowerCase().includes("online") &&
             paymentMethod !== "50% Advance RazorPay" && (
               <div className="mt-6 space-y-3">
-                {import.meta.env.MODE !== "production" && (
-                  <button
-                    onClick={() => {
-                      console.group("🧪 ORDER PAYLOAD PREVIEW BEFORE PAYMENT");
-                      console.log("💳 Payment mode:", paymentMethod);
-
-                      const localCart = JSON.parse(localStorage.getItem("cart") || "[]");
-                      const itemsSource =
-                        (cart && cart.length > 0 && cart) ||
-                        (localCart && localCart.length > 0 && localCart) ||
-                        orderpayload?.items ||
-                        [];
-
-                      console.log(
-                        "📦 Using items from:",
-                        cart && cart.length > 0
-                          ? "CartContext"
-                          : localCart && localCart.length > 0
-                          ? "LocalStorage"
-                          : "OrderPayload"
-                      );
-
-                      const orderPayload = {
-                        items: itemsSource.map((item, idx) => {
-                          const missing = [];
-                          if (!item.printroveProductId)
-                            missing.push("printroveProductId");
-                          if (!item.printroveVariantId)
-                            missing.push("printroveVariantId");
-                          if (!item.previewImages?.front)
-                            missing.push("previewImages.front");
-
-                          if (missing.length > 0) {
-                            console.warn(
-                              `⚠️ Item #${idx + 1} Missing:`,
-                              missing.join(", ")
-                            );
-                          }
-
-                          return {
-                            id: item.id,
-                            productId: item.productId || item.id,
-                            name:
-                              item.products_name ||
-                              item.name ||
-                              "Custom T-shirt",
-                            printroveProductId: item.printroveProductId || null,
-                            printroveVariantId: item.printroveVariantId || null,
-                            color: item.color,
-                            gender: item.gender,
-                            price: item.price,
-                            quantity: item.quantity,
-                            previewImages: {
-                              front: item.previewImages?.front || null,
-                              back: item.previewImages?.back || null,
-                              left: item.previewImages?.left || null,
-                              right: item.previewImages?.right || null,
-                            },
-                            design: item.design || {},
-                          };
-                        }),
-                        address: {
-                          name:
-                            orderpayload?.address?.fullName ||
-                            orderpayload?.address?.name ||
-                            "Unknown",
-                          phone: orderpayload?.address?.phone || "",
-                          email: orderpayload?.address?.email || "",
-                          street: orderpayload?.address?.street || "",
-                          city: orderpayload?.address?.city || "",
-                          state: orderpayload?.address?.state || "",
-                          postalCode: orderpayload?.address?.pincode || "",
-                          country: orderpayload?.address?.country || "India",
-                          houseNumber:
-                            orderpayload?.address?.houseNumber || "NA",
-                        },
-                        user: orderpayload?.user || {},
-                        paymentmode: paymentMethod || "online",
-                        totalPay:
-                          orderpayload?.totalPay ||
-                          orderpayload?.totals?.grandTotal ||
-                          0,
-                      };
-
-                      console.log(JSON.stringify(orderPayload, null, 2));
-
-                      const issues = [];
-                      orderPayload.items.forEach((item, idx) => {
-                        if (!item.printroveProductId)
-                          issues.push(
-                            `Item #${idx + 1} Missing printroveProductId`
-                          );
-                        if (!item.printroveVariantId)
-                          issues.push(
-                            `Item #${idx + 1} Missing printroveVariantId`
-                          );
-                        if (!item.previewImages?.front)
-                          issues.push(
-                            `Item #${idx + 1} Missing previewImages.front`
-                          );
-                      });
-
-                      if (issues.length > 0) {
-                        console.warn("⚠️ Found issues:", issues);
-                        alert(`${issues.length} issues found. Check console.`);
-                      } else {
-                        console.log("✅ All required fields look good!");
-                        alert("Everything looks perfect!");
-                      }
-
-                      console.groupEnd();
-                    }}
-                    className="w-full py-2 px-4 bg-gray-700 text-white rounded-lg hover:bg-gray-800 font-semibold"
-                  >
-                    Preview Order Payload (Console)
-                  </button>
-                )}
-
                 <PaymentButton
                   orderData={{
                     ...orderpayload,

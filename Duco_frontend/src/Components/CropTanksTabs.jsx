@@ -7,10 +7,16 @@ const TABS = [
     label: "Design Guidelines",
     content: (
       <ul className="list-disc pl-6 space-y-2 text-slate-800">
-        <li>Recommended print size: 12  16 (300 DPI).</li>
-        <li>Upload PNG with transparent background.</li>
-        <li>Keep key elements 0.25 inside the safe area.</li>
-        <li>Convert texts to shapes to avoid font issues.</li>
+        <li>
+          Recommended print size:
+          <ul className="list-disc pl-6">
+            <li>Front Side (Pocket): 3x3 inch</li>
+            <li>Back Side: A4 size</li>
+          </ul>
+        </li>
+        <li>Upload CDR or PDF (High Resolution) with transparent background.</li>
+        <li>Keep key elements 0.25 inches inside safe area.</li>
+        <li>Convert text to curves/shapes to avoid font issues.</li>
       </ul>
     ),
   },
@@ -21,7 +27,7 @@ const TABS = [
       <ul className="list-disc pl-6 space-y-2 text-slate-800">
         <li>Inside neck branding (single-color) available.</li>
         <li>Custom hang tags and size stickers on request.</li>
-        <li>MOQ for woven labels: 100 pcs per size.</li>
+        <li>MOQ for woven labels: 50 pcs per order size.</li>
       </ul>
     ),
   },
@@ -31,8 +37,9 @@ const TABS = [
     content: (
       <ul className="list-disc pl-6 space-y-2 text-slate-800">
         <li>Machine wash cold, inside out, gentle cycle.</li>
-        <li>Do not bleach. Tumble dry low or hang dry.</li>
-        <li>Do not iron directly on the print.</li>
+        <li>Do not bleach.</li>
+        <li>Tumble dry low or hang dry.</li>
+        <li>Do not iron directly on print.</li>
       </ul>
     ),
   },

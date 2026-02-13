@@ -19,8 +19,14 @@ const InvoiceSet = () => {
         setLoading(true);
         const response = await getInvoiceByOrder(id);
         
+        console.log('📄 RAW INVOICE DATA:', response);
+        console.log('💰 Invoice Discount:', response?.invoice?.discount);
+        console.log('💰 Totals Discount:', response?.totals?.discount);
+        
         // Normalize the invoice data to work with InvoiceTemplate
         const normalized = normalizeInvoiceData(response?.invoice, response?.totals);
+        console.log('✅ NORMALIZED DATA:', normalized);
+        console.log('💰 NORMALIZED DISCOUNT:', normalized?.discount);
         setInvoiceData(normalized);
       } catch (err) {
         console.error("Error fetching invoice:", err);

@@ -407,25 +407,7 @@ const CorporateSettings = () => {
             </div>
           )}
 
-          {/* Discount Preview */}
-          {settings.bulkDiscountTiers.length > 0 && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="font-semibold text-blue-900 mb-3">📊 Discount Preview</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[100, 250, 500, 750, 1000, 2500, 5000, 10000].map(qty => {
-                  const discount = calculateDiscountPreview(qty);
-                  return (
-                    <div key={qty} className="bg-white p-3 rounded border text-center">
-                      <div className="text-sm text-gray-600">{qty} units</div>
-                      <div className={`text-lg font-bold ${discount > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-                        {discount > 0 ? `${discount}% OFF` : 'No discount'}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Discount Preview removed as per request */}
         </div>
 
 

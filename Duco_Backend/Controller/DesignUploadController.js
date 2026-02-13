@@ -2,6 +2,7 @@
 const Order = require('../DataBase/Models/OrderModel');
 const Invoice = require('../DataBase/Models/InvoiceModule');
 const { uploadOrderDesignImages, updateOrderWithDesignImages, updateInvoiceWithDesignImages } = require('../Service/DesignUploadService');
+// const printComplianceService = require('../Service/PrintComplianceService'); // Removed to fix backend crash
 
 /**
  * Upload design images for an order
@@ -30,7 +31,86 @@ const uploadDesignForOrder = async (req, res) => {
 
     console.log(`📦 Processing design upload for order: ${orderId}`);
 
-    // ✅ CRITICAL: Always upload to Cloudinary, never save base64
+    // ✅ STEP 1: Extract design data from order products for print compliance
+    let designData = null;
+    if (order.products && order.products.length > 0) {
+      const firstProduct = order.products[0];
+      if (firstProduct.design) {
+        designData = {
+          front: firstProduct.design.front || null,
+          back: firstProduct.design.back || null,
+        };
+        console.log('📐 Design data extracted for print compliance:', {
+          hasFront: !!designData.front,
+          hasBack: !!designData.back,
+        });
+      }
+    }
+
+    // ✅ STEP 2: Process design for print compliance (3×3" front, A4 back)
+    let printReadyFiles = null;
+    if (designData && (designData.front || designData.back)) {
+      try {
+        console.log('🖨️ Processing design for print compliance...');
+        
+        // Validate compliance
+        const validation = printComplianceService.validatePrintCompliance(designData);
+        if (validation.warnings.length > 0) {
+          console.warn('⚠️ Design validation warnings:', validation.warnings);
+        }
+        
+        if (validation.isValid) {
+          // Process for print (3×3" front, A4 back, 300 DPI, transparent)
+          printReadyFiles = await printComplianceService.processDesignForPrint(
+            designData,
+            orderId
+          );
+          
+          console.log('✅ Print-ready files generated:', {
+            front: printReadyFiles.front ? 'Yes' : 'No',
+            back: printReadyFiles.back ? 'Yes' : 'No',
+          });
+        } else {
+          console.error('❌ Design validation failed:', validation.errors);
+        }
+      } catch (error) {
+        console.error('❌ Print compliance processing failed:', error.message);
+        // Continue with original design as fallback
+      }
+    }
+
+    // ✅ STEP 3: Upload print-ready files to Cloudinary
+    let printReadyUrls = {};
+    if (printReadyFiles) {
+      try {
+        const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload');
+        
+        // Upload front if exists
+        if (printReadyFiles.front && printReadyFiles.front.path) {
+          const fs = require('fs');
+          const frontBase64 = `data:image/png;base64,${fs.readFileSync(printReadyFiles.front.path).toString('base64')}`;
+          const frontResult = await uploadDesignPreviewImages({ front: frontBase64 }, `${orderId}-print-ready`);
+          printReadyUrls.front = frontResult.front;
+          console.log('✅ Front print-ready file uploaded to Cloudinary');
+        }
+        
+        // Upload back if exists
+        if (printReadyFiles.back && printReadyFiles.back.path) {
+          const fs = require('fs');
+          const backBase64 = `data:image/png;base64,${fs.readFileSync(printReadyFiles.back.path).toString('base64')}`;
+          const backResult = await uploadDesignPreviewImages({ back: backBase64 }, `${orderId}-print-ready`);
+          printReadyUrls.back = backResult.back;
+          console.log('✅ Back print-ready file uploaded to Cloudinary');
+        }
+        
+        // Cleanup temp files
+        printComplianceService.cleanupTempFiles(printReadyFiles);
+      } catch (error) {
+        console.error('❌ Failed to upload print-ready files:', error.message);
+      }
+    }
+
+    // ✅ STEP 4: Upload original design images (for preview/display)
     let imagesToStore = {};
 
     // If designImages are provided in request body, upload them to Cloudinary
@@ -62,6 +142,13 @@ const uploadDesignForOrder = async (req, res) => {
     if (Object.keys(imagesToStore).length > 0) {
       await updateOrderWithDesignImages(order, imagesToStore);
 
+      // ✅ STEP 5: Store print-ready URLs in order
+      if (Object.keys(printReadyUrls).length > 0) {
+        order.printReadyFiles = printReadyUrls;
+        await order.save();
+        console.log('✅ Print-ready URLs saved to order:', printReadyUrls);
+      }
+
       // Also update invoice if it exists
       const invoice = await Invoice.findOne({ order: orderId });
       if (invoice) {
@@ -73,10 +160,12 @@ const uploadDesignForOrder = async (req, res) => {
       success: true,
       message: 'Design images uploaded successfully',
       designImages: order.designImages,
+      printReadyFiles: order.printReadyFiles || {}, // ✅ Include print-ready files
       order: {
         _id: order._id,
         orderId: order.orderId,
-        designImages: order.designImages
+        designImages: order.designImages,
+        printReadyFiles: order.printReadyFiles, // ✅ Include print-ready files
       }
     });
   } catch (error) {

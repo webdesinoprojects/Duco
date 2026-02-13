@@ -398,16 +398,7 @@ const validateMinimumQuantity = () => {
             Get Your Free Bulk Quote
           </button>
 
-          <ul className="grid grid-cols-2 gap-1 text-sm text-white">
-            <li><FaCheckCircle className="inline mr-1 text-green-600" />180 GSM</li>
-            <li><FaCheckCircle className="inline mr-1 text-green-600" />100% Cotton</li>
-            <li><FaCheckCircle className="inline mr-1 text-green-600" />Super Combed</li>
-            <li><FaCheckCircle className="inline mr-1 text-green-600" />Pre Shrunk</li>
-            <li><FaCheckCircle className="inline mr-1 text-green-600" />Bio Washed</li>
-            <li><FaCheckCircle className="inline mr-1 text-green-600" />Lycra Ribbed Neck</li>
-            <li><FaCheckCircle className="inline mr-1 text-green-600" />Unisex Regular Fit</li>
-            <li><FaCheckCircle className="inline mr-1 text-green-600" />No Minimums</li>
-          </ul>
+          {/* Features removed as per request */}
 
           {/* <div>
             <h3 className="font-semibold mb-2 flex items-center gap-2">

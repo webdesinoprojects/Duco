@@ -79,6 +79,12 @@ const Contact = () => {
                   <div>
                     <h3 className="font-bold text-lg mb-1">Our Location</h3>
                     <p className="text-gray-400">
+                      Plot No.238, KH No.146, Lal Dora/Abadi of Village, Burari, New Delhi, Central Delhi, Delhi, 110084<br />
+                      UDYAM : UDYAM-UP-64-0054061 (Micro/Traders)<br />
+                      GSTIN/UIN: 07AESPC7373N2ZR<br />
+                      State Name : Delhi, Code : 07<br />
+                      <br />
+                      {/* Existing address below */}
                       LIG-64, Avanti Vihar Shadija Compound , <br />
                       Raipur(C.G.) INDIA 492007{" "}
                     </p>
@@ -104,19 +110,7 @@ const Contact = () => {
             </div>
 
             {/* Social Icons */}
-            <div className="border-t border-gray-800 pt-8">
-              <h3 className="text-[#E5C870] mb-4">Connect With Us</h3>
-              <div className="flex space-x-4">
-                {[1, 2, 3, 4].map((item) => (
-                  <div
-                    key={item}
-                    className="w-10 h-10 rounded-full border-2 border-[#E5C870] flex items-center justify-center text-[#E5C870] hover:bg-[#E5C870] hover:text-black cursor-pointer transition duration-300"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* ...existing code... */}
           </div>
         </div>
       </div>

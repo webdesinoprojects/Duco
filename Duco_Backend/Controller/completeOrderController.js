@@ -3,12 +3,15 @@ const Order = require('../DataBase/Models/OrderModel');
 const Design = require('../DataBase/Models/DesignModel');
 const Product = require('../DataBase/Models/ProductsModel');
 const CorporateSettings = require('../DataBase/Models/CorporateSettings');
-const { createInvoice } = require('./invoiceService');
+const { createInvoice, getInvoiceByOrderId } = require('./invoiceService');
 const { getOrCreateSingleton } = require('../Router/DataRoutes');
 const { createTransaction } = require('./walletController');
 const { calculateOrderTotal } = require('../Service/TaxCalculationService');
 const LZString = require('lz-string'); // ✅ added for decompression
 const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload'); // ✅ Cloudinary upload
+const whatsappService = require('../Service/WhatsAppService'); // ✅ WhatsApp notifications
+const emailService = require('../Service/EmailService'); // ✅ Email notifications
+const invoicePDFService = require('../Service/InvoicePDFService'); // ✅ PDF generation
 
 // --- Razorpay client ---
 const razorpay = new Razorpay({
@@ -715,6 +718,118 @@ function addressToLine(a = {}) {
     .join(', ');
 }
 
+// ✅ WhatsApp Order Confirmation Helper
+// NON-BLOCKING: Failures must NOT affect order success
+async function sendWhatsAppOrderConfirmation(order) {
+  try {
+    console.log('📱 Starting WhatsApp order confirmation...');
+    
+    // Extract customer phone number
+    const customerPhone = 
+      order.addresses?.billing?.mobileNumber || 
+      order.address?.mobileNumber || 
+      order.user?.phone;
+    
+    if (!customerPhone) {
+      console.warn('⚠️ No customer phone number found, skipping WhatsApp');
+      return;
+    }
+
+    // Extract customer name
+    const customerName = 
+      order.addresses?.billing?.fullName || 
+      order.address?.fullName || 
+      order.user?.name || 
+      'Valued Customer';
+
+    // Get invoice data
+    console.log('📄 Fetching invoice data...');
+    const { invoice, totals } = await getInvoiceByOrderId(order._id);
+    
+    if (!invoice) {
+      console.warn('⚠️ Invoice not found, skipping WhatsApp');
+      return;
+    }
+
+    // Prepare invoice data for PDF generation
+    const invoiceData = {
+      company: invoice.company,
+      invoice: invoice.invoice,
+      billTo: invoice.billTo,
+      shipTo: invoice.shipTo,
+      items: invoice.items,
+      charges: invoice.charges,
+      tax: invoice.tax,
+      subtotal: totals.subtotal,
+      total: totals.grandTotal,
+      terms: invoice.terms,
+      currencySymbol: invoice.currency === 'INR' ? '₹' : '$',
+      currency: invoice.currency || 'INR',
+      paymentmode: invoice.paymentmode || 'online',
+      amountPaid: invoice.amountPaid || 0,
+      additionalFilesMeta: invoice.additionalFilesMeta || [],
+      paymentCurrency: order.paymentCurrency || 'INR',
+      customerCountry: order.customerCountry || 'India',
+      customerCity: order.customerCity || '',
+      customerState: order.customerState || '',
+      // ✅ Add discount if applied
+      discount: order.discount || null,
+    };
+
+    // Generate PDF
+    console.log('📄 Generating PDF...');
+    const pdfPath = await invoicePDFService.generatePDF(invoiceData, order.orderId || order._id);
+    
+    // Send WhatsApp message with PDF
+    console.log('📤 Sending WhatsApp message...');
+    const result = await whatsappService.sendOrderConfirmation(
+      customerPhone,
+      order.orderId || order._id,
+      pdfPath,
+      {
+        customerName,
+        totalAmount: totals.grandTotal.toFixed(2),
+        currency: invoice.currency || 'INR',
+        paymentMode: invoice.paymentmode || 'Online',
+      }
+    );
+
+    if (result.success) {
+      console.log('✅ WhatsApp order confirmation sent successfully');
+    } else {
+      console.warn('⚠️ WhatsApp send failed:', result.reason);
+    }
+
+    // Send Email with invoice PDF
+    console.log('📧 Sending order confirmation email...');
+    const customerEmail = order.customerPersonalInfo?.customerEmail || order.email;
+    if (customerEmail) {
+      const emailResult = await emailService.sendOrderConfirmation({
+        customerEmail,
+        customerName,
+        orderId: order.orderId || order._id,
+        totalAmount: totals.grandTotal.toFixed(2),
+        currency: invoice.currency || 'INR',
+        paymentMode: invoice.paymentmode || 'Online',
+        invoicePdfPath: pdfPath,
+        items: invoice.items || [],
+      });
+
+      if (emailResult.success) {
+        console.log('✅ Order confirmation email sent successfully');
+      } else {
+        console.warn('⚠️ Email send failed:', emailResult.error);
+      }
+    } else {
+      console.warn('⚠️ No customer email found, skipping email notification');
+    }
+  } catch (error) {
+    // ✅ CRITICAL: Log error but DO NOT throw - Notification failures must not affect order
+    console.error('❌ Notification failed (non-blocking):', error.message);
+  }
+}
+
+
 // ✅ Helper to build invoice payload with billing and shipping addresses
 function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode = 'online', totalAmount = 0) {
   console.log('📋 buildInvoicePayload called with:', {
@@ -772,6 +887,7 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
     paymentmode: paymentmode, // ✅ Add payment mode
     amountPaid: amountPaid, // ✅ Add amount paid (for 50% payments)
     total: totalAmount, // ✅ Add total amount to invoice
+    discount: order.discount || null, // ✅ Add discount info if applied
   };
   
   // ✅ Add shipTo only if different from billing
@@ -835,8 +951,14 @@ const processingCache = new Map();
 const completeOrder = async (req, res) => {
   let { paymentId, orderData, paymentmode, compressed, paymentCurrency, customerCountry, customerCity, customerState } = req.body || {};
 
+  // ✅ Extract discount from orderData (frontend sends it inside orderData)
+  const discount = orderData?.discount || null;
+
   // 🧾 Log payment mode received from frontend
   console.log('🧾 PAYMENT MODE RECEIVED:', paymentmode);
+  if (discount) {
+    console.log('💰 DISCOUNT RECEIVED:', discount);
+  }
 
   // ✅ Prevent duplicate processing for the same payment ID
   if (paymentId && paymentId !== 'manual_payment') {
@@ -1191,6 +1313,8 @@ const completeOrder = async (req, res) => {
           customerCountry: finalCustomerCountry,
           customerCity: finalCustomerCity,
           customerState: finalCustomerState,
+          // ✅ Add discount if applied
+          discount: discount || null,
         };
         
         // ✅ Add addresses (new format) or address (legacy format)
@@ -1228,6 +1352,8 @@ const completeOrder = async (req, res) => {
             customerCountry: finalCustomerCountry,
             customerCity: finalCustomerCity,
             customerState: finalCustomerState,
+            // ✅ Add discount if applied
+            discount: discount || null,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -1272,6 +1398,11 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (store pickup)');
       }
 
+      // ✅ Send WhatsApp order confirmation (non-blocking)
+      sendWhatsAppOrderConfirmation(order).catch(err => {
+        console.error('WhatsApp send failed (non-blocking):', err.message);
+      });
+
       return res.status(200).json({ success: true, order });
     }
 
@@ -1305,6 +1436,8 @@ const completeOrder = async (req, res) => {
         customerCountry: finalCustomerCountry,
         customerCity: finalCustomerCity,
         customerState: finalCustomerState,
+        // ✅ Add discount if applied
+        discount: discount || null,
       });
 
       const settings = await getOrCreateSingleton();
@@ -1341,6 +1474,11 @@ const completeOrder = async (req, res) => {
         await order.save();
         console.log('✅ Design images saved to order (netbanking)');
       }
+
+      // ✅ Send WhatsApp order confirmation (non-blocking)
+      sendWhatsAppOrderConfirmation(order).catch(err => {
+        console.error('WhatsApp send failed (non-blocking):', err.message);
+      });
 
       return res.status(200).json({ success: true, order });
     }
@@ -1379,6 +1517,8 @@ const completeOrder = async (req, res) => {
           customerCountry: finalCustomerCountry,
           customerCity: finalCustomerCity,
           customerState: finalCustomerState,
+          // ✅ Add discount if applied
+          discount: discount || null,
         });
       } catch (createError) {
         if (createError.code === 11000) {
@@ -1407,6 +1547,8 @@ const completeOrder = async (req, res) => {
             customerCountry: finalCustomerCountry,
             customerCity: finalCustomerCity,
             customerState: finalCustomerState,
+            // ✅ Add discount if applied
+            discount: discount || null,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -1445,6 +1587,11 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (online)');
       }
 
+      // ✅ Send WhatsApp order confirmation (non-blocking)
+      sendWhatsAppOrderConfirmation(order).catch(err => {
+        console.error('WhatsApp send failed (non-blocking):', err.message);
+      });
+
       return res.status(200).json({ success: true, order });
     }
 
@@ -1482,6 +1629,8 @@ const completeOrder = async (req, res) => {
           customerCountry: finalCustomerCountry,
           customerCity: finalCustomerCity,
           customerState: finalCustomerState,
+          // ✅ Add discount if applied
+          discount: discount || null,
         });
       } catch (createError) {
         if (createError.code === 11000) {
@@ -1510,6 +1659,8 @@ const completeOrder = async (req, res) => {
             customerCountry: finalCustomerCountry,
             customerCity: finalCustomerCity,
             customerState: finalCustomerState,
+            // ✅ Add discount if applied
+            discount: discount || null,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -1552,6 +1703,11 @@ const completeOrder = async (req, res) => {
         await order.save();
         console.log('✅ Design images saved to order (50%)');
       }
+
+      // ✅ Send WhatsApp order confirmation (non-blocking)
+      sendWhatsAppOrderConfirmation(order).catch(err => {
+        console.error('WhatsApp send failed (non-blocking):', err.message);
+      });
 
       return res.status(200).json({ success: true, order });
     }

@@ -77,6 +77,16 @@ const InvoiceSchema = new Schema({
   paymentmode: { type: String, default: 'online' }, // ✅ Add paymentmode field (online, 50%, store_pickup, netbanking)
   amountPaid: { type: Number, default: 0 }, // ✅ Amount actually paid (for 50% payments)
   
+  // ✅ Coupon discount information
+  discount: {
+    type: {
+      amount: { type: Number, default: 0 }, // Discount amount
+      percent: { type: Number, default: 0 }, // Discount percentage (5, 10, 15, 20)
+      code: { type: String, default: '' } // Coupon code (DUCO5, DUCO10, etc.)
+    },
+    default: null
+  },
+  
   // ✅ Design preview images (Cloudinary URLs)
   designImages: {
     type: {

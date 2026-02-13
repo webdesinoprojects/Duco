@@ -72,12 +72,27 @@ export const InvoiceTemplate = ({ data }) => {
     customerCity = "", // ✅ Add customer city
     customerState = "", // ✅ Add customer state
     conversionRate = 1, // ✅ Add conversion rate
+    discount = null, // ✅ Add discount data { amount, percent, code }
   } = data;
 
   // ✅ PARTIAL PAYMENT: Calculate paid and left amounts
-  const paidAmount = Number(amountPaid) || 0;
-  const leftAmount = total - paidAmount;
-  const hasPartialPayment = paidAmount > 0 && paidAmount < total;
+  const discountAmount = discount?.amount || 0;
+  const finalAmountAfterDiscount = total - discountAmount;
+  
+  // ✅ Determine paid amount based on payment mode
+  let actualPaidAmount = Number(amountPaid) || 0;
+  
+  // If no amountPaid specified but discount exists and not 50% mode, assume full payment after discount
+  if (actualPaidAmount === 0 && discount && paymentmode !== '50%') {
+    actualPaidAmount = finalAmountAfterDiscount;
+  }
+  
+  const leftAmount = finalAmountAfterDiscount - actualPaidAmount;
+  
+  // ✅ Only show partial payment rows for 50% Razorpay payment mode
+  const hasPartialPayment = paymentmode === '50%' && actualPaidAmount > 0 && actualPaidAmount < finalAmountAfterDiscount;
+  const showLeftAmount = paymentmode === '50%' && actualPaidAmount < finalAmountAfterDiscount;
+  const showPaidAmount = actualPaidAmount > 0 || (discount && discount.amount > 0);
   
   const currencyName = currencyNames[currency] || "Rupees";
   const totalQty = (items || []).reduce((sum, it) => sum + Number(it.qty || 0), 0);
@@ -358,13 +373,22 @@ export const InvoiceTemplate = ({ data }) => {
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>{total.toFixed(2)}</td>
               </tr>
               
-              {/* ✅ PARTIAL PAYMENT: Show Paid and Left amounts */}
+              {/* ✅ DISCOUNT: Show coupon discount if applied */}
+              {discount && discount.amount > 0 && (
+                <tr style={{ backgroundColor: "#ffebee" }}>
+                  <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Discount ({discount.code || 'Coupon'} - {discount.percent}%)</td>
+                  <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
+                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: "#d32f2f" }}>- {discount.amount.toFixed(2)}</td>
+                </tr>
+              )}
+              
+              {/* ✅ PARTIAL PAYMENT: Show Paid and Left amounts (only for 50% payment) */}
               {hasPartialPayment && (
                 <>
                   <tr style={{ backgroundColor: "#e8f5e9" }}>
-                    <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Paid Amount</td>
+                    <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Paid Amount (50%)</td>
                     <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
-                    <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{paidAmount.toFixed(2)}</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{actualPaidAmount.toFixed(2)}</td>
                   </tr>
                   <tr style={{ backgroundColor: "#fff3e0" }}>
                     <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Left Amount</td>
@@ -374,21 +398,12 @@ export const InvoiceTemplate = ({ data }) => {
                 </>
               )}
               
-              {/* ✅ FULL PAYMENT: Show only Paid Amount if fully paid */}
-              {paidAmount > 0 && paidAmount >= total && (
-                <tr style={{ backgroundColor: "#e8f5e9" }}>
+              {/* ✅ FULL PAYMENT: Show Paid Amount after discount for non-50% modes */}
+              {!hasPartialPayment && showPaidAmount && (
+                <tr style={{ backgroundColor: "#c8e6c9", borderTop: "1px solid #4caf50" }}>
                   <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Paid Amount</td>
                   <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{paidAmount.toFixed(2)}</td>
-                </tr>
-              )}
-              
-              {/* ✅ NO PAYMENT: Show only Left Amount if nothing paid */}
-              {paidAmount === 0 && (
-                <tr style={{ backgroundColor: "#fff3e0" }}>
-                  <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Left Amount</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{total.toFixed(2)}</td>
+                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{finalAmountAfterDiscount.toFixed(2)}</td>
                 </tr>
               )}
             </tbody>
@@ -483,7 +498,7 @@ export const InvoiceTemplate = ({ data }) => {
 
       {/* AMOUNT IN WORDS */}
       <div style={{ marginBottom: "8px", paddingBottom: "5px", borderBottom: "1px solid #000", fontWeight: "bold" }}>
-        {currencyName} {numberToWords(Math.round(total))} Only
+        {currencyName} {numberToWords(Math.round(hasPartialPayment ? actualPaidAmount : finalAmountAfterDiscount))} Only
       </div>
 
       {/* TERMS AND SIGNATURE */}

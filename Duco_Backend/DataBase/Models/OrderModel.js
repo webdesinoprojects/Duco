@@ -117,6 +117,16 @@ const OrderSchema = new Schema(
     igst: { type: Number, default: 0 },
     printing: { type: Number, default: 0 },
     
+    // ✅ Coupon discount information
+    discount: {
+      type: {
+        amount: { type: Number, default: 0 }, // Discount amount
+        percent: { type: Number, default: 0 }, // Discount percentage (5, 10, 15, 20)
+        code: { type: String, default: '' } // Coupon code (DUCO5, DUCO10, etc.)
+      },
+      default: null
+    },
+    
     // ✅ Payment currency and location information
     paymentCurrency: { type: String, default: 'INR' }, // Currency used for payment (INR, USD, EUR, etc.)
     customerCountry: { type: String, default: 'India' }, // Customer's country
@@ -134,6 +144,15 @@ const OrderSchema = new Schema(
       default: {}
     },
 
+    // ✅ Print-ready files (manufacturer-compliant: 3×3" front, A4 back, 300 DPI)
+    printReadyFiles: {
+      type: {
+        front: String,  // Cloudinary URL (900×900px @ 300 DPI)
+        back: String,   // Cloudinary URL (2481×3507px @ 300 DPI)
+      },
+      default: {}
+    },
+
     // ✅ Additional files metadata (CDR, PDF)
     additionalFilesMeta: {
       type: [{
@@ -144,6 +163,8 @@ const OrderSchema = new Schema(
       }],
       default: []
     },
+
+    // Coupon fields removed
 
     // ===== Shiprocket logistics fields =====
     shiprocket: {

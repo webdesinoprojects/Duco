@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo, useRef } from "react";
+﻿import React, { useState, useEffect, useContext, useMemo, useRef } from "react";
 import CartItem from "../Components/CartItem.jsx";
 import AddressManagerEnhanced from "../Components/AddressManagerEnhanced";
 import Loading from "../Components/Loading";
@@ -504,6 +504,13 @@ const Cart = () => {
   const [conversionRate, setConversionRate] = useState(1);
   const [minOrderQty, setMinOrderQty] = useState(100); // Default minimum order quantity
   const [gstNumber, setGstNumber] = useState(""); // Optional GST/Tax code
+  
+  // Coupon states
+  const [couponCode, setCouponCode] = useState("");
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponData, setCouponData] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState("");
 
   // ✅ Dynamic Currency Formatter (prices are already location-adjusted at item level)
   const formatCurrency = (num) => {
@@ -1127,6 +1134,89 @@ const Cart = () => {
     [taxableAmount, gstTotal]
   );
 
+  // Handle coupon application
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponError("");
+
+    try {
+      // Validate coupon format: DUCO{number}
+      const couponRegex = /^DUCO(\d+)$/i;
+      const match = couponCode.toUpperCase().match(couponRegex);
+      
+      if (!match) {
+        setCouponError("Invalid coupon format. Use DUCO5, DUCO10, etc.");
+        setCouponLoading(false);
+        return;
+      }
+
+      const discountPercent = parseInt(match[1]);
+
+      // Calculate total quantity in cart
+      const totalQuantity = actualData.reduce((sum, item) => {
+        const itemQty = Object.values(item.quantity || {}).reduce((qSum, q) => qSum + safeNum(q), 0);
+        return sum + itemQty;
+      }, 0);
+
+      // Fetch corporate settings to validate against bulk discount tiers
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const response = await fetch(`${API_BASE}/api/corporate-settings`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setCouponError("Failed to validate coupon. Please try again.");
+        setCouponLoading(false);
+        return;
+      }
+
+      const bulkDiscountTiers = data.data.bulkDiscountTiers || [];
+      
+      // Find matching tier with the discount percentage and quantity range
+      const matchingTier = bulkDiscountTiers.find(tier => 
+        tier.discount === discountPercent && 
+        totalQuantity >= tier.minQty && 
+        totalQuantity <= tier.maxQty
+      );
+
+      if (!matchingTier) {
+        setCouponError(
+          `Coupon ${couponCode.toUpperCase()} requires ${discountPercent}% discount tier with quantity between the eligible range. Your cart has ${totalQuantity} items.`
+        );
+        setCouponLoading(false);
+        return;
+      }
+
+      // Apply coupon
+      setCouponData({
+        code: couponCode.toUpperCase(),
+        discountPercent: discountPercent,
+        appliedTier: matchingTier
+      });
+      setCouponApplied(true);
+      setCouponError("");
+      toast.success(`✅ Coupon ${couponCode.toUpperCase()} applied! You save ${discountPercent}%`);
+      
+    } catch (error) {
+      console.error('Coupon validation error:', error);
+      setCouponError("Failed to validate coupon. Please try again.");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode("");
+    setCouponApplied(false);
+    setCouponData(null);
+    setCouponError("");
+    toast.info("Coupon removed");
+  };
+
   const grandTotal = useMemo(() => {
     // ✅ pfCost and printingCost are already converted in their respective useMemo
     // ✅ itemsSubtotal is already converted in its useMemo
@@ -1426,9 +1516,28 @@ const Cart = () => {
              
             </div>
 
-            <div className="flex justify-between border-t pt-4 mb-6">
-              <span className="font-bold">Grand Total</span>
-              <span className="font-bold">{formatCurrency(Math.ceil(grandTotal))}</span>
+            {/* Grand Total and Discount Section */}
+            <div className="border-t pt-4 mb-6">
+              <div className="flex justify-between mb-2">
+                <span className="font-bold">Grand Total</span>
+                <span className="font-bold">{formatCurrency(Math.ceil(grandTotal))}</span>
+              </div>
+              
+              {/* Coupon Discount */}
+              {couponApplied && couponData && (
+                <>
+                  <div className="flex justify-between text-green-400 mb-2">
+                    <span className="text-sm">Coupon Discount ({couponData.discountPercent}%)</span>
+                    <span className="text-sm font-semibold">- {formatCurrency(Math.ceil((grandTotal * couponData.discountPercent) / 100))}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 text-lg">
+                    <span className="font-bold text-yellow-400">Final Total</span>
+                    <span className="font-bold text-yellow-400">
+                      {formatCurrency(Math.ceil(grandTotal - (grandTotal * couponData.discountPercent) / 100))}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Estimated Delivery Date - B2B ONLY */}
@@ -1476,6 +1585,61 @@ const Cart = () => {
               <p className="text-xs text-gray-400 mt-1">
                 💡 Add your GST/Tax number to include it on your invoice
               </p>
+            </div>
+
+            {/* Coupon Code Input (Optional) */}
+            <div className="mb-6">
+              <label htmlFor="couponCode" className="block text-sm font-medium text-white mb-2">
+                Coupon Code (Optional)
+              </label>
+              {!couponApplied ? (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      id="couponCode"
+                      value={couponCode}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value.toUpperCase());
+                        setCouponError("");
+                      }}
+                      placeholder="Enter coupon code (e.g., DUCO5, DUCO10)"
+                      className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                      disabled={couponLoading}
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      disabled={couponLoading || !couponCode.trim()}
+                      className="px-6 py-3 bg-yellow-400 text-black font-semibold rounded-lg hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {couponLoading ? "Applying..." : "Apply"}
+                    </button>
+                  </div>
+                  {couponError && (
+                    <p className="text-red-400 text-sm mt-2">⚠️ {couponError}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    💡 Use coupon codes like DUCO5, DUCO10 for discounts based on your order quantity
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-green-900/30 border border-green-500 rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-green-400 font-semibold">✓ Coupon Applied: {couponData?.code}</p>
+                      <p className="text-sm text-gray-300 mt-1">
+                        {couponData?.discountPercent}% discount - You save {formatCurrency(Math.ceil((grandTotal * couponData?.discountPercent) / 100))}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleRemoveCoupon}
+                      className="text-red-400 hover:text-red-300 text-sm font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Bulk Order Minimum Quantity Warning */}
@@ -1838,6 +2002,12 @@ const Cart = () => {
                     printing: printingCost,
                     gst: gstTotal,
                     gstPercent: gstPercent,
+                    // ✅ Discount data at root level for backend
+                    discount: couponApplied && couponData ? {
+                      amount: Math.ceil((grandTotal * couponData.discountPercent) / 100),
+                      percent: couponData.discountPercent,
+                      code: couponData.code
+                    } : null,
                     // ✅ Totals breakdown
                     totals: {
                       itemsSubtotal,
@@ -1850,9 +2020,26 @@ const Cart = () => {
                       locationIncreasePercent: priceIncrease || 0,
                       grandTotal,
                       conversionRate: conversionRate,
+                      // ✅ Coupon discount details
+                      couponApplied: couponApplied,
+                      couponData: couponData,
+                      couponDiscount: couponApplied && couponData ? Math.ceil((grandTotal * couponData.discountPercent) / 100) : 0,
+                      finalTotal: couponApplied && couponData 
+                        ? Math.ceil(grandTotal - (grandTotal * couponData.discountPercent) / 100)
+                        : Math.ceil(grandTotal),
+                      // ✅ Discount object for invoice
+                      discount: couponApplied && couponData ? {
+                        amount: Math.ceil((grandTotal * couponData.discountPercent) / 100),
+                        percent: couponData.discountPercent,
+                        code: couponData.code
+                      } : null,
                     },
-                    totalPay: totalPayINR, // ✅ Send INR amount to Razorpay
-                    totalPayDisplay: displayTotal, // ✅ Keep display amount for reference
+                    totalPay: couponApplied && couponData 
+                      ? Math.ceil((grandTotal - (grandTotal * couponData.discountPercent) / 100) * conversionRate)
+                      : totalPayINR, // ✅ Apply discount to payment amount
+                    totalPayDisplay: couponApplied && couponData
+                      ? Math.ceil(grandTotal - (grandTotal * couponData.discountPercent) / 100)
+                      : displayTotal, // ✅ Display amount with discount
                     displayCurrency: currency, // ✅ Keep currency for reference
                     conversionRate: conversionRate, // ✅ ADD: Include at root level for easy access
                     addresses: {
@@ -1971,4 +2158,3 @@ const Cart = () => {
 };
 
 export default Cart;
-

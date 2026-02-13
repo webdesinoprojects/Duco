@@ -56,6 +56,8 @@ const computeTotals = (doc = {}) => {
     totalTaxAmt: +totalTaxAmt.toFixed(2),
     grandTotal: +grandTotal.toFixed(2),
     totalQty: items.reduce((q, i) => q + safeNum(i.qty), 0),
+    // ✅ Include discount if present
+    discount: doc.discount || null,
   };
 };
 
@@ -154,8 +156,11 @@ async function createInvoice(data) {
   // ✅ Override the total with the correctly calculated value
   data.total = calculatedTotal;
   // --------------------------------------
+  
+  console.log('💾 Creating invoice with discount:', data.discount);
 
   const invoice = await Invoice.create(data);
+  console.log('✅ Invoice created. Discount saved:', invoice.discount);
   const obj = invoice.toObject();
   const totals = computeTotals(obj);
   return { invoice, totals };
@@ -217,10 +222,19 @@ async function getInvoiceByOrderId(orderId) {
     invoiceObj.customerCountry = invoiceObj.order.customerCountry || 'India';
     invoiceObj.customerCity = invoiceObj.order.customerCity || '';
     invoiceObj.customerState = invoiceObj.order.customerState || '';
+    // ✅ Add discount from order if not already in invoice (for backward compatibility)
+    if (!invoiceObj.discount && invoiceObj.order.discount) {
+      invoiceObj.discount = invoiceObj.order.discount;
+    }
   }
   
   // ✅ Compute totals before returning
   const totals = computeTotals(invoiceObj);
+  
+  console.log('📄 Invoice API Response - Discount Check:');
+  console.log('  Invoice Discount:', invoiceObj.discount);
+  console.log('  Totals Discount:', totals.discount);
+  console.log('  Order ID:', invoiceObj.order?._id || invoiceObj.order);
   
   return { invoice: invoiceObj, totals };
 }

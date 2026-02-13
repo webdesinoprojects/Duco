@@ -76,6 +76,9 @@ export const normalizeInvoiceData = (invoice, totals) => {
   const customerState = invoice.customerState || '';
   const conversionRate = invoice.conversionRate || 1;
 
+  // Extract discount info (if coupon was applied)
+  const discount = invoice.discount || totals?.discount || null;
+
   return {
     company: invoice.company || {},
     invoice: invoice.invoice || {},
@@ -99,6 +102,8 @@ export const normalizeInvoiceData = (invoice, totals) => {
     customerCity: customerCity,
     customerState: customerState,
     conversionRate: conversionRate,
+    // ✅ Discount info (if coupon applied)
+    discount: discount,
   };
 };
 
