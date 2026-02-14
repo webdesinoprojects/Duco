@@ -483,6 +483,20 @@ export default function TrackOrder() {
                   <InfoRow label="Payment Status" value={trackingData.order.paymentStatus || 'N/A'} />
                   <InfoRow label="Payment Method" value={trackingData.order.paymentmode || 'N/A'} />
                 </div>
+
+                {String(trackingData.order.paymentStatus || "").toLowerCase() === "partial" && Number(trackingData.order.remainingAmount || 0) > 0 && (
+                  <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-yellow-600/40 bg-yellow-500/10 p-4">
+                    <div className="text-sm text-yellow-200">
+                      Remaining Payment Due: ₹{Number(trackingData.order.remainingAmount).toFixed(2)}
+                    </div>
+                    <button
+                      onClick={() => navigate(`/payment?orderId=${trackingData.order._id}&type=remaining`)}
+                      className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-400"
+                    >
+                      Pay Remaining 50%
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -63,6 +63,7 @@ const OrderProcessing = () => {
 
         if (response.data && response.data.success && response.data.order) {
           const order = response.data.order;
+          const notifications = response.data.notifications || null;
           const orderId = order._id || order.id;
           
           if (!orderId) {
@@ -84,12 +85,15 @@ const OrderProcessing = () => {
           localStorage.setItem('lastOrderId', orderId);
           localStorage.setItem('lastOrderMeta', JSON.stringify({
             mode: paymentmode || 'online',
-            isCorporate: order.orderType === 'B2B'
+            isCorporate: order.orderType === 'B2B',
+            notifications,
           }));
 
           // Redirect to success page after 1 second (faster for duplicates)
           setTimeout(() => {
-            navigate(`/order-success/${orderId}`);
+            navigate(`/order-success/${orderId}`, {
+              state: { notifications },
+            });
           }, response.data.duplicate ? 500 : 2000);
         } else {
           console.error('❌ Invalid response structure:', response.data);
@@ -120,6 +124,7 @@ const OrderProcessing = () => {
         if (error.response?.data?.duplicate || error.response?.data?.order) {
           console.log('ℹ️ Handling duplicate as success');
           const order = error.response.data.order;
+          const notifications = error.response.data.notifications || null;
           if (order && (order._id || order.id)) {
             const orderId = order._id || order.id;
             setOrderId(orderId);
@@ -129,11 +134,14 @@ const OrderProcessing = () => {
             localStorage.setItem('lastOrderId', orderId);
             localStorage.setItem('lastOrderMeta', JSON.stringify({
               mode: paymentmode || 'online',
-              isCorporate: order.orderType === 'B2B'
+              isCorporate: order.orderType === 'B2B',
+              notifications,
             }));
             
             setTimeout(() => {
-              navigate(`/order-success/${orderId}`);
+              navigate(`/order-success/${orderId}`, {
+                state: { notifications },
+              });
             }, 500);
             return;
           } else if (error.response?.data?.processing) {

@@ -12,9 +12,19 @@ const computeTotals = (doc = {}) => {
   const charges = doc.charges || {};
   const tax = doc.tax || {};
 
+  // 1. Calculate base subtotal
   const subtotal = items.reduce((sum, i) => sum + safeNum(i.price) * safeNum(i.qty), 0);
+
+  // 2. Calculate discount on subtotal (if discount exists)
+  const discountData = doc.discount || {};
+  const discountPercent = safeNum(discountData.discountPercent) || safeNum(discountData.percentage) || 0;
+  const discountAmount = discountPercent > 0 ? (subtotal * discountPercent) / 100 : 0;
+  const discountedSubtotal = subtotal - discountAmount;
+
+  // 3. Add P&F charges to discounted subtotal
   const chargesTotal = ["pf", "printing"].reduce((s, k) => s + safeNum(charges[k]), 0);
-  const taxableValue = subtotal + chargesTotal;
+  // ✅ TAXABLE VALUE IS NOW BASED ON DISCOUNTED SUBTOTAL
+  const taxableValue = discountedSubtotal + chargesTotal;
 
   // Use dynamic tax rates - handle both GST and international TAX
   const cgstRate = safeNum(tax.cgstRate);
@@ -22,6 +32,7 @@ const computeTotals = (doc = {}) => {
   const igstRate = safeNum(tax.igstRate);
   const taxRate = safeNum(tax.taxRate); // For international orders
 
+  // 4. Calculate tax on DISCOUNTED taxable value
   const cgstAmt = (taxableValue * cgstRate) / 100;
   const sgstAmt = (taxableValue * sgstRate) / 100;
   const igstAmt = (taxableValue * igstRate) / 100;
@@ -47,6 +58,9 @@ const computeTotals = (doc = {}) => {
 
   return {
     subtotal: +subtotal.toFixed(2),
+    discountAmount: +discountAmount.toFixed(2),
+    discountPercent: +discountPercent.toFixed(2),
+    discountedSubtotal: +discountedSubtotal.toFixed(2),
     chargesTotal: +chargesTotal.toFixed(2),
     taxableValue: +taxableValue.toFixed(2),
     cgstAmt: +cgstAmt.toFixed(2),
@@ -56,7 +70,7 @@ const computeTotals = (doc = {}) => {
     totalTaxAmt: +totalTaxAmt.toFixed(2),
     grandTotal: +grandTotal.toFixed(2),
     totalQty: items.reduce((q, i) => q + safeNum(i.qty), 0),
-    // ✅ Include discount if present
+    // ✅ Store full discount object for reference
     discount: doc.discount || null,
   };
 };
@@ -97,6 +111,21 @@ async function createInvoice(data) {
   
   // ✅ Pass isB2B flag to calculateTax
   const taxInfo = calculateTax(taxableAmount, customerState, customerCountry, isB2B);
+  
+  console.log('📊 TAX CALCULATION FOR INVOICE:', {
+    customerState,
+    customerCountry,
+    isB2B,
+    taxableAmount,
+    taxType: taxInfo.type,
+    cgstRate: taxInfo.cgstRate,
+    sgstRate: taxInfo.sgstRate,
+    igstRate: taxInfo.igstRate,
+    cgstAmount: taxInfo.cgstAmount,
+    sgstAmount: taxInfo.sgstAmount,
+    igstAmount: taxInfo.igstAmount,
+    totalTax: taxInfo.totalTax
+  });
   
   data.tax = {
     cgstRate: taxInfo.cgstRate,

@@ -49,7 +49,7 @@ function numberToWords(num) {
   return numberToWords(Math.floor(num / 10000000)) + ' Crore' + (num % 10000000 !== 0 ? ' ' + numberToWords(num % 10000000) : '');
 }
 
-export const InvoiceTemplate = ({ data }) => {
+const InvoiceTemplate = ({ data }) => {
   const {
     company,
     invoice,
@@ -60,42 +60,34 @@ export const InvoiceTemplate = ({ data }) => {
     tax,
     subtotal,
     total,
+    // ? Add new discount calculation fields
+    discountAmount = 0,
+    discountPercent = 0,
+    discountedSubtotal = subtotal,
+    taxableValue = subtotal,
+    totalTaxAmt = 0,
     terms,
     forCompany,
-    currencySymbol = "₹",
+    currencySymbol = "?",
     currency = "INR",
     paymentmode = "online",
     amountPaid = 0,
-    additionalFilesMeta = [], // ✅ Add files metadata
-    paymentCurrency = "INR", // ✅ Add payment currency
-    customerCountry = "India", // ✅ Add customer country
-    customerCity = "", // ✅ Add customer city
-    customerState = "", // ✅ Add customer state
-    conversionRate = 1, // ✅ Add conversion rate
-    discount = null, // ✅ Add discount data { amount, percent, code }
+    additionalFilesMeta = [], // ? Add files metadata
+    paymentCurrency = "INR", // ? Add payment currency
+    customerCountry = "India", // ? Add customer country
+    customerCity = "", // ? Add customer city
+    customerState = "", // ? Add customer state
+    conversionRate = 1, // ? Add conversion rate
+    discount = null, // ? Add discount data { amount, percent, code }
   } = data;
 
-  // ✅ PARTIAL PAYMENT: Calculate paid and left amounts
-  const discountAmount = discount?.amount || 0;
-  const finalAmountAfterDiscount = total - discountAmount;
+  // ? DISCOUNT CALCULATIONS: Calculate actual discount from discount object
+  const actualDiscountAmount = discount?.amount || discountAmount || 0;
+  const actualDiscountPercent = discount?.percent || discount?.discountPercent || discountPercent || 0;
+  const actualDiscountedSubtotal = subtotal - actualDiscountAmount;
   
-  // ✅ Determine paid amount based on payment mode
-  let actualPaidAmount = Number(amountPaid) || 0;
-  
-  // If no amountPaid specified but discount exists and not 50% mode, assume full payment after discount
-  if (actualPaidAmount === 0 && discount && paymentmode !== '50%') {
-    actualPaidAmount = finalAmountAfterDiscount;
-  }
-  
-  const leftAmount = finalAmountAfterDiscount - actualPaidAmount;
-  
-  // ✅ Only show partial payment rows for 50% Razorpay payment mode
-  const hasPartialPayment = paymentmode === '50%' && actualPaidAmount > 0 && actualPaidAmount < finalAmountAfterDiscount;
-  const showLeftAmount = paymentmode === '50%' && actualPaidAmount < finalAmountAfterDiscount;
-  const showPaidAmount = actualPaidAmount > 0 || (discount && discount.amount > 0);
-  
-  const currencyName = currencyNames[currency] || "Rupees";
-  const totalQty = (items || []).reduce((sum, it) => sum + Number(it.qty || 0), 0);
+  // ? TAXABLE VALUE: Subtotal after discount + charges (P&F + Printing)
+  const actualTaxableValue = actualDiscountedSubtotal + Number(charges?.pf || 0) + Number(charges?.printing || 0);
 
   // Calculate tax amounts
   const cgstAmount = Number(tax?.cgstAmount || 0);
@@ -103,8 +95,29 @@ export const InvoiceTemplate = ({ data }) => {
   const igstAmount = Number(tax?.igstAmount || 0);
   const taxAmount = Number(tax?.taxAmount || 0);
   const totalTax = cgstAmount + sgstAmount + igstAmount + taxAmount;
+  const displayGrandTotal = actualTaxableValue + totalTax;
+
+  const finalAmountAfterDiscount = displayGrandTotal;
+
+  // ? Determine paid amount based on payment mode
+  let actualPaidAmount = Number(amountPaid) || 0;
+
+  // If no amountPaid specified but discount exists and not 50% mode, assume full payment after discount
+  if (actualPaidAmount === 0 && discount && paymentmode !== '50%') {
+    actualPaidAmount = finalAmountAfterDiscount;
+  }
+
+  const leftAmount = finalAmountAfterDiscount - actualPaidAmount;
+
+  // ? Only show partial payment rows for 50% Razorpay payment mode
+  const hasPartialPayment = paymentmode === '50%' && actualPaidAmount > 0 && actualPaidAmount < finalAmountAfterDiscount;
+  const showLeftAmount = paymentmode === '50%' && actualPaidAmount < finalAmountAfterDiscount;
+  const showPaidAmount = actualPaidAmount > 0 || (discount && discount.amount > 0);
+
+  const currencyName = currencyNames[currency] || "Rupees";
+  const totalQty = (items || []).reduce((sum, it) => sum + Number(it.qty || 0), 0);
   
-  // ✅ B2C TAX: Check if this is B2C (no tax display)
+  // ? B2C TAX: Check if this is B2C (no tax display)
   const isB2C = tax?.type === 'B2C_NO_TAX';
 
   return (
@@ -132,7 +145,7 @@ export const InvoiceTemplate = ({ data }) => {
         <p style={{ margin: "1px 0", fontSize: "10px" }}>SADIJA COMPOUND AVANTI VIHAR LIG 64</p>
         <p style={{ margin: "1px 0", fontSize: "10px" }}>NEAR BANK OF BARODA , RAIPUR C.G</p>
         <p style={{ margin: "1px 0", fontSize: "10px" }}>CIN : {company.cin || "U52601CT2020PTC010997"}</p>
-        {/* ✅ Show PAN and IEC only for international invoices */}
+        {/* ? Show PAN and IEC only for international invoices */}
         {tax?.type === 'INTERNATIONAL' && (
           <>
             {company.pan && <p style={{ margin: "1px 0", fontSize: "10px" }}>PAN : {company.pan}</p>}
@@ -166,7 +179,7 @@ export const InvoiceTemplate = ({ data }) => {
         </div>
       </div>
 
-      {/* ✅ PAYMENT CURRENCY AND LOCATION INFO - WITHOUT CONVERSION RATE */}
+      {/* ? PAYMENT CURRENCY AND LOCATION INFO - WITHOUT CONVERSION RATE */}
       {(paymentCurrency !== 'INR' || (customerCountry && customerCountry !== 'India')) && (
         <div style={{ marginBottom: "8px", padding: "6px", backgroundColor: "#f0f0f0", border: "1px solid #999", fontSize: "10px" }}>
           <div style={{ display: "flex", marginBottom: "2px" }}>
@@ -250,7 +263,7 @@ export const InvoiceTemplate = ({ data }) => {
       {/* UPLOADED FILES SECTION */}
       {additionalFilesMeta && additionalFilesMeta.length > 0 && (
         <div style={{ marginBottom: "8px", padding: "8px", border: "1px solid #000", backgroundColor: "#f9f9f9" }}>
-          <p style={{ margin: "0 0 6px 0", fontSize: "11px", fontWeight: "bold" }}>📎 Uploaded Design Files:</p>
+          <p style={{ margin: "0 0 6px 0", fontSize: "11px", fontWeight: "bold" }}>?? Uploaded Design Files:</p>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
             <thead>
               <tr style={{ backgroundColor: "#f0f0f0" }}>
@@ -282,14 +295,30 @@ export const InvoiceTemplate = ({ data }) => {
         <div style={{ width: "400px", borderLeft: "1px solid #000" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <tbody>
-              {/* ✅ SUBTOTAL */}
+              {/* ? SUBTOTAL (Items Total) */}
               <tr>
                 <td style={{ padding: "3px 8px", textAlign: "left" }}>Subtotal</td>
                 <td style={{ padding: "3px 8px", textAlign: "right" }}>-</td>
                 <td style={{ padding: "3px 8px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
               </tr>
               
-              {/* ✅ P&F CHARGES (Show if > 0) */}
+              {/* ? DISCOUNT: Show coupon discount if applied (BEFORE charges and tax) */}
+              {actualDiscountAmount > 0 && (
+                <>
+                  <tr style={{ backgroundColor: "#ffebee" }}>
+                    <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Discount ({discount?.code || 'Coupon'} - {actualDiscountPercent.toFixed(2)}%)</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>-</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: "#d32f2f" }}>- {actualDiscountAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr style={{ backgroundColor: "#f5f5f5" }}>
+                    <td style={{ padding: "3px 8px", fontWeight: "bold", textDecoration: "underline" }}>Subtotal After Discount</td>
+                    <td style={{ padding: "3px 8px", textAlign: "right" }}>-</td>
+                    <td style={{ padding: "3px 8px", textAlign: "right", fontWeight: "bold" }}>{actualDiscountedSubtotal.toFixed(2)}</td>
+                  </tr>
+                </>
+              )}
+              
+              {/* ? P&F CHARGES (Show if > 0) */}
               {charges?.pf > 0 && (
                 <tr>
                   <td style={{ padding: "3px 8px", textAlign: "left" }}>P&F Charges</td>
@@ -298,7 +327,7 @@ export const InvoiceTemplate = ({ data }) => {
                 </tr>
               )}
               
-              {/* ✅ PRINTING CHARGES (Show if > 0) */}
+              {/* ? PRINTING CHARGES (Show if > 0) */}
               {charges?.printing > 0 && (
                 <tr>
                   <td style={{ padding: "3px 8px", textAlign: "left" }}>Printing Charges</td>
@@ -307,7 +336,13 @@ export const InvoiceTemplate = ({ data }) => {
                 </tr>
               )}
               
-              {/* ✅ INTRASTATE_CGST_SGST: 2.5% CGST + 2.5% SGST (Chhattisgarh - Home State) */}
+              {/* ? TAXABLE AMOUNT (for reference) */}
+              <tr style={{ backgroundColor: "#f9f9f9", fontStyle: "italic" }}>
+                <td style={{ padding: "3px 8px", textAlign: "left", fontSize: "11px" }}>Taxable Amount</td>
+                <td style={{ padding: "3px 8px", textAlign: "right" }}>-</td>
+                <td style={{ padding: "3px 8px", textAlign: "right", fontSize: "11px" }}>{actualTaxableValue.toFixed(2)}</td>
+              </tr>
+              
               {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
                 <>
                   <tr>
@@ -323,7 +358,6 @@ export const InvoiceTemplate = ({ data }) => {
                 </>
               )}
               
-              {/* INTERSTATE: 5% IGST only (Outside Chhattisgarh) */}
               {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
                 <tr>
                   <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : IGST</td>
@@ -332,7 +366,6 @@ export const InvoiceTemplate = ({ data }) => {
                 </tr>
               )}
               
-              {/* INTERNATIONAL: 1% Service Charge (NOT GST) */}
               {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && taxAmount > 0 && (
                 <tr>
                   <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : Service Charge</td>
@@ -341,7 +374,7 @@ export const InvoiceTemplate = ({ data }) => {
                 </tr>
               )}
               
-              {/* ✅ B2C_NO_TAX: Show "Including taxes" text only (NO numeric values) */}
+              {/* ? B2C_NO_TAX: Show "Including taxes" text only (NO numeric values) */}
               {isB2C && (
                 <tr>
                   <td style={{ padding: "3px 8px", textAlign: "left", fontStyle: "italic" }} colSpan="3">
@@ -350,7 +383,6 @@ export const InvoiceTemplate = ({ data }) => {
                 </tr>
               )}
               
-              {/* Fallback for old invoices without type */}
               {!tax?.type && !isB2C && cgstAmount > 0 && (
                 <>
                   <tr>
@@ -366,43 +398,34 @@ export const InvoiceTemplate = ({ data }) => {
                 </>
               )}
               
+              {/* ? GRAND TOTAL (Final amount to pay) */}
               <tr style={{ borderTop: "2px solid #000", fontWeight: "bold" }}>
                 <td style={{ padding: "4px 8px" }}>Grand Total</td>
-                <td style={{ padding: "4px 8px", textAlign: "center" }}>{totalQty.toFixed(2)} Pcs.</td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>-</td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>{total.toFixed(2)}</td>
+                <td style={{ padding: "4px 8px", textAlign: "right" }}>{totalQty.toFixed(2)} Pcs.</td>
+                <td style={{ padding: "4px 8px", textAlign: "right" }}>{displayGrandTotal.toFixed(2)}</td>
               </tr>
               
-              {/* ✅ DISCOUNT: Show coupon discount if applied */}
-              {discount && discount.amount > 0 && (
-                <tr style={{ backgroundColor: "#ffebee" }}>
-                  <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Discount ({discount.code || 'Coupon'} - {discount.percent}%)</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: "#d32f2f" }}>- {discount.amount.toFixed(2)}</td>
-                </tr>
-              )}
-              
-              {/* ✅ PARTIAL PAYMENT: Show Paid and Left amounts (only for 50% payment) */}
+              {/* ? PARTIAL PAYMENT: Show Paid and Left amounts (only for 50% payment) */}
               {hasPartialPayment && (
                 <>
                   <tr style={{ backgroundColor: "#e8f5e9" }}>
                     <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Paid Amount (50%)</td>
-                    <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>-</td>
                     <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{actualPaidAmount.toFixed(2)}</td>
                   </tr>
                   <tr style={{ backgroundColor: "#fff3e0" }}>
                     <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Left Amount</td>
-                    <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>-</td>
                     <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{leftAmount.toFixed(2)}</td>
                   </tr>
                 </>
               )}
               
-              {/* ✅ FULL PAYMENT: Show Paid Amount after discount for non-50% modes */}
+              {/* ? FULL PAYMENT: Show Paid Amount after discount for non-50% modes */}
               {!hasPartialPayment && showPaidAmount && (
                 <tr style={{ backgroundColor: "#c8e6c9", borderTop: "1px solid #4caf50" }}>
                   <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Paid Amount</td>
-                  <td style={{ padding: "4px 8px", textAlign: "right" }} colSpan="2">-</td>
+                  <td style={{ padding: "4px 8px", textAlign: "right" }}>-</td>
                   <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{finalAmountAfterDiscount.toFixed(2)}</td>
                 </tr>
               )}
@@ -419,7 +442,6 @@ export const InvoiceTemplate = ({ data }) => {
               <th style={{ border: "1px solid #000", padding: "4px" }}>Tax Rate</th>
               <th style={{ border: "1px solid #000", padding: "4px" }}>Taxable Amt.</th>
               
-              {/* INTRASTATE_CGST_SGST: Show CGST and SGST columns */}
               {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
                 <>
                   <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
@@ -427,17 +449,14 @@ export const InvoiceTemplate = ({ data }) => {
                 </>
               )}
               
-              {/* INTERSTATE: Show IGST column */}
               {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
                 <th style={{ border: "1px solid #000", padding: "4px" }}>IGST Amt.</th>
               )}
               
-              {/* INTERNATIONAL: Show TAX column */}
               {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
                 <th style={{ border: "1px solid #000", padding: "4px" }}>TAX Amt.</th>
               )}
               
-              {/* Fallback for old invoices */}
               {!tax?.type && cgstAmount > 0 && (
                 <>
                   <th style={{ border: "1px solid #000", padding: "4px" }}>CGST Amt.</th>
@@ -459,9 +478,8 @@ export const InvoiceTemplate = ({ data }) => {
               </td>
 
               {/* Taxable Amount */}
-              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{subtotal.toFixed(2)}</td>
+              <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{actualTaxableValue.toFixed(2)}</td>
 
-              {/* INTRASTATE_CGST_SGST: CGST and SGST amounts */}
               {(tax?.type === 'INTRASTATE_CGST_SGST' || tax?.type === 'HOME_STATE_GST') && (
                 <>
                   <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{cgstAmount.toFixed(2)}</td>
@@ -469,17 +487,14 @@ export const InvoiceTemplate = ({ data }) => {
                 </>
               )}
 
-              {/* INTERSTATE: IGST amount */}
               {(tax?.type === 'INTERSTATE' || tax?.type === 'OUTSIDE_STATE_IGST') && (
                 <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{igstAmount.toFixed(2)}</td>
               )}
 
-              {/* INTERNATIONAL: Service Charge amount (NOT GST) */}
               {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && (
                 <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{taxAmount.toFixed(2)}</td>
               )}
 
-              {/* Fallback for old invoices */}
               {!tax?.type && cgstAmount > 0 && (
                 <>
                   <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right" }}>{cgstAmount.toFixed(2)}</td>
@@ -520,3 +535,6 @@ export const InvoiceTemplate = ({ data }) => {
     </div>
   );
 };
+
+export { InvoiceTemplate };
+export default InvoiceTemplate;

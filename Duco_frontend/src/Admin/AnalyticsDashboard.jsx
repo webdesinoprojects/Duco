@@ -1416,11 +1416,11 @@ export default function AnalyticsDashboard() {
                             </div>
                           </div>
                           <div className={`px-3 py-1 rounded text-sm font-semibold ${
-                            (selectedOrder.paymentStatus === 'Paid' || selectedOrder.razorpayPaymentId) 
+                            (String(selectedOrder.paymentStatus || '').toLowerCase() === 'paid' || selectedOrder.razorpayPaymentId) 
                               ? 'bg-emerald-500/20 text-emerald-300' :
-                            selectedOrder.paymentStatus === 'Pending' 
+                            String(selectedOrder.paymentStatus || '').toLowerCase() === 'pending'
                               ? 'bg-yellow-500/20 text-yellow-300' :
-                            selectedOrder.paymentStatus === 'Failed'
+                            String(selectedOrder.paymentStatus || '').toLowerCase() === 'failed'
                               ? 'bg-red-500/20 text-red-300' :
                             'bg-gray-500/20 text-gray-300'
                           }`}>

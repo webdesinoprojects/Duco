@@ -41,11 +41,18 @@ const PaymentButton = ({ orderData }) => {
       hasOrderData: !!orderData
     });
 
+    const isRemainingPayment = orderData?.paymentType === "remaining";
+
     // ✅ Validate amount
     const paymentAmount = orderData?.totalPay;
-    if (!paymentAmount || isNaN(paymentAmount) || paymentAmount <= 0) {
-      console.error('❌ Invalid payment amount:', paymentAmount);
-      alert("Invalid payment amount. Please ensure your cart has items.");
+    if (!isRemainingPayment) {
+      if (!paymentAmount || isNaN(paymentAmount) || paymentAmount <= 0) {
+        console.error('❌ Invalid payment amount:', paymentAmount);
+        alert("Invalid payment amount. Please ensure your cart has items.");
+        return;
+      }
+    } else if (!orderData?.orderId) {
+      alert("Missing orderId for remaining payment");
       return;
     }
 
@@ -128,24 +135,30 @@ const PaymentButton = ({ orderData }) => {
       });
 
       // 2️⃣ Create order on backend
-      const { data } = await axios.post(
-        `${API_BASE}api/payment/create-order`,
-        {
-          amount: finalAmount,
-          currency: "INR",
-          half: orderData.isHalfPayment || false,
-          displayCurrency: orderData?.displayCurrency,
-          displayAmount: orderData?.totalPayDisplay,
-          customerCountry: orderData?.address?.country,
-          customerCity: orderData?.address?.city,
-          customerState: orderData?.address?.state,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
+      const { data } = isRemainingPayment
+        ? await axios.post(
+            `${API_BASE}api/payment/create-remaining-order`,
+            { orderId: orderData.orderId },
+            { headers: { 'Content-Type': 'application/json' } }
+          )
+        : await axios.post(
+            `${API_BASE}api/payment/create-order`,
+            {
+              amount: finalAmount,
+              currency: "INR",
+              half: orderData.isHalfPayment || false,
+              displayCurrency: orderData?.displayCurrency,
+              displayAmount: orderData?.totalPayDisplay,
+              customerCountry: orderData?.address?.country,
+              customerCity: orderData?.address?.city,
+              customerState: orderData?.address?.state,
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            }
+          );
 
       console.log('✅ Backend response:', {
         orderId: data?.orderId,
@@ -197,18 +210,33 @@ const PaymentButton = ({ orderData }) => {
           console.groupEnd();
           
           try {
-            const verify = await axios.post(
-              `${API_BASE}api/payment/verify`,
-              {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }
-            );
+            const verify = isRemainingPayment
+              ? await axios.post(
+                  `${API_BASE}api/payment/verify-remaining`,
+                  {
+                    orderId: orderData.orderId,
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                  }
+                )
+              : await axios.post(
+                  `${API_BASE}api/payment/verify`,
+                  {
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                  }
+                );
 
             if (!verify.data.success) {
               console.error('❌ Verification failed:', verify.data);
               alert("Payment verification failed");
+              return;
+            }
+
+            if (isRemainingPayment) {
+              navigate(`/order-success/${orderData.orderId}`);
               return;
             }
 

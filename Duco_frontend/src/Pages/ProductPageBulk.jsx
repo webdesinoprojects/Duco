@@ -182,7 +182,6 @@ const ProductPageBulk = () => {
     });
   }, [product?.pricing, toConvert, priceIncrease, currency]);
 
-
   // ✨ Just works out of the box!
 
 
@@ -469,21 +468,21 @@ const validateMinimumQuantity = () => {
 </div>
 
             {/* Quantity Summary */}
-            <div className={`mt-4 p-3 rounded-lg ${getTotalQty() >= minOrderQty ? 'bg-green-900/30 border border-green-600' : 'bg-yellow-900/30 border border-yellow-600'}`}>
+            <div className={`mt-4 p-3 rounded-lg ${getTotalQty() >= minOrderQty ? 'bg-green-900/30 border border-green-600' : 'bg-blue-900/30 border border-blue-600'}`}>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-white">Total Quantity:</span>
-                <span className={`font-bold ${getTotalQty() >= minOrderQty ? 'text-green-400' : 'text-yellow-400'}`}>
+                <span className={`font-bold ${getTotalQty() >= minOrderQty ? 'text-green-400' : 'text-blue-400'}`}>
                   {getTotalQty()} / {minOrderQty} units
                 </span>
               </div>
               {getTotalQty() < minOrderQty && (
-                <p className="text-xs text-yellow-300 mt-2">
-                  ⚠️ Minimum order quantity is {minOrderQty} units. Add {minOrderQty - getTotalQty()} more units to proceed.
+                <p className="text-xs text-blue-300 mt-2">
+                  ℹ️ Bulk order minimum is {minOrderQty} total units across your entire cart. You can add any quantity here.
                 </p>
               )}
               {getTotalQty() >= minOrderQty && (
                 <p className="text-xs text-green-300 mt-2">
-                  ✅ Minimum quantity requirement met!
+                  ✅ This product meets the minimum quantity!
                 </p>
               )}
             </div>
@@ -495,10 +494,6 @@ const validateMinimumQuantity = () => {
               if(!user){
                   toast.error("Log In / Sign Up")
                   setIsOpenLog(true)
-              }
-              else if(!validateMinimumQuantity()){
-                  // Validation error already shown by validateMinimumQuantity
-                  return;
               }
               else if(!validateStockSelection()){
                   return;
@@ -571,7 +566,7 @@ const validateMinimumQuantity = () => {
        
 
       </div>
-       <PriceTiers tiers={priceTiers} currencySymbol={currencySymbol} />
+       <PriceTiers />
         <CropTankSizeChart type="mensRoundNeck" />
        <CropTanksTabs/>
       

@@ -121,7 +121,7 @@ class EmailService {
    * @param {String} orderData.totalAmount - Total amount
    * @param {String} orderData.currency - Currency
    * @param {String} orderData.paymentMode - Payment mode
-   * @param {String} orderData.invoicePdfPath - Path to invoice PDF (optional)
+  * @param {String} orderData.invoicePdfPath - Path to invoice PDF (optional)
    * @param {Array} orderData.items - Order items
    * @returns {Object} - Response
    */
@@ -141,6 +141,8 @@ class EmailService {
       if (!customerEmail) {
         return { success: false, error: 'Customer email not provided' };
       }
+
+      console.log('Attempting to send order email to:', customerEmail);
 
       const currencySymbol = currency === 'INR' ? '₹' : '$';
 
@@ -198,23 +200,6 @@ class EmailService {
                 })}</p>
               </div>
 
-              ${items.length > 0 ? `
-                <h3 style="color: #667eea;">Order Items</h3>
-                <table class="items-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Product</th>
-                      <th style="text-align: center;">Quantity</th>
-                      <th style="text-align: right;">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${itemsHtml}
-                  </tbody>
-                </table>
-              ` : ''}
-
               <div style="background: #fffbf0; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
                 <p style="margin: 0;"><strong>What's Next?</strong></p>
                 <p style="margin: 10px 0 0 0;">
@@ -255,9 +240,9 @@ Thank you for shopping with Duco!
 For any queries, contact us at support@ducoart.com
       `.trim();
 
-      // Prepare attachments
       const attachments = [];
       if (invoicePdfPath) {
+        console.log('📎 EMAIL SERVICE - Attaching PDF from path:', invoicePdfPath);
         try {
           await fs.access(invoicePdfPath);
           attachments.push({
@@ -265,20 +250,29 @@ For any queries, contact us at support@ducoart.com
             path: invoicePdfPath,
             contentType: 'application/pdf',
           });
+          console.log('✅ EMAIL SERVICE - PDF file verified and attached');
         } catch (err) {
           console.warn('⚠️  Invoice PDF not found:', invoicePdfPath);
         }
       }
 
-      return await this.sendEmail({
+      const sendResult = await this.sendEmail({
         to: customerEmail,
         subject: `Order Confirmation - ${orderId} | Duco`,
         text: textContent,
         html: htmlContent,
         attachments,
       });
+
+      if (sendResult.success) {
+        console.log('Email sent successfully for order:', orderId);
+        return { success: true };
+      }
+
+      console.error('Email failed for order:', orderId, sendResult.error || sendResult.message);
+      return { success: false, error: sendResult.error || sendResult.message || 'Email send failed' };
     } catch (error) {
-      console.error('❌ Error sending order confirmation email:', error);
+      console.error('Email failed for order:', orderId, error);
       return { success: false, error: error.message };
     }
   }

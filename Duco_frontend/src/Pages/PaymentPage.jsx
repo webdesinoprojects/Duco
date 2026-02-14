@@ -7,6 +7,7 @@ import {
   completeOrder,
   uploadDesignImagesForOrder,
   getActiveBankDetails,
+  getOrderById,
 } from "../Service/APIservice";
 import { useCart } from "../ContextAPI/CartContext.jsx";
 import { usePriceContext } from "../ContextAPI/PriceContext.jsx";
@@ -77,6 +78,13 @@ const PaymentPage = () => {
   const locations = useLocation();
   const navigate = useNavigate();
   const { cart } = useCart();
+
+  const searchParams = useMemo(() => new URLSearchParams(locations.search), [locations.search]);
+  const remainingOrderId = searchParams.get("orderId");
+  const isRemainingPayment = searchParams.get("type") === "remaining" && !!remainingOrderId;
+  const [remainingOrder, setRemainingOrder] = useState(null);
+  const [remainingLoading, setRemainingLoading] = useState(false);
+  const [remainingError, setRemainingError] = useState("");
   
   // ✅ Get currency from PriceContext (with safety check)
   const priceContext = usePriceContext() || {};
@@ -84,6 +92,27 @@ const PaymentPage = () => {
   const currencySymbol = currencySymbols[currency] || "₹";
 
   const orderpayload = locations.state || {};
+
+  useEffect(() => {
+    if (!isRemainingPayment) return;
+    let mounted = true;
+    const loadRemainingOrder = async () => {
+      try {
+        setRemainingLoading(true);
+        setRemainingError("");
+        const data = await getOrderById(remainingOrderId);
+        if (mounted) setRemainingOrder(data);
+      } catch (err) {
+        if (mounted) setRemainingError(err?.response?.data?.message || err.message || "Failed to load order");
+      } finally {
+        if (mounted) setRemainingLoading(false);
+      }
+    };
+    loadRemainingOrder();
+    return () => {
+      mounted = false;
+    };
+  }, [isRemainingPayment, remainingOrderId]);
 
   const [cartLoaded, setCartLoaded] = useState(false);
   useEffect(() => {
@@ -154,6 +183,48 @@ const PaymentPage = () => {
     setPickupPhone(onlyDigits(phoneGuess).slice(-10));
   }, [orderpayload?.user, orderpayload?.address]);
 
+  if (isRemainingPayment) {
+    const remainingAmount = Number(remainingOrder?.remainingAmount || 0);
+    const isPaid = String(remainingOrder?.paymentStatus || "").toLowerCase() === "paid" || remainingAmount <= 0;
+    return (
+      <div className="w-full min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center p-6">
+        <div className="w-full max-w-lg bg-white text-gray-900 rounded-xl p-6 shadow-lg">
+          <h1 className="text-2xl font-bold mb-2">Complete Remaining Payment</h1>
+          <p className="text-sm text-gray-600 mb-4">
+            Order ID: <span className="font-semibold">{remainingOrderId}</span>
+          </p>
+
+          {remainingLoading && <p className="text-sm text-gray-600">Loading order...</p>}
+          {!remainingLoading && remainingError && (
+            <p className="text-sm text-red-600">{remainingError}</p>
+          )}
+
+          {!remainingLoading && !remainingError && remainingOrder && (
+            <>
+              <div className="bg-gray-100 rounded-lg p-4 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-700">Remaining Amount:</span>
+                  <span className="font-semibold">₹{remainingAmount.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {isPaid ? (
+                <p className="text-sm text-green-700">This order is already fully paid.</p>
+              ) : (
+                <PaymentButton
+                  orderData={{
+                    orderId: remainingOrderId,
+                    paymentType: "remaining",
+                  }}
+                />
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Determine if B2B (Corporate/Bulk Order)
   const [minOrderQty, setMinOrderQty] = useState(100);
   
@@ -181,25 +252,20 @@ const PaymentPage = () => {
     // Check if any item is marked as corporate
     const hasCorporateFlag = items.some((item) => item?.isCorporate === true);
     
-    // Check if any item has bulk quantity (>= minimum order quantity)
-    const itemsWithQuantity = items.map((item) => {
+    // Check if TOTAL CART quantity meets bulk minimum (>= minimum order quantity)
+    const totalCartQty = items.reduce((sum, item) => {
       const quantities = Object.values(item?.quantity ?? {});
-      const totalQty = quantities.reduce((sum, qty) => sum + Number(qty || 0), 0);
-      return {
-        name: item?.products_name || item?.name || 'Unknown',
-        totalQty,
-        isBulk: totalQty >= minOrderQty,
-        quantities: item?.quantity
-      };
-    });
+      const itemQty = quantities.reduce((itemSum, qty) => itemSum + Number(qty || 0), 0);
+      return sum + itemQty;
+    }, 0);
     
-    const hasBulkQuantity = itemsWithQuantity.some(item => item.isBulk);
+    const hasBulkQuantity = totalCartQty >= minOrderQty;
     
     console.log('🔍 Payment Page - Order Type Detection:', {
       minOrderQty,
       hasCorporateFlag,
+      totalCartQty,
       hasBulkQuantity,
-      itemsBreakdown: itemsWithQuantity,
       finalIsB2B: hasCorporateFlag || hasBulkQuantity
     });
     
@@ -498,11 +564,15 @@ const PaymentPage = () => {
       setIsProcessing(true);
       const res = await completeOrder(paymentId, normalizedPayload.paymentmode, normalizedPayload);
       const order = res?.order || res?.data?.order;
+      const notifications = res?.notifications || res?.data?.notifications || null;
       const orderId = order?.id || order?._id;
 
       if (orderId) {
         localStorage.setItem("lastOrderId", orderId);
-        localStorage.setItem("lastOrderMeta", JSON.stringify(paymentMeta));
+        localStorage.setItem(
+          "lastOrderMeta",
+          JSON.stringify({ ...paymentMeta, notifications })
+        );
       }
 
       const pendingUploads = [];
@@ -539,7 +609,7 @@ const PaymentPage = () => {
         }
         navigate(`/order-success/${orderId}`, {
           replace: true,
-          state: { order, paymentMeta },
+          state: { order, paymentMeta, notifications },
         });
       } else {
         navigate("/order-processing", {

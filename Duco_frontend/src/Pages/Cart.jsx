@@ -505,12 +505,8 @@ const Cart = () => {
   const [minOrderQty, setMinOrderQty] = useState(100); // Default minimum order quantity
   const [gstNumber, setGstNumber] = useState(""); // Optional GST/Tax code
   
-  // Coupon states
-  const [couponCode, setCouponCode] = useState("");
-  const [couponApplied, setCouponApplied] = useState(false);
-  const [couponData, setCouponData] = useState(null);
-  const [couponLoading, setCouponLoading] = useState(false);
-  const [couponError, setCouponError] = useState("");
+  // ✅ Auto-discount based on bulk discount tiers (no manual coupon input)
+  const [autoDiscount, setAutoDiscount] = useState(null); // { discountPercent, amount }
 
   // ✅ Dynamic Currency Formatter (prices are already location-adjusted at item level)
   const formatCurrency = (num) => {
@@ -1052,12 +1048,18 @@ const Cart = () => {
   }, [pfPerUnit, totalQuantity, currencySymbol, priceIncrease, conversionRate, actualData]);
 
   const taxableAmount = useMemo(() => {
-    return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
-  }, [itemsSubtotal, printingCost, pfCost]);
+    const subtotalAfterDiscount = autoDiscount && autoDiscount.discountPercent > 0 
+      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
+      : itemsSubtotal;
+    return safeNum(subtotalAfterDiscount) + safeNum(printingCost) + safeNum(pfCost);
+  }, [itemsSubtotal, printingCost, pfCost, autoDiscount]);
 
   // ✅ Calculate tax information (type, amounts, rates)
   const taxInfo = useMemo(() => {
-    const adjustedTaxable = safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
+    const subtotalAfterDiscount = autoDiscount && autoDiscount.discountPercent > 0 
+      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
+      : itemsSubtotal;
+    const adjustedTaxable = safeNum(subtotalAfterDiscount) + safeNum(printingCost) + safeNum(pfCost);
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
     
     let gstRate = 0;
@@ -1123,7 +1125,7 @@ const Cart = () => {
       taxAmount,
       totalTax: cgstAmount + sgstAmount + igstAmount + taxAmount,
     };
-  }, [itemsSubtotal, printingCost, pfCost, billingAddress, actualData]);
+  }, [itemsSubtotal, printingCost, pfCost, billingAddress, actualData, autoDiscount]);
 
   const gstTotal = useMemo(() => {
     return (safeNum(taxableAmount) * safeNum(gstPercent)) / 100;
@@ -1134,95 +1136,68 @@ const Cart = () => {
     [taxableAmount, gstTotal]
   );
 
-  // Handle coupon application
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) {
-      setCouponError("Please enter a coupon code");
-      return;
-    }
-
-    setCouponLoading(true);
-    setCouponError("");
-
+  // ✅ Auto-calculate discount based on bulk discount tiers (BACKEND will also calculate this)
+  const applyAutoDiscount = async () => {
     try {
-      // Validate coupon format: DUCO{number}
-      const couponRegex = /^DUCO(\d+)$/i;
-      const match = couponCode.toUpperCase().match(couponRegex);
-      
-      if (!match) {
-        setCouponError("Invalid coupon format. Use DUCO5, DUCO10, etc.");
-        setCouponLoading(false);
-        return;
-      }
-
-      const discountPercent = parseInt(match[1]);
-
       // Calculate total quantity in cart
       const totalQuantity = actualData.reduce((sum, item) => {
         const itemQty = Object.values(item.quantity || {}).reduce((qSum, q) => qSum + safeNum(q), 0);
         return sum + itemQty;
       }, 0);
 
-      // Fetch corporate settings to validate against bulk discount tiers
+      // Fetch corporate settings to find matching discount tier
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
-      const response = await fetch(`${API_BASE}/api/corporate-settings`);
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setCouponError("Failed to validate coupon. Please try again.");
-        setCouponLoading(false);
+      const response = await fetch(`${API_BASE}/api/corporate-settings/discount-tiers`);
+      
+      if (!response.ok) {
+        console.warn('Failed to fetch discount tiers');
+        setAutoDiscount(null);
         return;
       }
 
-      const bulkDiscountTiers = data.data.bulkDiscountTiers || [];
+      const discountTiers = await response.json(); // Backend returns array directly
       
-      // Find matching tier with the discount percentage and quantity range
-      const matchingTier = bulkDiscountTiers.find(tier => 
-        tier.discount === discountPercent && 
-        totalQuantity >= tier.minQty && 
-        totalQuantity <= tier.maxQty
+      // ✅ Find matching tier based on quantity (minQuantity <= totalQuantity <= maxQuantity)
+      const matchingTier = discountTiers.find(tier => 
+        totalQuantity >= tier.minQuantity && 
+        totalQuantity <= tier.maxQuantity
       );
 
-      if (!matchingTier) {
-        setCouponError(
-          `Coupon ${couponCode.toUpperCase()} requires ${discountPercent}% discount tier with quantity between the eligible range. Your cart has ${totalQuantity} items.`
-        );
-        setCouponLoading(false);
-        return;
+      if (matchingTier) {
+        // ✅ Calculate discount amount (will be recalculated by backend, this is just for display)
+        const discountAmount = Math.ceil((itemsSubtotal * matchingTier.discountPercentage) / 100);
+        setAutoDiscount({
+          discountPercent: matchingTier.discountPercentage,
+          amount: discountAmount,
+          tier: matchingTier
+        });
+      } else {
+        setAutoDiscount(null);
       }
-
-      // Apply coupon
-      setCouponData({
-        code: couponCode.toUpperCase(),
-        discountPercent: discountPercent,
-        appliedTier: matchingTier
-      });
-      setCouponApplied(true);
-      setCouponError("");
-      toast.success(`✅ Coupon ${couponCode.toUpperCase()} applied! You save ${discountPercent}%`);
-      
     } catch (error) {
-      console.error('Coupon validation error:', error);
-      setCouponError("Failed to validate coupon. Please try again.");
-    } finally {
-      setCouponLoading(false);
+      console.error('Auto-discount calculation error:', error);
+      setAutoDiscount(null);
     }
   };
 
-  const handleRemoveCoupon = () => {
-    setCouponCode("");
-    setCouponApplied(false);
-    setCouponData(null);
-    setCouponError("");
-    toast.info("Coupon removed");
-  };
+  // ✅ useEffect to apply auto-discount when cart items or quantities change
+  useEffect(() => {
+    if (actualData.length > 0) {
+      applyAutoDiscount();
+    }
+  }, [actualData, itemsSubtotal]);
 
   const grandTotal = useMemo(() => {
     // ✅ pfCost and printingCost are already converted in their respective useMemo
     // ✅ itemsSubtotal is already converted in its useMemo
     
-    // Taxable amount = items + printing + P&F (all already in target currency)
-    const adjustedTaxable = safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
+    // ✅ Apply discount to items subtotal first
+    const subtotalAfterDiscount = autoDiscount && autoDiscount.discountPercent > 0 
+      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
+      : itemsSubtotal;
+    
+    // Taxable amount = discounted items + printing + P&F (all already in target currency)
+    const adjustedTaxable = safeNum(subtotalAfterDiscount) + safeNum(printingCost) + safeNum(pfCost);
     
     // ✅ Check if this is a B2B order
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
@@ -1326,7 +1301,7 @@ const Cart = () => {
     });
     
     return total; // Return before round off, we'll round in display
-  }, [itemsSubtotal, printingCost, pfCost, currencySymbol, billingAddress, actualData, resolvedLocation, conversionRate, priceIncrease]);
+  }, [itemsSubtotal, printingCost, pfCost, currencySymbol, billingAddress, actualData, resolvedLocation, conversionRate, priceIncrease, autoDiscount]);
 
   if (loadingProducts) return <Loading />;
   if (!cart.length)
@@ -1373,6 +1348,23 @@ const Cart = () => {
                 <span>Items Subtotal</span>
                 <span>{formatCurrency(itemsSubtotal)}</span>
               </div>
+              
+              {/* ✅ Auto Discount Display in Order Summary */}
+              {autoDiscount && autoDiscount.discountPercent > 0 && (
+                <>
+                  <div className="flex justify-between text-green-400">
+                    <span className="text-sm">Corporate Discount ({autoDiscount.discountPercent}%)</span>
+                    <span className="text-sm font-semibold">- {formatCurrency(Math.ceil((itemsSubtotal * autoDiscount.discountPercent) / 100))}</span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2 mb-2">
+                    <span className="text-xs text-gray-400">Subtotal after discount:</span>
+                    <span className="font-semibold text-sm">
+                      {formatCurrency(Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100))}
+                    </span>
+                  </div>
+                </>
+              )}
+              
               <div className="flex justify-between">
                 <span>Printing Charges ({printingUnits} sides)</span>
                 <span>{formatCurrency(printingCost)}</span>
@@ -1385,14 +1377,23 @@ const Cart = () => {
               {/* Subtotal before GST - matching invoice format */}
               <div className="flex justify-between border-t pt-2 mt-2">
                 <span className="font-medium">Subtotal (Taxable)</span>
-                <span className="font-medium">{formatCurrency(itemsSubtotal + printingCost + pfCost)}</span>
+                <span className="font-medium">
+                  {formatCurrency(
+                    (autoDiscount && autoDiscount.discountPercent > 0 
+                      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
+                      : itemsSubtotal) + printingCost + pfCost
+                  )}
+                </span>
               </div>
               
               {/* Tax Breakdown - Only for B2B orders */}
               {(() => {
                 // ✅ Check if this is a B2B order
                 const isBulkOrder = actualData.some(item => item.isCorporate === true);
-                const taxableAmount = itemsSubtotal + printingCost + pfCost;
+                const subtotalAfterDiscount = autoDiscount && autoDiscount.discountPercent > 0 
+                  ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
+                  : itemsSubtotal;
+                const taxableAmount = subtotalAfterDiscount + printingCost + pfCost;
                 
                 console.log('🧾 Order Summary - B2B Check:', {
                   isBulkOrder,
@@ -1522,22 +1523,6 @@ const Cart = () => {
                 <span className="font-bold">Grand Total</span>
                 <span className="font-bold">{formatCurrency(Math.ceil(grandTotal))}</span>
               </div>
-              
-              {/* Coupon Discount */}
-              {couponApplied && couponData && (
-                <>
-                  <div className="flex justify-between text-green-400 mb-2">
-                    <span className="text-sm">Coupon Discount ({couponData.discountPercent}%)</span>
-                    <span className="text-sm font-semibold">- {formatCurrency(Math.ceil((grandTotal * couponData.discountPercent) / 100))}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2 text-lg">
-                    <span className="font-bold text-yellow-400">Final Total</span>
-                    <span className="font-bold text-yellow-400">
-                      {formatCurrency(Math.ceil(grandTotal - (grandTotal * couponData.discountPercent) / 100))}
-                    </span>
-                  </div>
-                </>
-              )}
             </div>
 
             {/* Estimated Delivery Date - B2B ONLY */}
@@ -1587,60 +1572,24 @@ const Cart = () => {
               </p>
             </div>
 
-            {/* Coupon Code Input (Optional) */}
-            <div className="mb-6">
-              <label htmlFor="couponCode" className="block text-sm font-medium text-white mb-2">
-                Coupon Code (Optional)
-              </label>
-              {!couponApplied ? (
-                <div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      id="couponCode"
-                      value={couponCode}
-                      onChange={(e) => {
-                        setCouponCode(e.target.value.toUpperCase());
-                        setCouponError("");
-                      }}
-                      placeholder="Enter coupon code (e.g., DUCO5, DUCO10)"
-                      className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                      disabled={couponLoading}
-                    />
-                    <button
-                      onClick={handleApplyCoupon}
-                      disabled={couponLoading || !couponCode.trim()}
-                      className="px-6 py-3 bg-yellow-400 text-black font-semibold rounded-lg hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {couponLoading ? "Applying..." : "Apply"}
-                    </button>
-                  </div>
-                  {couponError && (
-                    <p className="text-red-400 text-sm mt-2">⚠️ {couponError}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    💡 Use coupon codes like DUCO5, DUCO10 for discounts based on your order quantity
-                  </p>
-                </div>
-              ) : (
+            {/* ✅ Auto-Discount Display (No manual coupon input) */}
+            {autoDiscount && autoDiscount.discountPercent > 0 && (
+              <div className="mb-6">
                 <div className="bg-green-900/30 border border-green-500 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-green-400 font-semibold">✓ Coupon Applied: {couponData?.code}</p>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <p className="text-green-400 font-semibold">🎉 Corporate Discount Applied!</p>
                       <p className="text-sm text-gray-300 mt-1">
-                        {couponData?.discountPercent}% discount - You save {formatCurrency(Math.ceil((grandTotal * couponData?.discountPercent) / 100))}
+                        {autoDiscount.discountPercent}% discount - You save {formatCurrency(Math.ceil(autoDiscount.amount))}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        💡 Discount automatically applied based on your order quantity
                       </p>
                     </div>
-                    <button
-                      onClick={handleRemoveCoupon}
-                      className="text-red-400 hover:text-red-300 text-sm font-medium"
-                    >
-                      Remove
-                    </button>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Bulk Order Minimum Quantity Warning */}
             {(() => {
@@ -1649,24 +1598,19 @@ const Cart = () => {
                 return item.isCorporate === true;
               });
               
-              const itemsBelowMinimum = bulkItems.filter(item => {
+              // ✅ Calculate total quantity across all bulk items
+              const totalBulkQty = bulkItems.reduce((total, item) => {
                 const itemQty = Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0);
-                return itemQty > 0 && itemQty < minOrderQty;
-              });
+                return total + itemQty;
+              }, 0);
 
-              if (itemsBelowMinimum.length > 0) {
+              // ✅ Check if total quantity meets minimum (not per product)
+              if (bulkItems.length > 0 && totalBulkQty > 0 && totalBulkQty < minOrderQty) {
                 return (
                   <div className="mb-4 p-3 bg-red-900/30 border border-red-500 rounded-lg">
                     <p className="text-red-300 text-sm font-semibold mb-2">⚠️ Bulk Order Minimum Not Met</p>
-                    <p className="text-red-200 text-xs mb-2">Cannot proceed to checkout</p>
-                    {itemsBelowMinimum.map((item, idx) => {
-                      const itemQty = Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0);
-                      return (
-                        <p key={idx} className="text-red-200 text-xs">
-                          • {item.products_name || item.name}: {itemQty}/{minOrderQty} units (need {minOrderQty - itemQty} more)
-                        </p>
-                      );
-                    })}
+                    <p className="text-red-200 text-xs mb-2">Minimum {minOrderQty} total units required. You have {totalBulkQty} units.</p>
+                    <p className="text-red-200 text-xs font-semibold">Add {minOrderQty - totalBulkQty} more units to proceed with checkout.</p>
                   </div>
                 );
               }
@@ -1719,7 +1663,15 @@ const Cart = () => {
                   Object.entries(item.quantity || {}).some(([size, qty]) => 
                     qty > 0 && itemExceedsStock(item, size, qty)
                   )
-                )
+                ) || (() => {
+                  // Check bulk order minimum (total cart quantity)
+                  const bulkItems = actualData.filter(item => item.isCorporate === true);
+                  const totalBulkQty = bulkItems.reduce((total, item) => {
+                    const itemQty = Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0);
+                    return total + itemQty;
+                  }, 0);
+                  return bulkItems.length > 0 && totalBulkQty > 0 && totalBulkQty < minOrderQty;
+                })()
                   ? 'bg-gray-500 text-gray-400 cursor-not-allowed opacity-60' 
                   : 'bg-yellow-400 text-black hover:bg-yellow-300 cursor-pointer'
               }`}
@@ -1727,7 +1679,15 @@ const Cart = () => {
                 Object.entries(item.quantity || {}).some(([size, qty]) => 
                   qty > 0 && itemExceedsStock(item, size, qty)
                 )
-              )}
+              ) || (() => {
+                // Disable if bulk order minimum not met
+                const bulkItems = actualData.filter(item => item.isCorporate === true);
+                const totalBulkQty = bulkItems.reduce((total, item) => {
+                  const itemQty = Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0);
+                  return total + itemQty;
+                }, 0);
+                return bulkItems.length > 0 && totalBulkQty > 0 && totalBulkQty < minOrderQty;
+              })()}
               onClick={async () => {
                 // ✅ Check if cart is empty
                 if (!actualData || actualData.length === 0) {
@@ -1887,34 +1847,35 @@ const Cart = () => {
                   return;
                 }
 
-                // ✅ Check minimum quantity for bulk orders
+                // ✅ Check minimum quantity for bulk orders (TOTAL CART QUANTITY)
                 try {
                   console.log('🔍 Minimum order quantity from settings:', minOrderQty);
 
-                  // Check ALL items - identify bulk items by multiple criteria
-                  for (const item of actualData) {
+                  // ✅ Identify all B2B/Corporate products
+                  const bulkItems = actualData.filter(item => item.isCorporate === true);
+                  
+                  // ✅ Calculate TOTAL quantity across all bulk items
+                  const totalBulkQty = bulkItems.reduce((total, item) => {
                     const itemQty = Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0);
-                    
-                    // ✅ Check if item is B2B/Corporate product (bulk order)
-                    const isBulkItem = item.isCorporate === true;
-                    
-                    console.log(`📦 Checking item: ${item.products_name || item.name}`, {
-                      quantity: itemQty,
-                      isCorporate: item.isCorporate,
-                      isBulkItem,
-                      meetsMinimum: itemQty >= minOrderQty
+                    return total + itemQty;
+                  }, 0);
+                  
+                  console.log('📦 Bulk order validation:', {
+                    bulkItemsCount: bulkItems.length,
+                    totalBulkQty,
+                    minOrderQty,
+                    meetsMinimum: totalBulkQty >= minOrderQty
+                  });
+                  
+                  // ✅ Check TOTAL cart quantity against minimum (not per product)
+                  if (bulkItems.length > 0 && totalBulkQty > 0 && totalBulkQty < minOrderQty) {
+                    toast.error(`⚠️ Bulk order minimum not met. Minimum ${minOrderQty} total units required. You have ${totalBulkQty} units. Please add ${minOrderQty - totalBulkQty} more units.`, {
+                      autoClose: 6000,
                     });
-                    
-                    // ✅ Block ONLY if it's a B2B/Corporate product and doesn't meet minimum
-                    if (isBulkItem && itemQty > 0 && itemQty < minOrderQty) {
-                      toast.error(`⚠️ Minimum order quantity for B2B products is ${minOrderQty} units. "${item.products_name || item.name}" has only ${itemQty} units. Please add ${minOrderQty - itemQty} more units or remove it from cart.`, {
-                        autoClose: 6000,
-                      });
-                      return;
-                    }
+                    return;
                   }
                   
-                  console.log('✅ All items validated successfully');
+                  console.log('✅ Bulk order validation passed');
                 } catch (error) {
                   console.error('❌ Error validating minimum quantity:', error);
                   toast.error('Unable to validate order. Please try again.');
@@ -2003,10 +1964,10 @@ const Cart = () => {
                     gst: gstTotal,
                     gstPercent: gstPercent,
                     // ✅ Discount data at root level for backend
-                    discount: couponApplied && couponData ? {
-                      amount: Math.ceil((grandTotal * couponData.discountPercent) / 100),
-                      percent: couponData.discountPercent,
-                      code: couponData.code
+                    discount: autoDiscount && autoDiscount.discountPercent > 0 ? {
+                      amount: Math.ceil((itemsSubtotal * autoDiscount.discountPercent) / 100),
+                      percent: autoDiscount.discountPercent,
+                      discountPercent: autoDiscount.discountPercent
                     } : null,
                     // ✅ Totals breakdown
                     totals: {
@@ -2020,25 +1981,24 @@ const Cart = () => {
                       locationIncreasePercent: priceIncrease || 0,
                       grandTotal,
                       conversionRate: conversionRate,
-                      // ✅ Coupon discount details
-                      couponApplied: couponApplied,
-                      couponData: couponData,
-                      couponDiscount: couponApplied && couponData ? Math.ceil((grandTotal * couponData.discountPercent) / 100) : 0,
-                      finalTotal: couponApplied && couponData 
-                        ? Math.ceil(grandTotal - (grandTotal * couponData.discountPercent) / 100)
-                        : Math.ceil(grandTotal),
+                      // ✅ Auto-discount details
+                      autoDiscount: autoDiscount,
+                      discountAmount: autoDiscount && autoDiscount.discountPercent > 0 ? Math.ceil((itemsSubtotal * autoDiscount.discountPercent) / 100) : 0,
+                      finalTotal: autoDiscount && autoDiscount.discountPercent > 0 
+                        ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
+                        : Math.ceil(itemsSubtotal),
                       // ✅ Discount object for invoice
-                      discount: couponApplied && couponData ? {
-                        amount: Math.ceil((grandTotal * couponData.discountPercent) / 100),
-                        percent: couponData.discountPercent,
-                        code: couponData.code
+                      discount: autoDiscount && autoDiscount.discountPercent > 0 ? {
+                        amount: Math.ceil((itemsSubtotal * autoDiscount.discountPercent) / 100),
+                        percent: autoDiscount.discountPercent,
+                        discountPercent: autoDiscount.discountPercent
                       } : null,
                     },
-                    totalPay: couponApplied && couponData 
-                      ? Math.ceil((grandTotal - (grandTotal * couponData.discountPercent) / 100) * conversionRate)
+                    totalPay: autoDiscount && autoDiscount.discountPercent > 0 
+                      ? Math.ceil((itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100) * conversionRate)
                       : totalPayINR, // ✅ Apply discount to payment amount
-                    totalPayDisplay: couponApplied && couponData
-                      ? Math.ceil(grandTotal - (grandTotal * couponData.discountPercent) / 100)
+                    totalPayDisplay: autoDiscount && autoDiscount.discountPercent > 0
+                      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
                       : displayTotal, // ✅ Display amount with discount
                     displayCurrency: currency, // ✅ Keep currency for reference
                     conversionRate: conversionRate, // ✅ ADD: Include at root level for easy access

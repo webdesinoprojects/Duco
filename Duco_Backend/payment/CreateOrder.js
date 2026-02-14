@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 require('dotenv').config();
+const Order = require('../DataBase/Models/OrderModel');
 
 // Debug environment variables
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
@@ -41,6 +42,19 @@ const razorpay = RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET
       key_secret: RAZORPAY_KEY_SECRET,
     })
   : null;
+
+const ensureRazorpay = (res) => {
+  if (!razorpay) {
+    console.error('❌ FATAL: Razorpay not initialized - missing credentials');
+    console.error('💡 Required: Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment');
+    res.status(500).json({
+      error: 'Payment gateway not configured',
+      details: 'Razorpay credentials are missing. Please contact administrator.',
+    });
+    return false;
+  }
+  return true;
+};
 
 // Create Razorpay order with partial payment support
 const createRazorpayOrder = async (req, res) => {
@@ -314,7 +328,127 @@ const verifyPayment = async (req, res) => {
   }
 };
 
+// Create Razorpay order for remaining payment
+const createRemainingOrder = async (req, res) => {
+  console.group('💳 BACKEND: Creating Remaining Payment Order');
+  if (!ensureRazorpay(res)) return;
+
+  try {
+    const { orderId } = req.body || {};
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'orderId is required' });
+    }
+
+    const order = await Order.findOne({ orderId }) || await Order.findById(orderId).catch(() => null);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const remainingAmount = Number(order.remainingAmount || 0);
+    if (!Number.isFinite(remainingAmount) || remainingAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'No remaining amount due' });
+    }
+    if (String(order.paymentStatus || '').toLowerCase() === 'paid') {
+      return res.status(400).json({ success: false, message: 'Order is already fully paid' });
+    }
+
+    const amountInPaise = Math.round(remainingAmount * 100);
+    if (amountInPaise < 1) {
+      return res.status(400).json({ success: false, message: 'Remaining amount is too small to pay' });
+    }
+
+    const orderData = {
+      amount: amountInPaise,
+      currency: 'INR',
+      receipt: `remaining_${order._id}_${Date.now()}`,
+      payment_capture: 1,
+      notes: {
+        payment_type: 'remaining',
+        order_id: String(order.orderId || order._id),
+      },
+    };
+
+    const razorpayOrder = await razorpay.orders.create(orderData);
+    order.remainingPaymentOrderId = razorpayOrder.id;
+    await order.save();
+
+    console.log('✅ Remaining payment order created:', {
+      orderId: order.orderId || order._id,
+      razorpayOrderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+    });
+    console.groupEnd();
+
+    return res.json({
+      success: true,
+      orderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+    });
+  } catch (err) {
+    console.error('❌ Remaining payment order creation failed:', err.message);
+    console.groupEnd();
+    return res.status(500).json({ success: false, message: err.message || 'Failed to create remaining payment order' });
+  }
+};
+
+// Verify remaining payment and update existing order
+const verifyRemainingPayment = async (req, res) => {
+  console.group('🔐 BACKEND: Verifying Remaining Payment');
+  try {
+    const { orderId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+
+    if (!orderId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ success: false, message: 'Missing payment verification data' });
+    }
+
+    const body = razorpay_order_id + '|' + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ success: false, message: 'Signature mismatch' });
+    }
+
+    const order = await Order.findOne({ orderId }) || await Order.findById(orderId).catch(() => null);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.remainingPaymentOrderId && order.remainingPaymentOrderId !== razorpay_order_id) {
+      return res.status(400).json({ success: false, message: 'Payment order mismatch' });
+    }
+
+    const remainingAmount = Number(order.remainingAmount || 0);
+    if (!Number.isFinite(remainingAmount) || remainingAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'No remaining amount due' });
+    }
+
+    order.remainingAmount = 0;
+    order.advancePaidAmount = Number(order.totalAmount || 0);
+    order.paymentStatus = 'paid';
+    order.remainingPaymentId = razorpay_payment_id;
+    order.remainingPaymentOrderId = null;
+    await order.save();
+
+    console.log('✅ Remaining payment verified and order updated:', {
+      orderId: order.orderId || order._id,
+      paymentId: razorpay_payment_id,
+    });
+    console.groupEnd();
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Remaining payment verification failed:', err.message);
+    console.groupEnd();
+    return res.status(500).json({ success: false, message: err.message || 'Remaining payment verification failed' });
+  }
+};
+
 module.exports = {
   createRazorpayOrder,
   verifyPayment,
+  createRemainingOrder,
+  verifyRemainingPayment,
 };

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { getInvoiceByOrder } from "../Service/APIservice";
+import { getInvoiceByOrder, uploadInvoicePdf, getOrderById } from "../Service/APIservice";
 import { useCart } from "../ContextAPI/CartContext";
 import { usePriceContext } from "../ContextAPI/PriceContext";
 import { InvoiceTemplate } from "../Components/InvoiceTemplate";
@@ -44,9 +44,16 @@ export default function OrderSuccess() {
   const navigate = useNavigate();
   const location = useLocation();
   const [invoiceData, setInvoiceData] = useState(null);
+  const [orderInfo, setOrderInfo] = useState(null);
+  const [orderInfoError, setOrderInfoError] = useState(null);
+  const [showEmailPopup, setShowEmailPopup] = useState(false);
   const { clearCart } = useCart();
   const { currency, toConvert } = usePriceContext();
   const invoiceRef = useRef();
+  const hasUploadedInvoiceRef = useRef(false);
+  const [emailStatusOverride, setEmailStatusOverride] = useState(null);
+  const [emailErrorOverride, setEmailErrorOverride] = useState(null);
+  const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
 
   const orderId = paramId || localStorage.getItem("lastOrderId");
   const storedMeta = JSON.parse(localStorage.getItem("lastOrderMeta") || "{}");
@@ -55,6 +62,17 @@ export default function OrderSuccess() {
     location.state?.paymentMeta ||
     storedMeta ||
     {};
+  const notificationMeta =
+    location.state?.notifications ||
+    storedMeta?.notifications ||
+    null;
+  const emailSent = emailStatusOverride
+    ? emailStatusOverride === "sent"
+    : notificationMeta?.emailSent === true;
+  const emailStatus = emailStatusOverride || (notificationMeta
+    ? (emailSent ? "sent" : "failed")
+    : "unknown");
+  const emailErrorMessage = emailErrorOverride ?? notificationMeta?.emailError;
   const paymentMethod =
     paymentMeta.mode === "store_pickup"
       ? "Pay on Store (Pickup)"
@@ -63,7 +81,26 @@ export default function OrderSuccess() {
       : paymentMeta.mode === "50%"
       ? "50% Advance Payment"
       : "Pay Online";
-  
+
+  const emailToDisplay = useMemo(() => {
+    const invoiceEmail =
+      invoiceData?.billTo?.email ||
+      invoiceData?.shipTo?.email ||
+      invoiceData?.order?.addresses?.billing?.email ||
+      invoiceData?.order?.address?.email ||
+      invoiceData?.order?.email;
+
+    if (invoiceEmail) return invoiceEmail;
+
+    try {
+      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      return storedUser?.email || storedUser?.user?.email || "";
+    } catch {
+      return "";
+    }
+  }, [invoiceData]);
+
+
   // ✅ Determine B2B from invoice data (more reliable than paymentMeta)
   // Check if invoice has B2B indicators: tax type, GST number, bulk quantity, etc.
   const isB2B = useMemo(() => {
@@ -118,7 +155,7 @@ export default function OrderSuccess() {
         const res = await getInvoiceByOrder(orderId);
         
         if (!isMounted) return; // Prevent state update if unmounted
-        
+
         const inv = res?.invoice;
         if (!inv) throw new Error("No invoice found");
 
@@ -171,8 +208,11 @@ export default function OrderSuccess() {
           totalTax = cgstAmount + sgstAmount + igstAmount + taxAmount;
         }
 
-        // ✅ Calculate taxable amount (subtotal + charges)
-        const taxableAmount = subtotal + pf + printing;
+        // ✅ Calculate discount and taxable amount (subtotal - discount + charges)
+        const discountAmount = safeNum(inv.discount?.amount ?? 0);
+        const discountPercent = safeNum(inv.discount?.discountPercentage ?? inv.discount?.percent ?? 0);
+        const subtotalAfterDiscount = subtotal - discountAmount;
+        const taxableAmount = subtotalAfterDiscount + pf + printing;
 
         // ✅ CONVERT ALL AMOUNTS TO TARGET CURRENCY
         const convertAmount = (inrAmount) => {
@@ -214,6 +254,12 @@ export default function OrderSuccess() {
             pf: convertAmount(pf), 
             printing: convertAmount(printing) 
           },
+          discount: inv.discount ? {
+            ...inv.discount,
+            amount: convertAmount(discountAmount),
+            discountPercentage: discountPercent,
+            percent: discountPercent,
+          } : null,
           tax: {
             ...taxInfo,
             cgstAmount: convertedCgstAmount,
@@ -222,6 +268,7 @@ export default function OrderSuccess() {
             taxAmount: convertedTaxAmount,
           },
           subtotal: convertAmount(subtotal),
+          subtotalAfterDiscount: convertAmount(subtotalAfterDiscount),
           taxableAmount: convertedTaxableAmount,
           totalTax: convertedCgstAmount + convertedSgstAmount + convertedIgstAmount + convertedTaxAmount,
           total: convertAmount(total),
@@ -238,6 +285,8 @@ export default function OrderSuccess() {
 
         console.log("🧾 Normalized Invoice for Success Page (Converted):", {
           subtotal: formatted.subtotal,
+          discount: formatted.discount,
+          subtotalAfterDiscount: formatted.subtotalAfterDiscount,
           pf: formatted.charges.pf,
           printing: formatted.charges.printing,
           pfCost: formatted.charges.pf,
@@ -286,10 +335,32 @@ export default function OrderSuccess() {
     };
   }, [orderId, conversionRate, paymentCurrency]);
 
-  // ✅ PDF DOWNLOAD
-  const downloadPDF = async () => {
+  useEffect(() => {
+    if (!orderId) return;
+    let mounted = true;
+    const loadOrderInfo = async () => {
+      try {
+        const data = await getOrderById(orderId);
+        if (mounted) {
+          setOrderInfo(data);
+          setOrderInfoError(null);
+        }
+      } catch (err) {
+        if (mounted) {
+          setOrderInfo(null);
+          setOrderInfoError(err?.response?.data?.message || err.message || "Failed to load order");
+        }
+      }
+    };
+    loadOrderInfo();
+    return () => {
+      mounted = false;
+    };
+  }, [orderId]);
+
+  const generateInvoicePdf = async () => {
     const input = invoiceRef.current;
-    if (!input) return;
+    if (!input) throw new Error("Invoice not ready");
     const canvas = await html2canvas(input, { scale: 2, useCORS: true });
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF("p", "mm", "a4");
@@ -302,8 +373,42 @@ export default function OrderSuccess() {
     const marginX = (pageWidth - imgWidth) / 2;
 
     pdf.addImage(imgData, "PNG", marginX, 10, imgWidth, imgHeight);
+    return pdf;
+  };
+
+  // ✅ PDF DOWNLOAD
+  const downloadPDF = async () => {
+    const pdf = await generateInvoicePdf();
     pdf.save(`Invoice_${orderId}.pdf`);
   };
+
+  const uploadInvoiceForEmail = async () => {
+    if (!orderId || isUploadingInvoice) return;
+    setIsUploadingInvoice(true);
+    try {
+      const pdf = await generateInvoicePdf();
+      const pdfBlob = pdf.output("blob");
+      const result = await uploadInvoicePdf(orderId, pdfBlob);
+      const sent = result?.emailSent === true;
+      setEmailStatusOverride(sent ? "sent" : "failed");
+      setEmailErrorOverride(sent ? null : (result?.emailError || result?.message || "Email failed"));
+    } catch (err) {
+      setEmailStatusOverride("failed");
+      setEmailErrorOverride(err?.response?.data?.message || err.message || "Upload failed");
+    } finally {
+      setIsUploadingInvoice(false);
+      setShowEmailPopup(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!invoiceData || !orderId || hasUploadedInvoiceRef.current) return;
+    hasUploadedInvoiceRef.current = true;
+    const timer = setTimeout(() => {
+      uploadInvoiceForEmail();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [invoiceData, orderId]);
 
   if (!invoiceData) {
     return (
@@ -327,6 +432,51 @@ export default function OrderSuccess() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-8 px-4">
+      {showEmailPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">📧</div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {emailStatus === "sent"
+                    ? "Email Sent"
+                    : emailStatus === "failed"
+                    ? "Email Not Sent"
+                    : "Email Status Unknown"}
+                </h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  {emailStatus === "sent" ? (
+                    <>
+                      An email with the invoice details has been sent to
+                      <span className="font-semibold text-gray-900">
+                        {emailToDisplay ? ` ${emailToDisplay}` : " your registered email address"}
+                      </span>.
+                    </>
+                  ) : emailStatus === "failed" ? (
+                    "We could not send the email for this order."
+                  ) : (
+                    "Email delivery status is not available for this order."
+                  )}
+                </p>
+                {emailStatus === "failed" && emailErrorMessage && (
+                  <p className="mt-2 text-xs text-rose-600">
+                    {String(emailErrorMessage)}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setShowEmailPopup(false)}
+                className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* SUCCESS MESSAGE SECTION */}
       <div className="mx-auto max-w-5xl mb-8">
         <div className="bg-white rounded-lg shadow-md p-8 border-l-4 border-green-500">
@@ -340,7 +490,9 @@ export default function OrderSuccess() {
                 Your order <span className="font-semibold text-lg text-gray-800">#{orderId}</span> has been placed successfully.
               </p>
               <p className="text-sm text-gray-500">
-                A confirmation email and invoice have been sent to your registered email address.
+                {emailSent
+                  ? "A confirmation email and invoice have been sent to your registered email address."
+                  : "We could not confirm email delivery for this order."}
               </p>
             </div>
           </div>
@@ -450,6 +602,27 @@ export default function OrderSuccess() {
           </div>
         </div>
       </div>
+
+      {orderInfo && String(orderInfo?.paymentStatus || "").toLowerCase() === "partial" && Number(orderInfo?.remainingAmount || 0) > 0 && (
+        <div className="mx-auto max-w-5xl mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6 border border-yellow-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Remaining Payment Due</h2>
+                <p className="text-sm text-gray-600">
+                  ₹{Number(orderInfo.remainingAmount).toFixed(2)}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate(`/payment?orderId=${orderId}&type=remaining`)}
+                className="px-5 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors"
+              >
+                Pay Remaining 50%
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* GRAND TOTAL SECTION */}
       <div className="mx-auto max-w-5xl mb-8">

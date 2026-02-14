@@ -451,6 +451,23 @@ export async function getInvoiceByOrder(orderId) {
   return res.data; // { invoice, totals }
 }
 
+export async function getOrderById(orderId) {
+  if (!orderId) throw new Error("orderId is required");
+  const res = await axios.get(`${API_BASE}api/order/${orderId}`);
+  return res.data;
+}
+
+export async function uploadInvoicePdf(orderId, pdfBlob) {
+  if (!orderId) throw new Error("orderId is required");
+  if (!pdfBlob) throw new Error("pdfBlob is required");
+  const formData = new FormData();
+  formData.append("file", pdfBlob, `invoice-${orderId}.pdf`);
+  const res = await axios.post(`${API_BASE}api/invoice/upload/${orderId}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+}
+
 /* ------------------------------- WALLET ------------------------------- */
 export async function getWallet(userId) {
   if (!userId) throw new Error("Missing userId for getWallet");

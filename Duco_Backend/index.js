@@ -1,5 +1,6 @@
 // index.js
 const express = require('express');
+const path = require('path');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const compression = require('compression');
@@ -118,6 +119,11 @@ app.get('/health', (_req, res) => {
 app.get('/', (_req, res) => {
   res.send('Duco Backend Server is running!');
 });
+
+/* =========================
+   STATIC FILES
+   ========================= */
+app.use('/invoices', express.static(path.join(__dirname, 'invoices')));
 
 /* =========================
    ROUTES

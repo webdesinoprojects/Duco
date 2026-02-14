@@ -9,14 +9,21 @@ const FormData = require('form-data');
 
 class WhatsAppService {
   constructor() {
-    this.apiKey = process.env.WHATSAPP_API_KEY;
+    this.accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
     this.phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    this.apiVersion = process.env.WHATSAPP_API_VERSION || 'v21.0';
-    this.baseUrl = process.env.WHATSAPP_BASE_URL || 'https://graph.facebook.com';
+    this.businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+    this.apiVersion = process.env.WHATSAPP_API_VERSION;
+    this.baseUrl = process.env.WHATSAPP_BASE_URL;
     
-    // Validate configuration
-    if (!this.apiKey) {
-      console.warn('⚠️  WHATSAPP_API_KEY not configured');
+    this.configured = !!(
+      this.accessToken &&
+      this.phoneNumberId &&
+      this.apiVersion &&
+      this.baseUrl
+    );
+
+    if (!this.configured) {
+      console.warn('⚠️  WhatsApp not configured. Missing required env vars.');
     }
   }
 
@@ -52,7 +59,7 @@ class WhatsAppService {
    */
   async sendTextMessage(phoneNumber, message) {
     try {
-      if (!this.apiKey) {
+      if (!this.configured) {
         console.warn('⚠️  WhatsApp not configured, skipping message send');
         return { success: false, message: 'WhatsApp not configured' };
       }
@@ -76,7 +83,7 @@ class WhatsAppService {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json',
           },
         }
@@ -102,7 +109,7 @@ class WhatsAppService {
    */
   async sendDocument(phoneNumber, filePath, caption = '') {
     try {
-      if (!this.apiKey) {
+      if (!this.configured) {
         console.warn('⚠️  WhatsApp not configured, skipping document send');
         return { success: false, message: 'WhatsApp not configured' };
       }
@@ -138,7 +145,7 @@ class WhatsAppService {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json',
           },
         }
@@ -175,7 +182,7 @@ class WhatsAppService {
       
       const response = await axios.post(url, formData, {
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          'Authorization': `Bearer ${this.accessToken}`,
           ...formData.getHeaders(),
         },
       });

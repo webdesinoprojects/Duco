@@ -9,9 +9,8 @@ const { createTransaction } = require('./walletController');
 const { calculateOrderTotal } = require('../Service/TaxCalculationService');
 const LZString = require('lz-string'); // ✅ added for decompression
 const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload'); // ✅ Cloudinary upload
-const whatsappService = require('../Service/WhatsAppService'); // ✅ WhatsApp notifications
+const aiSensyService = require('../Service/AiSensyService'); // ✅ AiSensy WhatsApp notifications
 const emailService = require('../Service/EmailService'); // ✅ Email notifications
-const invoicePDFService = require('../Service/InvoicePDFService'); // ✅ PDF generation
 
 // --- Razorpay client ---
 const razorpay = new Razorpay({
@@ -718,40 +717,16 @@ function addressToLine(a = {}) {
     .join(', ');
 }
 
-// ✅ WhatsApp Order Confirmation Helper
-// NON-BLOCKING: Failures must NOT affect order success
-async function sendWhatsAppOrderConfirmation(order) {
+async function buildInvoiceArtifacts(order, req) {
   try {
-    console.log('📱 Starting WhatsApp order confirmation...');
-    
-    // Extract customer phone number
-    const customerPhone = 
-      order.addresses?.billing?.mobileNumber || 
-      order.address?.mobileNumber || 
-      order.user?.phone;
-    
-    if (!customerPhone) {
-      console.warn('⚠️ No customer phone number found, skipping WhatsApp');
-      return;
-    }
-
-    // Extract customer name
-    const customerName = 
-      order.addresses?.billing?.fullName || 
-      order.address?.fullName || 
-      order.user?.name || 
-      'Valued Customer';
-
-    // Get invoice data
     console.log('📄 Fetching invoice data...');
     const { invoice, totals } = await getInvoiceByOrderId(order._id);
-    
+
     if (!invoice) {
-      console.warn('⚠️ Invoice not found, skipping WhatsApp');
-      return;
+      console.warn('⚠️ Invoice not found');
+      return null;
     }
 
-    // Prepare invoice data for PDF generation
     const invoiceData = {
       company: invoice.company,
       invoice: invoice.invoice,
@@ -762,6 +737,13 @@ async function sendWhatsAppOrderConfirmation(order) {
       tax: invoice.tax,
       subtotal: totals.subtotal,
       total: totals.grandTotal,
+      // ✅ Include discount calculation fields for correct invoice display
+      discountAmount: totals.discountAmount,
+      discountPercent: totals.discountPercent,
+      discountedSubtotal: totals.discountedSubtotal,
+      // ✅ Include taxable amount for clarity
+      taxableValue: totals.taxableValue,
+      totalTaxAmt: totals.totalTaxAmt,
       terms: invoice.terms,
       currencySymbol: invoice.currency === 'INR' ? '₹' : '$',
       currency: invoice.currency || 'INR',
@@ -772,60 +754,135 @@ async function sendWhatsAppOrderConfirmation(order) {
       customerCountry: order.customerCountry || 'India',
       customerCity: order.customerCity || '',
       customerState: order.customerState || '',
-      // ✅ Add discount if applied
       discount: order.discount || null,
     };
 
-    // Generate PDF
-    console.log('📄 Generating PDF...');
-    const pdfPath = await invoicePDFService.generatePDF(invoiceData, order.orderId || order._id);
-    
-    // Send WhatsApp message with PDF
-    console.log('📤 Sending WhatsApp message...');
-    const result = await whatsappService.sendOrderConfirmation(
-      customerPhone,
-      order.orderId || order._id,
+    console.log('📊 INVOICE DATA FOR PDF GENERATION - TAX INFO:', {
+      orderId: order.orderId || order._id,
+      taxType: invoice.tax?.type,
+      cgstRate: invoice.tax?.cgstRate,
+      sgstRate: invoice.tax?.sgstRate,
+      igstRate: invoice.tax?.igstRate,
+      cgstAmount: invoice.tax?.cgstAmount,
+      sgstAmount: invoice.tax?.sgstAmount,
+      igstAmount: invoice.tax?.igstAmount,
+      totalTax: invoice.tax?.totalTax,
+      billingState: invoice.billTo?.state,
+      billingCountry: invoice.billTo?.country
+    });
+
+    const pdfPath = null;
+    const invoiceUrl = null;
+
+    const customerName =
+      order.addresses?.billing?.fullName ||
+      order.address?.fullName ||
+      order.user?.name ||
+      'Valued Customer';
+
+    const customerEmail =
+      order.customerPersonalInfo?.customerEmail ||
+      order.addresses?.billing?.email ||
+      order.address?.email ||
+      order.email ||
+      order.user?.email ||
+      invoice?.order?.addresses?.billing?.email ||
+      invoice?.order?.address?.email ||
+      invoice?.order?.email;
+
+    const customerPhone =
+      order.addresses?.billing?.mobileNumber ||
+      order.address?.mobileNumber ||
+      order.user?.phone;
+
+    return {
+      invoice,
+      totals,
       pdfPath,
-      {
-        customerName,
-        totalAmount: totals.grandTotal.toFixed(2),
-        currency: invoice.currency || 'INR',
-        paymentMode: invoice.paymentmode || 'Online',
-      }
-    );
+      invoiceUrl,
+      customerName,
+      customerEmail,
+      customerPhone,
+    };
+  } catch (error) {
+    console.error('❌ Invoice generation failed (non-blocking):', error.message);
+    return null;
+  }
+}
+
+async function sendOrderEmail(order, artifacts) {
+  try {
+    if (!artifacts) {
+      console.warn('⚠️ Missing invoice artifacts, skipping email notification');
+      return { success: false, error: 'missing_invoice_artifacts' };
+    }
+    if (!artifacts?.customerEmail) {
+      console.warn('⚠️ No customer email found, skipping email notification');
+      return { success: false, error: 'missing_email' };
+    }
+
+    console.log('Sending order confirmation email...');
+    console.log('Tax info in email invoice:', {
+      taxType: artifacts.invoice?.tax?.type,
+      cgstRate: artifacts.invoice?.tax?.cgstRate,
+      sgstRate: artifacts.invoice?.tax?.sgstRate,
+      igstRate: artifacts.invoice?.tax?.igstRate
+    });
+    
+    const result = await emailService.sendOrderConfirmation({
+      customerEmail: artifacts.customerEmail,
+      customerName: artifacts.customerName,
+      orderId: order.orderId || order._id,
+      totalAmount: artifacts.totals?.grandTotal?.toFixed(2) || '0.00',
+      currency: artifacts.invoice?.currency || 'INR',
+      paymentMode: artifacts.invoice?.paymentmode || 'Online',
+      invoicePdfPath: artifacts.pdfPath || null,
+      items: artifacts.invoice?.items || [],
+    });
 
     if (result.success) {
-      console.log('✅ WhatsApp order confirmation sent successfully');
+      console.log('✅ Email sent successfully');
     } else {
-      console.warn('⚠️ WhatsApp send failed:', result.reason);
+      console.warn('⚠️ Email failed:', result.error);
     }
 
-    // Send Email with invoice PDF
-    console.log('📧 Sending order confirmation email...');
-    const customerEmail = order.customerPersonalInfo?.customerEmail || order.email;
-    if (customerEmail) {
-      const emailResult = await emailService.sendOrderConfirmation({
-        customerEmail,
-        customerName,
-        orderId: order.orderId || order._id,
-        totalAmount: totals.grandTotal.toFixed(2),
-        currency: invoice.currency || 'INR',
-        paymentMode: invoice.paymentmode || 'Online',
-        invoicePdfPath: pdfPath,
-        items: invoice.items || [],
-      });
-
-      if (emailResult.success) {
-        console.log('✅ Order confirmation email sent successfully');
-      } else {
-        console.warn('⚠️ Email send failed:', emailResult.error);
-      }
-    } else {
-      console.warn('⚠️ No customer email found, skipping email notification');
-    }
+    return result;
   } catch (error) {
-    // ✅ CRITICAL: Log error but DO NOT throw - Notification failures must not affect order
-    console.error('❌ Notification failed (non-blocking):', error.message);
+    console.error('❌ Email failed (non-blocking):', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// ✅ AiSensy Order Confirmation Helper
+// NON-BLOCKING: Failures must NOT affect order success
+async function sendAiSensyOrderMessage(order, artifacts) {
+  try {
+    console.log('📱 Starting AiSensy order confirmation...');
+
+    if (!artifacts?.customerPhone) {
+      console.warn('⚠️ No customer phone number found, skipping AiSensy');
+      return { success: false, error: 'missing_phone' };
+    }
+
+    console.log('📤 Sending AiSensy message...');
+    const result = await aiSensyService.sendAiSensyOrderMessage({
+      phoneNumber: artifacts.customerPhone,
+      customerName: artifacts.customerName,
+      orderId: order.orderId || order._id,
+      finalAmount: artifacts.totals?.grandTotal?.toFixed(2) || '0.00',
+      invoiceUrl: artifacts.invoiceUrl || null,
+    });
+
+    if (result.success) {
+      console.log('✅ AiSensy order confirmation sent successfully');
+    } else {
+      console.warn('⚠️ AiSensy send failed:', result.error || result.message);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('❌ AiSensy failed (non-blocking):', error.message);
+    return { success: false, error: error.message };
   }
 }
 
@@ -1087,6 +1144,14 @@ const completeOrder = async (req, res) => {
 
     const items = Array.isArray(orderData.items) ? orderData.items : [];
     const totalPay = safeNum(orderData.totalPay, 0);
+    const rawTotalAmount = safeNum(
+      orderData.originalTotal ||
+      orderData.totals?.grandTotal ||
+      totalPay
+    );
+    const totalAmount = paymentmode === '50%' && rawTotalAmount <= totalPay
+      ? totalPay * 2
+      : rawTotalAmount;
     
     // ✅ CRITICAL: Validate products array BEFORE creating order
     const productValidation = validateProductsArray(items);
@@ -1285,6 +1350,52 @@ const completeOrder = async (req, res) => {
     }
 
     // ================================================================
+    // VALIDATION: Bulk Order Minimum Quantity (Total Cart)
+    // ================================================================
+    if (isCorporateOrder && items && items.length > 0) {
+      try {
+        // Get minimum order quantity from settings
+        const settings = await CorporateSettings.findOne();
+        const minOrderQty = settings?.minOrderQuantity || 100;
+        
+        // Calculate total quantity across all bulk/corporate items
+        const totalBulkQty = items.reduce((total, item) => {
+          const itemQty = Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0);
+          return total + itemQty;
+        }, 0);
+        
+        console.log('📦 Backend Bulk Order Validation:', {
+          isCorporateOrder,
+          itemsCount: items.length,
+          totalBulkQty,
+          minOrderQty,
+          meetsMinimum: totalBulkQty >= minOrderQty
+        });
+        
+        // Block order if total quantity doesn't meet minimum
+        if (totalBulkQty < minOrderQty) {
+          console.error(`❌ Bulk order minimum not met: ${totalBulkQty}/${minOrderQty} units`);
+          return res.status(400).json({
+            success: false,
+            message: `Bulk order minimum not met. Minimum ${minOrderQty} total units required. You have ${totalBulkQty} units.`,
+            error: 'BULK_MINIMUM_NOT_MET',
+            data: {
+              totalQuantity: totalBulkQty,
+              minimumRequired: minOrderQty,
+              shortfall: minOrderQty - totalBulkQty
+            }
+          });
+        }
+        
+        console.log('✅ Bulk order minimum validation passed');
+      } catch (validationError) {
+        console.error('❌ Error validating bulk order minimum:', validationError);
+        // Continue with order creation even if validation check fails
+        // (frontend validation should have caught this already)
+      }
+    }
+
+    // ================================================================
     // CASE 1 – STORE PICKUP (NEW)
     // ================================================================
     if (paymentmode === 'store_pickup' || paymentmode === 'pickup') {
@@ -1299,6 +1410,9 @@ const completeOrder = async (req, res) => {
           user,
           status: 'Pending',
           paymentStatus: 'Pending', // ✅ Manual payment methods start as Pending
+          totalAmount: totalAmount,
+          advancePaidAmount: 0,
+          remainingAmount: totalAmount,
           paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: finalPfCharge,
           gst: safeNum(orderData.gst, 0),
@@ -1338,6 +1452,9 @@ const completeOrder = async (req, res) => {
             user,
             status: 'Pending',
             paymentStatus: 'Pending', // ✅ Manual payment methods start as Pending
+            totalAmount: totalAmount,
+            advancePaidAmount: 0,
+            remainingAmount: totalAmount,
             paymentmode: paymentmode, // ✅ Use enum value, not readableMode
             pf: finalPfCharge,
             gst: safeNum(orderData.gst, 0),
@@ -1398,12 +1515,26 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (store pickup)');
       }
 
-      // ✅ Send WhatsApp order confirmation (non-blocking)
-      sendWhatsAppOrderConfirmation(order).catch(err => {
-        console.error('WhatsApp send failed (non-blocking):', err.message);
+      // ✅ Build invoice artifacts and defer email until PDF upload
+      const artifacts = await buildInvoiceArtifacts(order, req);
+      const emailResult = { success: false, error: 'invoice_pending_upload' };
+      const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
+      const notifications = {
+        emailSent: false,
+        emailError: emailResult.error,
+        emailStatus: 'pending',
+        whatsappSent: !!whatsappResult.success,
+        whatsappError: whatsappResult.success ? null : (whatsappResult.error || whatsappResult.message),
+      };
+
+      console.log('📤 RESPONSE TO FRONTEND [STORE PICKUP]:', {
+        orderId: order.orderId,
+        invoiceUrl: order.invoiceUrl,
+        emailSent: notifications.emailSent,
+        whatsappSent: notifications.whatsappSent
       });
 
-      return res.status(200).json({ success: true, order });
+      return res.status(200).json({ success: true, order, notifications });
     }
 
     // ================================================================
@@ -1422,6 +1553,9 @@ const completeOrder = async (req, res) => {
         razorpayPaymentId: paymentId || null,
         status: 'Pending',
         paymentStatus: 'Pending', // ✅ Netbanking starts as Pending until bank confirms
+        totalAmount: totalAmount,
+        advancePaidAmount: 0,
+        remainingAmount: totalAmount,
         paymentmode: paymentmode, // ✅ Use enum value, not readableMode
         pf: finalPfCharge,
         printing: finalPrintingCharge,
@@ -1475,12 +1609,19 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (netbanking)');
       }
 
-      // ✅ Send WhatsApp order confirmation (non-blocking)
-      sendWhatsAppOrderConfirmation(order).catch(err => {
-        console.error('WhatsApp send failed (non-blocking):', err.message);
-      });
+      // ✅ Build invoice artifacts and defer email until PDF upload
+      const artifacts = await buildInvoiceArtifacts(order, req);
+      const emailResult = { success: false, error: 'invoice_pending_upload' };
+      const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
+      const notifications = {
+        emailSent: false,
+        emailError: emailResult.error,
+        emailStatus: 'pending',
+        whatsappSent: !!whatsappResult.success,
+        whatsappError: whatsappResult.success ? null : (whatsappResult.error || whatsappResult.message),
+      };
 
-      return res.status(200).json({ success: true, order });
+      return res.status(200).json({ success: true, order, notifications });
     }
 
     // ================================================================
@@ -1503,6 +1644,9 @@ const completeOrder = async (req, res) => {
           razorpayPaymentId: payment.id,
           status: 'Pending',
           paymentStatus: 'Paid', // ✅ Online payments are immediately Paid
+          totalAmount: totalAmount,
+          advancePaidAmount: totalAmount,
+          remainingAmount: 0,
           paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: finalPfCharge,
           printing: finalPrintingCharge,
@@ -1518,7 +1662,7 @@ const completeOrder = async (req, res) => {
           customerCity: finalCustomerCity,
           customerState: finalCustomerState,
           // ✅ Add discount if applied
-          discount: discount || null,
+          discount: finalDiscount || null,
         });
       } catch (createError) {
         if (createError.code === 11000) {
@@ -1533,6 +1677,10 @@ const completeOrder = async (req, res) => {
             user,
             razorpayPaymentId: payment.id,
             status: 'Pending',
+            paymentStatus: 'Paid',
+            totalAmount: totalAmount,
+            advancePaidAmount: totalAmount,
+            remainingAmount: 0,
             paymentmode: paymentmode, // ✅ Use enum value, not readableMode
             pf: finalPfCharge,
             printing: finalPrintingCharge,
@@ -1548,7 +1696,7 @@ const completeOrder = async (req, res) => {
             customerCity: finalCustomerCity,
             customerState: finalCustomerState,
             // ✅ Add discount if applied
-            discount: discount || null,
+            discount: finalDiscount || null,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -1587,12 +1735,19 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (online)');
       }
 
-      // ✅ Send WhatsApp order confirmation (non-blocking)
-      sendWhatsAppOrderConfirmation(order).catch(err => {
-        console.error('WhatsApp send failed (non-blocking):', err.message);
-      });
+      // ✅ Build invoice artifacts and defer email until PDF upload
+      const artifacts = await buildInvoiceArtifacts(order, req);
+      const emailResult = { success: false, error: 'invoice_pending_upload' };
+      const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
+      const notifications = {
+        emailSent: false,
+        emailError: emailResult.error,
+        emailStatus: 'pending',
+        whatsappSent: !!whatsappResult.success,
+        whatsappError: whatsappResult.success ? null : (whatsappResult.error || whatsappResult.message),
+      };
 
-      return res.status(200).json({ success: true, order });
+      return res.status(200).json({ success: true, order, notifications });
     }
 
     // ================================================================
@@ -1614,7 +1769,10 @@ const completeOrder = async (req, res) => {
           user,
           razorpayPaymentId: payment.id,
           status: 'Pending',
-          paymentStatus: 'Paid', // ✅ 50% payment - advance paid via Razorpay
+          paymentStatus: 'partial',
+          totalAmount: totalAmount,
+          advancePaidAmount: totalPay,
+          remainingAmount: Math.max(totalAmount - totalPay, 0),
           paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: finalPfCharge,
           printing: finalPrintingCharge,
@@ -1630,7 +1788,7 @@ const completeOrder = async (req, res) => {
           customerCity: finalCustomerCity,
           customerState: finalCustomerState,
           // ✅ Add discount if applied
-          discount: discount || null,
+          discount: finalDiscount || null,
         });
       } catch (createError) {
         if (createError.code === 11000) {
@@ -1645,6 +1803,10 @@ const completeOrder = async (req, res) => {
             user,
             razorpayPaymentId: payment.id,
             status: 'Pending',
+            paymentStatus: 'partial',
+            totalAmount: totalAmount,
+            advancePaidAmount: totalPay,
+            remainingAmount: Math.max(totalAmount - totalPay, 0),
             paymentmode: paymentmode, // ✅ Use enum value, not readableMode
             pf: finalPfCharge,
             printing: finalPrintingCharge,
@@ -1660,7 +1822,7 @@ const completeOrder = async (req, res) => {
             customerCity: finalCustomerCity,
             customerState: finalCustomerState,
             // ✅ Add discount if applied
-            discount: discount || null,
+            discount: finalDiscount || null,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -1704,12 +1866,19 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (50%)');
       }
 
-      // ✅ Send WhatsApp order confirmation (non-blocking)
-      sendWhatsAppOrderConfirmation(order).catch(err => {
-        console.error('WhatsApp send failed (non-blocking):', err.message);
-      });
+      // ✅ Build invoice artifacts and defer email until PDF upload
+      const artifacts = await buildInvoiceArtifacts(order, req);
+      const emailResult = { success: false, error: 'invoice_pending_upload' };
+      const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
+      const notifications = {
+        emailSent: false,
+        emailError: emailResult.error,
+        emailStatus: 'pending',
+        whatsappSent: !!whatsappResult.success,
+        whatsappError: whatsappResult.success ? null : (whatsappResult.error || whatsappResult.message),
+      };
 
-      return res.status(200).json({ success: true, order });
+      return res.status(200).json({ success: true, order, notifications });
     }
 
     // ✅ fallback if paymentmode didn't match

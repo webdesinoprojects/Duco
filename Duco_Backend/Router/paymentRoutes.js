@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createRazorpayOrder, verifyPayment } = require('../payment/CreateOrder');
+const { createRazorpayOrder, verifyPayment, createRemainingOrder, verifyRemainingPayment } = require('../payment/CreateOrder');
 
 // Test Razorpay Configuration
 router.get('/test-config', (req, res) => {
@@ -19,7 +19,13 @@ router.get('/test-config', (req, res) => {
 // Create Razorpay Order
 router.post('/create-order', createRazorpayOrder);
 
+// Create Remaining Payment Order
+router.post('/create-remaining-order', createRemainingOrder);
+
 // Verify Razorpay Payment
 router.post('/verify', verifyPayment);
+
+// Verify Remaining Payment
+router.post('/verify-remaining', verifyRemainingPayment);
 
 module.exports = router;

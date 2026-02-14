@@ -17,6 +17,25 @@ exports.getCorporateSettings = async (req, res) => {
   }
 };
 
+// ✅ Get bulk discount tiers (for frontend Price Chart)
+exports.getDiscountTiers = async (req, res) => {
+  try {
+    const settings = await CorporateSettings.getSingletonSettings();
+    
+    // Return tiers sorted and formatted
+    const tiers = (settings.bulkDiscountTiers || []).map(tier => ({
+      minQuantity: tier.minQty,
+      maxQuantity: tier.maxQty,
+      discountPercentage: tier.discount
+    })).sort((a, b) => a.minQuantity - b.minQuantity);
+    
+    res.json(tiers);
+  } catch (error) {
+    console.error('Error fetching discount tiers:', error);
+    res.status(500).json([]);
+  }
+};
+
 // Update corporate settings
 exports.updateCorporateSettings = async (req, res) => {
   try {

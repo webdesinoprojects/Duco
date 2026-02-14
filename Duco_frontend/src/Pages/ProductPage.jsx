@@ -729,7 +729,7 @@ const ProductPage = () => {
         </div>
       </div>
 
-      <PriceTiers tiers={priceTiers} currencySymbol={currencySymbol} />
+      <PriceTiers />
       <CropTankSizeChart type="mensRoundNeck" />
       <CropTanksTabs />
 

@@ -87,7 +87,7 @@ const OrderSchema = new Schema(
 
     paymentStatus: {
       type: String,
-      enum: ['Pending', 'Paid', 'Failed', 'Refunded'],
+      enum: ['Pending', 'Paid', 'Failed', 'Refunded', 'partial', 'paid'],
       default: 'Pending',
     },
 
@@ -116,6 +116,13 @@ const OrderSchema = new Schema(
     sgst: { type: Number, default: 0 },
     igst: { type: Number, default: 0 },
     printing: { type: Number, default: 0 },
+
+    // ✅ Remaining payment tracking
+    totalAmount: { type: Number, default: 0 },
+    advancePaidAmount: { type: Number, default: 0 },
+    remainingAmount: { type: Number, default: 0 },
+    remainingPaymentOrderId: { type: String, default: null },
+    remainingPaymentId: { type: String, default: null },
     
     // ✅ Coupon discount information
     discount: {

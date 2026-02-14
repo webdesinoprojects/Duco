@@ -78,6 +78,9 @@ export const normalizeInvoiceData = (invoice, totals) => {
 
   // Extract discount info (if coupon was applied)
   const discount = invoice.discount || totals?.discount || null;
+  const discountAmount = discount?.amount || 0;
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const taxableAmount = subtotalAfterDiscount + pf + printing;
 
   return {
     company: invoice.company || {},
@@ -88,6 +91,9 @@ export const normalizeInvoiceData = (invoice, totals) => {
     charges: { pf, printing },
     tax: tax,
     subtotal: subtotal,
+    discount: discount,
+    subtotalAfterDiscount: subtotalAfterDiscount,
+    taxableAmount: taxableAmount,
     total: displayTotal,
     terms: invoice.terms || [],
     forCompany: invoice.forCompany || invoice.company?.name || '',
@@ -102,8 +108,6 @@ export const normalizeInvoiceData = (invoice, totals) => {
     customerCity: customerCity,
     customerState: customerState,
     conversionRate: conversionRate,
-    // ✅ Discount info (if coupon applied)
-    discount: discount,
   };
 };
 
