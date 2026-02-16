@@ -367,12 +367,28 @@ export default function OrderSuccess() {
 
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-    const imgWidth = canvas.width * ratio;
-    const imgHeight = canvas.height * ratio;
-    const marginX = (pageWidth - imgWidth) / 2;
-
-    pdf.addImage(imgData, "PNG", marginX, 10, imgWidth, imgHeight);
+    const marginX = 10;
+    const marginY = 10;
+    const imgWidth = pageWidth - 2 * marginX;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    // Multi-page support: split across pages if content is longer than one page
+    const pageContentHeight = pageHeight - 2 * marginY;
+    let heightLeft = imgHeight;
+    let position = marginY;
+    
+    // Add first page
+    pdf.addImage(imgData, "PNG", marginX, position, imgWidth, imgHeight);
+    heightLeft -= pageContentHeight;
+    
+    // Add additional pages if needed
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight + marginY;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", marginX, position, imgWidth, imgHeight);
+      heightLeft -= pageContentHeight;
+    }
+    
     return pdf;
   };
 
@@ -397,13 +413,17 @@ export default function OrderSuccess() {
       setEmailErrorOverride(err?.response?.data?.message || err.message || "Upload failed");
     } finally {
       setIsUploadingInvoice(false);
-      setShowEmailPopup(true);
     }
   };
 
   useEffect(() => {
     if (!invoiceData || !orderId || hasUploadedInvoiceRef.current) return;
     hasUploadedInvoiceRef.current = true;
+    
+    // Show popup immediately
+    setShowEmailPopup(true);
+    
+    // Upload invoice in background
     const timer = setTimeout(() => {
       uploadInvoiceForEmail();
     }, 500);
@@ -439,31 +459,15 @@ export default function OrderSuccess() {
               <div className="text-2xl">📧</div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {emailStatus === "sent"
-                    ? "Email Sent"
-                    : emailStatus === "failed"
-                    ? "Email Not Sent"
-                    : "Email Status Unknown"}
+                  Email Confirmation
                 </h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  {emailStatus === "sent" ? (
-                    <>
-                      An email with the invoice details has been sent to
-                      <span className="font-semibold text-gray-900">
-                        {emailToDisplay ? ` ${emailToDisplay}` : " your registered email address"}
-                      </span>.
-                    </>
-                  ) : emailStatus === "failed" ? (
-                    "We could not send the email for this order."
-                  ) : (
-                    "Email delivery status is not available for this order."
-                  )}
+                  An email with your invoice will be sent to
+                  <span className="font-semibold text-gray-900">
+                    {emailToDisplay ? ` ${emailToDisplay}` : " your registered email address"}
+                  </span>
+                  {" "}shortly.
                 </p>
-                {emailStatus === "failed" && emailErrorMessage && (
-                  <p className="mt-2 text-xs text-rose-600">
-                    {String(emailErrorMessage)}
-                  </p>
-                )}
               </div>
             </div>
             <div className="mt-5 flex justify-end">

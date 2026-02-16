@@ -262,7 +262,7 @@ const PaymentPage = () => {
                       }),
                       address: {
                         name: orderpayload?.address?.fullName || "Unknown",
-                        phone: orderpayload?.address?.phone || "",
+                        phone: orderpayload?.address?.mobileNumber || orderpayload?.address?.phone || "", // ✅ Extract from mobileNumber (saved field)
                         email: orderpayload?.address?.email || "",
                         street: orderpayload?.address?.street || "",
                         city: orderpayload?.address?.city || "",

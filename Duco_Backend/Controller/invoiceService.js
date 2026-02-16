@@ -1,4 +1,6 @@
 const Invoice = require("../DataBase/Models/InvoiceModule");
+const Order = require("../DataBase/Models/OrderModel");
+const InvoiceHelper = require("../DataBase/Models/InvoiceHelper");
 const mongoose = require("mongoose");
 
 // ------- Helpers -------
@@ -73,6 +75,139 @@ const computeTotals = (doc = {}) => {
     // ✅ Store full discount object for reference
     discount: doc.discount || null,
   };
+};
+
+const formatDateDDMMYYYY = (date = new Date()) => {
+  const d = new Date(date);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
+const sumQuantity = (obj) => Object.values(obj || {}).reduce((acc, q) => acc + safeNum(q, 0), 0);
+
+const addressToLine = (a = {}) => {
+  const {
+    fullName = "",
+    houseNumber = "",
+    street = "",
+    landmark = "",
+    city = "",
+    state = "",
+    pincode = "",
+    country = "",
+  } = a || {};
+  return [
+    fullName,
+    houseNumber,
+    street,
+    landmark,
+    city,
+    state && `${state} - ${pincode}`,
+    country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+};
+
+const buildInvoiceItems = (products, { hsn = "7307", unit = "Pcs." } = {}) => {
+  const items = [];
+  (products || []).forEach((p) => {
+    const qty = sumQuantity(p.quantity);
+    if (!qty) return;
+
+    let itemPrice = 0;
+    if (p.pricing && Array.isArray(p.pricing) && p.pricing.length > 0) {
+      itemPrice = safeNum(p.pricing[0]?.price_per, 0);
+    }
+    if (itemPrice === 0) {
+      itemPrice = safeNum(p.price, 0);
+    }
+
+    items.push({
+      description: p.products_name || p.name || "Item",
+      barcode: p._id || "",
+      hsn,
+      qty,
+      unit,
+      price: itemPrice,
+    });
+  });
+  return items;
+};
+
+const buildInvoicePayloadFromOrder = (order, settings) => {
+  const billingAddr = order.addresses?.billing || order.address || {};
+  const shippingAddr = order.addresses?.shipping || order.address || {};
+
+  const payload = {
+    company: settings?.company,
+    invoice: {
+      number: String(order._id),
+      date: formatDateDDMMYYYY(order.createdAt || new Date()),
+      placeOfSupply: billingAddr?.state || settings?.invoice?.placeOfSupply,
+      reverseCharge: !!settings?.invoice?.reverseCharge,
+      copyType: settings?.invoice?.copyType || "Original Copy",
+    },
+    billTo: {
+      name: billingAddr?.fullName || "Customer",
+      address: addressToLine(billingAddr),
+      gstin: billingAddr?.gstNumber?.trim() || "",
+      state: billingAddr?.state || "",
+      country: billingAddr?.country || "India",
+    },
+    items: buildInvoiceItems(order.products || []),
+    charges: {
+      pf: safeNum(order.pf, 0),
+      printing: safeNum(order.printing, 0),
+    },
+    terms: settings?.terms,
+    forCompany: settings?.forCompany,
+    order: order._id,
+    orderType: order.orderType || "B2C",
+    paymentmode: order.paymentmode || "online",
+    amountPaid: safeNum(order.advancePaidAmount, 0),
+    total: safeNum(order.totalPay || order.totalAmount || order.price, 0),
+    discount: order.discount || null,
+  };
+
+  const isSameAddress = order.addresses?.sameAsBilling || (
+    billingAddr && shippingAddr &&
+    billingAddr.fullName === shippingAddr.fullName &&
+    billingAddr.houseNumber === shippingAddr.houseNumber &&
+    billingAddr.street === shippingAddr.street &&
+    billingAddr.city === shippingAddr.city &&
+    billingAddr.state === shippingAddr.state &&
+    billingAddr.pincode === shippingAddr.pincode
+  );
+
+  if (order.addresses?.shipping && !isSameAddress) {
+    payload.shipTo = {
+      name: order.user?.name || "",
+      address: addressToLine(shippingAddr),
+      state: shippingAddr?.state || "",
+      country: shippingAddr?.country || "India",
+    };
+  }
+
+  return payload;
+};
+
+const createInvoiceFromOrder = async (orderDoc) => {
+  const settings = await InvoiceHelper.findOne({}).lean();
+  if (!settings?.company?.name || !settings?.company?.address || !settings?.company?.gstin || !settings?.forCompany) {
+    throw new Error("Invoice settings are missing or incomplete");
+  }
+
+  const order = orderDoc?.toObject ? orderDoc.toObject() : orderDoc;
+  const payload = buildInvoicePayloadFromOrder(order, settings);
+
+  if (!payload.billTo?.name || !Array.isArray(payload.items) || payload.items.length === 0) {
+    throw new Error("Invoice payload missing billTo or items");
+  }
+
+  return createInvoice(payload);
 };
 
 // Export if you want to reuse in other places
@@ -207,10 +342,25 @@ async function getInvoiceByOrderId(orderId) {
     ],
   };
 
-  const invoiceDoc = await Invoice.findOne(query).sort({ createdAt: -1 }).populate('order');
+  let invoiceDoc = await Invoice.findOne(query).sort({ createdAt: -1 }).populate('order');
 
   if (!invoiceDoc) {
-    throw new Error("Invoice not found for this order");
+    const orderDoc = asObjectId
+      ? await Order.findById(asObjectId)
+      : await Order.findOne({ orderId: orderId });
+
+    if (!orderDoc) {
+      throw new Error("Invoice not found for this order");
+    }
+
+    try {
+      const created = await createInvoiceFromOrder(orderDoc);
+      const createdInvoice = created?.invoice || created;
+      invoiceDoc = await Invoice.findById(createdInvoice?._id).populate("order");
+    } catch (err) {
+      const msg = err?.message || String(err);
+      throw new Error(`Invoice not found for this order (${msg})`);
+    }
   }
 
   const invoiceObj = invoiceDoc.toObject ? invoiceDoc.toObject() : invoiceDoc;

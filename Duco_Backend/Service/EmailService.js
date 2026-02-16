@@ -9,6 +9,7 @@ const fs = require('fs').promises;
 class EmailService {
   constructor() {
     this.configureTransporter();
+    this.verifyInBackground();
   }
 
   /**
@@ -18,10 +19,19 @@ class EmailService {
     // Check which email service is configured
     const gmailUser = process.env.GMAIL_USER;
     const gmailPass = process.env.GMAIL_APP_PASSWORD;
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASSWORD;
+    const smtpHost = process.env.SMTP_HOST?.trim();
+    const smtpPort = process.env.SMTP_PORT?.trim();
+    const smtpUser = process.env.SMTP_USER?.trim();
+    const smtpPass = process.env.SMTP_PASSWORD?.trim();
+
+    // Debug logging
+    console.log('[EmailService] Configuration check:');
+    console.log(`  GMAIL_USER: ${gmailUser ? 'SET' : 'NOT SET'}`);
+    console.log(`  GMAIL_APP_PASSWORD: ${gmailPass ? 'SET' : 'NOT SET'}`);
+    console.log(`  SMTP_HOST: ${smtpHost || 'NOT SET'}`);
+    console.log(`  SMTP_PORT: ${smtpPort || 'NOT SET'}`);
+    console.log(`  SMTP_USER: ${smtpUser || 'NOT SET'}`);
+    console.log(`  SMTP_PASSWORD: ${smtpPass ? '***SET***' : 'NOT SET'}`);
 
     if (gmailUser && gmailPass) {
       // Gmail configuration
@@ -34,26 +44,66 @@ class EmailService {
         },
       });
       this.fromEmail = gmailUser;
+      this.smtpMode = false;
     } else if (smtpHost && smtpUser && smtpPass) {
-      // Generic SMTP configuration
-      console.log(`📧 Configuring SMTP: ${smtpHost}:${smtpPort || 587}`);
+      // Generic SMTP configuration - use port 465 with SSL/TLS
+      const portNum = 465;
+      const secureFlag = true;
+      console.log(`📧 Configuring SMTP:`);
+      console.log(`  Host: ${smtpHost}`);
+      console.log(`  Port: ${portNum}`);
+      console.log(`  Secure (SSL/TLS): ${secureFlag}`);
+      console.log(`  User: ${smtpUser}`);
+      
       this.transporter = nodemailer.createTransport({
         host: smtpHost,
-        port: parseInt(smtpPort || '587'),
-        secure: smtpPort === '465', // true for 465, false for other ports
+        port: portNum,
+        secure: true, // SSL/TLS on port 465
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
+        // TLS options for robustness
+        tls: {
+          rejectUnauthorized: false, // Accept self-signed certs
+          minVersion: 'TLSv1.2'      // Minimum TLS version
+        }
       });
       this.fromEmail = smtpUser;
+      this.smtpMode = true;
+      this.smtpConfig = { host: smtpHost, port: portNum, secure: secureFlag, user: smtpUser };
     } else {
       console.warn('⚠️  Email service not configured. Please add email credentials to .env');
+      console.warn('  Missing: ', {
+        hasSmtpHost: !!smtpHost,
+        hasSmtpUser: !!smtpUser,
+        hasSmtpPass: !!smtpPass
+      });
       this.transporter = null;
       this.fromEmail = null;
+      this.smtpMode = false;
     }
 
     this.configured = !!this.transporter;
+  }
+
+  /**
+   * Verify SMTP connection in background (non-blocking)
+   */
+  async verifyInBackground() {
+    // Run verification in background without blocking startup
+    setImmediate(async () => {
+      try {
+        const isVerified = await this.verify();
+        if (isVerified) {
+          console.log('✅ SMTP connection successful');
+        } else {
+          console.log('⚠️  SMTP connection failed - email service may not work');
+        }
+      } catch (error) {
+        console.error('❌ Background verification error:', error.message);
+      }
+    });
   }
 
   /**
@@ -61,15 +111,24 @@ class EmailService {
    */
   async verify() {
     if (!this.transporter) {
+      console.warn('⚠️  No transporter configured');
       return false;
     }
 
     try {
       await this.transporter.verify();
-      console.log('✅ Email service connected and ready');
       return true;
     } catch (error) {
       console.error('❌ Email service verification failed:', error.message);
+      if (error.code === 'ETIMEDOUT') {
+        console.error('   → Connection timeout. Check firewall/network settings');
+      } else if (error.code === 'ECONNREFUSED') {
+        console.error('   → Connection refused. Check if SMTP host is accessible');
+      } else if (error.response?.includes('535')) {
+        console.error('   → Authentication failed. Check SMTP username/password');
+      } else if (error.message?.includes('CERT')) {
+        console.error('   → TLS/SSL certificate issue');
+      }
       return false;
     }
   }

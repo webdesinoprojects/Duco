@@ -471,6 +471,7 @@ const PaymentPage = () => {
               orderpayload.user?.email ||
               "notprovided@duco.com",
             phone:
+              orderpayload.addresses.billing?.mobileNumber || // ✅ Extract from saved mobileNumber field
               orderpayload.addresses.billing?.phone ||
               orderpayload.user?.phone ||
               "",
@@ -496,6 +497,7 @@ const PaymentPage = () => {
               orderpayload.user?.email ||
               "notprovided@duco.com",
             phone:
+              orderpayload.addresses.shipping?.mobileNumber || // ✅ Extract from saved mobileNumber field
               orderpayload.addresses.shipping?.phone ||
               orderpayload.user?.phone ||
               "",
@@ -519,6 +521,7 @@ const PaymentPage = () => {
             orderpayload.user?.email ||
             "notprovided@duco.com",
           phone:
+            orderpayload.address.mobileNumber || // ✅ Extract from saved mobileNumber field
             orderpayload.address.phone || orderpayload.user?.phone || "",
           gstNumber: orderpayload.gstNumber || orderpayload.address.gstNumber,
         };

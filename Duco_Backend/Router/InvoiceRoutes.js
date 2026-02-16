@@ -62,6 +62,19 @@ router.post("/invoice/upload/:orderId", upload.single("file"), async (req, res) 
       invoice?.order?.address?.email ||
       invoice?.order?.email;
 
+    // ✅ Check if email was already sent for this order
+    if (order.emailSent === true) {
+      console.log(`⚠️ Email already sent for order ${order.orderId || order._id}, skipping duplicate send`);
+      return res.json({
+        success: true,
+        emailSent: true,
+        emailError: null,
+        fileName,
+        message: 'Email was already sent for this order'
+      });
+    }
+
+    console.log(`📧 Sending email for order ${order.orderId || order._id} to ${customerEmail}`);
     const emailResult = await emailService.sendOrderConfirmation({
       customerEmail,
       customerName,
@@ -72,6 +85,15 @@ router.post("/invoice/upload/:orderId", upload.single("file"), async (req, res) 
       invoicePdfPath: filePath,
       items: invoice?.items || [],
     });
+
+    // ✅ Mark email as sent in order to prevent duplicates
+    if (emailResult.success) {
+      order.emailSent = true;
+      await order.save();
+      console.log(`✅ Email sent successfully and marked in order ${order.orderId || order._id}`);
+    } else {
+      console.warn(`⚠️ Email send failed for order ${order.orderId || order._id}:`, emailResult.error);
+    }
 
     return res.json({
       success: true,

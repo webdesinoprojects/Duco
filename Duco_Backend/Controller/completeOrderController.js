@@ -791,9 +791,35 @@ async function buildInvoiceArtifacts(order, req) {
       invoice?.order?.email;
 
     const customerPhone =
-      order.addresses?.billing?.mobileNumber ||
-      order.address?.mobileNumber ||
-      order.user?.phone;
+      order.addresses?.billing?.phone || // ✅ Priority: phone field (sent from frontend)
+      order.addresses?.billing?.mobileNumber || // Fallback: mobileNumber field (legacy)
+      order.address?.phone || // Legacy format: phone field
+      order.address?.mobileNumber || // Legacy format: mobileNumber field
+      order.user?.phone; // Final fallback: user phone
+
+    // ✅ Treat empty strings as missing
+    const validPhone = customerPhone && customerPhone.trim() ? customerPhone.trim() : null;
+    
+    if (validPhone) {
+      const source = 
+        order.addresses?.billing?.phone ? 'addresses.billing.phone' :
+        order.addresses?.billing?.mobileNumber ? 'addresses.billing.mobileNumber' :
+        order.address?.phone ? 'address.phone' :
+        order.address?.mobileNumber ? 'address.mobileNumber' :
+        'user.phone';
+      console.log('✅ [ARTIFACTS] Phone extracted for WhatsApp:', {
+        source,
+        masked: validPhone.slice(-4).padStart(validPhone.length, '*'),
+      });
+    } else {
+      console.warn('⚠️ [ARTIFACTS] Phone NOT found - WhatsApp will NOT send:', {
+        hasBillingPhoneField: !!order.addresses?.billing?.phone && order.addresses.billing.phone.trim() !== '',
+        hasBillingMobileField: !!order.addresses?.billing?.mobileNumber && order.addresses.billing.mobileNumber.trim() !== '',
+        hasAddressPhoneField: !!order.address?.phone && order.address.phone.trim() !== '',
+        hasAddressMobileField: !!order.address?.mobileNumber && order.address.mobileNumber.trim() !== '',
+        hasUserPhone: !!order.user?.phone,
+      });
+    }
 
     return {
       invoice,
@@ -802,7 +828,7 @@ async function buildInvoiceArtifacts(order, req) {
       invoiceUrl,
       customerName,
       customerEmail,
-      customerPhone,
+      customerPhone: validPhone, // ✅ Return validated phone
     };
   } catch (error) {
     console.error('❌ Invoice generation failed (non-blocking):', error.message);
@@ -860,10 +886,14 @@ async function sendAiSensyOrderMessage(order, artifacts) {
     console.log('📱 Starting AiSensy order confirmation...');
 
     if (!artifacts?.customerPhone) {
-      console.warn('⚠️ No customer phone number found, skipping AiSensy');
+      console.warn('⚠️ [WHATSAPP] Skipping AiSensy - No customer phone found in artifacts');
+      console.warn('   This usually means phone was not in the order (check ARTIFACTS debug logs above)');
       return { success: false, error: 'missing_phone' };
     }
 
+    const maskedPhone = artifacts.customerPhone.slice(-4).padStart(artifacts.customerPhone.length, '*');
+    console.log('✅ [WHATSAPP] Phone found, sending message to:', maskedPhone);
+    
     console.log('📤 Sending AiSensy message...');
     const result = await aiSensyService.sendAiSensyOrderMessage({
       phoneNumber: artifacts.customerPhone,
@@ -874,9 +904,9 @@ async function sendAiSensyOrderMessage(order, artifacts) {
     });
 
     if (result.success) {
-      console.log('✅ AiSensy order confirmation sent successfully');
+      console.log('✅ [WHATSAPP] AiSensy order confirmation sent successfully');
     } else {
-      console.warn('⚠️ AiSensy send failed:', result.error || result.message);
+      console.warn('⚠️ [WHATSAPP] AiSensy send failed:', result.error || result.message);
     }
 
     return result;
@@ -1439,6 +1469,15 @@ const completeOrder = async (req, res) => {
         }
         
         order = await Order.create(orderPayload);
+        
+        // ✅ [DB CHECK] Verify phone persisted
+        console.log('[DB CHECK - STORE_PICKUP] Saved addresses after Order.create():', {
+          orderId: order.orderId || order._id,
+          billingPhone: order.addresses?.billing?.phone || 'MISSING',
+          billingMobileNumber: order.addresses?.billing?.mobileNumber || 'MISSING',
+          shippingPhone: order.addresses?.shipping?.phone || 'MISSING',
+          shippingMobileNumber: order.addresses?.shipping?.mobileNumber || 'MISSING',
+        });
       } catch (createError) {
         if (createError.code === 11000) {
           // Duplicate key error - retry with a new orderId
@@ -1474,6 +1513,15 @@ const completeOrder = async (req, res) => {
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
+          });
+          
+          // ✅ [DB CHECK] Verify phone persisted in retry
+          console.log('[DB CHECK - STORE_PICKUP RETRY] Saved addresses after Order.create():', {
+            orderId: order.orderId || order._id,
+            billingPhone: order.addresses?.billing?.phone || 'MISSING',
+            billingMobileNumber: order.addresses?.billing?.mobileNumber || 'MISSING',
+            shippingPhone: order.addresses?.shipping?.phone || 'MISSING',
+            shippingMobileNumber: order.addresses?.shipping?.mobileNumber || 'MISSING',
           });
         } else {
           throw createError;
@@ -1573,6 +1621,15 @@ const completeOrder = async (req, res) => {
         // ✅ Add discount if applied
         discount: discount || null,
       });
+      
+      // ✅ [DB CHECK] Verify phone persisted
+      console.log('[DB CHECK - NETBANKING] Saved addresses after Order.create():', {
+        orderId: order.orderId || order._id,
+        billingPhone: order.addresses?.billing?.phone || 'MISSING',
+        billingMobileNumber: order.addresses?.billing?.mobileNumber || 'MISSING',
+        shippingPhone: order.addresses?.shipping?.phone || 'MISSING',
+        shippingMobileNumber: order.addresses?.shipping?.mobileNumber || 'MISSING',
+      });
 
       const settings = await getOrCreateSingleton();
       console.log('🏦 NETBANKING: About to build invoice payload with:', {
@@ -1664,6 +1721,15 @@ const completeOrder = async (req, res) => {
           // ✅ Add discount if applied
           discount: finalDiscount || null,
         });
+        
+        // ✅ [DB CHECK] Verify phone persisted
+        console.log('[DB CHECK - ONLINE] Saved addresses after Order.create():', {
+          orderId: order.orderId || order._id,
+          billingPhone: order.addresses?.billing?.phone || 'MISSING',
+          billingMobileNumber: order.addresses?.billing?.mobileNumber || 'MISSING',
+          shippingPhone: order.addresses?.shipping?.phone || 'MISSING',
+          shippingMobileNumber: order.addresses?.shipping?.mobileNumber || 'MISSING',
+        });
       } catch (createError) {
         if (createError.code === 11000) {
           // Duplicate key error - retry with a new orderId
@@ -1708,6 +1774,21 @@ const completeOrder = async (req, res) => {
 
       // ✅ Handle Printrove routing based on order type
       const settings = await getOrCreateSingleton();
+      
+      // ✅ [DB CHECK] Verify phone persisted in online payment retry
+      if (!order.addresses?.billing?.phone && !order.addresses?.billing?.mobileNumber) {
+        console.warn('[DB CHECK - ONLINE FINAL] No phone found after Order.create():', {
+          orderId: order.orderId || order._id,
+          billingPhone: order.addresses?.billing?.phone || 'MISSING',
+          billingMobileNumber: order.addresses?.billing?.mobileNumber || 'MISSING',
+        });
+      } else {
+        console.log('[DB CHECK - ONLINE FINAL] Phone verified:', {
+          orderId: order.orderId || order._id,
+          billingPhone: order.addresses?.billing?.phone || order.addresses?.billing?.mobileNumber,
+        });
+      }
+      
       const invoicePayload = buildInvoicePayload(order, orderData, addresses, legacyAddress, items, finalPfCharge, finalPrintingCharge, settings, orderType, paymentmode, totalPay);
       try {
         await createInvoice(invoicePayload);
@@ -1790,6 +1871,15 @@ const completeOrder = async (req, res) => {
           // ✅ Add discount if applied
           discount: finalDiscount || null,
         });
+        
+        // ✅ [DB CHECK] Verify phone persisted
+        console.log('[DB CHECK - 50%] Saved addresses after Order.create():', {
+          orderId: order.orderId || order._id,
+          billingPhone: order.addresses?.billing?.phone || 'MISSING',
+          billingMobileNumber: order.addresses?.billing?.mobileNumber || 'MISSING',
+          shippingPhone: order.addresses?.shipping?.phone || 'MISSING',
+          shippingMobileNumber: order.addresses?.shipping?.mobileNumber || 'MISSING',
+        });
       } catch (createError) {
         if (createError.code === 11000) {
           // Duplicate key error - retry with a new orderId
@@ -1826,6 +1916,15 @@ const completeOrder = async (req, res) => {
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
+          });
+          
+          // ✅ [DB CHECK] Verify phone persisted in retry
+          console.log('[DB CHECK - 50% RETRY] Saved addresses after Order.create():', {
+            orderId: order.orderId || order._id,
+            billingPhone: order.addresses?.billing?.phone || 'MISSING',
+            billingMobileNumber: order.addresses?.billing?.mobileNumber || 'MISSING',
+            shippingPhone: order.addresses?.shipping?.phone || 'MISSING',
+            shippingMobileNumber: order.addresses?.shipping?.mobileNumber || 'MISSING',
           });
         } else {
           throw createError;

@@ -6,7 +6,8 @@ const AddressSchema = new Schema(
   {
     fullName: { type: String, required: true },
     email: { type: String, required: true },
-    mobileNumber: { type: String },
+    phone: { type: String }, // ✅ PRIMARY: Frontend sends as 'phone'
+    mobileNumber: { type: String }, // ⚠️ LEGACY: Backward compatibility
     houseNumber: { type: String, required: true },
     street: { type: String, required: true },
     city: { type: String, required: true },
@@ -116,6 +117,13 @@ const OrderSchema = new Schema(
     sgst: { type: Number, default: 0 },
     igst: { type: Number, default: 0 },
     printing: { type: Number, default: 0 },
+
+    // ✅ Email notification tracking (prevent duplicate sends)
+    emailSent: { type: Boolean, default: false },
+
+    // ✅ WhatsApp notification tracking (prevent duplicate sends)
+    whatsappSent: { type: Boolean, default: false },
+    whatsappInvoiceSent: { type: Boolean, default: false },
 
     // ✅ Remaining payment tracking
     totalAmount: { type: Number, default: 0 },

@@ -153,6 +153,7 @@ class InvoicePDFService {
         <meta charset="UTF-8">
         <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
         <style>
+          @page { size: A4; margin: 0; }
           * { box-sizing: border-box; }
           body { font-family: Arial, sans-serif; color: #000; margin: 0; padding: 16px; }
           .line { border-bottom: 1px solid #000; padding-bottom: 6px; margin-bottom: 6px; }
@@ -326,17 +327,18 @@ class InvoicePDFService {
       await page.setContent(html, { waitUntil: 'networkidle0' });
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Generate PDF
-      await page.pdf({
+      // Generate PDF with proper margins to prevent content cutoff
+      const pdfBuffer = await page.pdf({
         path: filePath,
         format: 'A4',
         printBackground: true,
         margin: {
-          top: '0',
-          right: '0',
-          bottom: '0',
-          left: '0',
+          top: '20mm',
+          right: '15mm',
+          bottom: '20mm',
+          left: '15mm',
         },
+        preferCSSPageSize: true,
       });
 
       await browser.close();
