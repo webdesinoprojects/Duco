@@ -89,10 +89,29 @@ const getShipmentDetails = async (shipmentId) => {
     );
 
     console.log(`[Shiprocket] Shipment details retrieved:`, response.data);
+    
+    // ✅ CRITICAL FIX: Handle nested data structure from Shiprocket API
+    // Some responses: { data: { id, awb, status, ... } }
+    // Others: { id, awb, status, ... }
+    const shipmentData = response.data.data || response.data;
+    
+    console.log(`[Shiprocket] Extracted shipment data:`, shipmentData);
+    
+    const awbCode = shipmentData.awb_code || shipmentData.awb;
+    const courierName = shipmentData.courier_name || shipmentData.courier;
+    const status = shipmentData.status;
+    
+    console.log(`[Shiprocket] 📋 Shipment details - ID: ${shipmentData.id}, Status: ${status}, AWB: ${awbCode || 'PENDING'}`);
+    
+    if (awbCode) {
+      console.log(`[Shiprocket] ✅ AWB found in response: ${awbCode}`);
+    } else {
+      console.log(`[Shiprocket] ⏳ AWB not yet assigned (status: ${status})`);
+    }
 
     return {
       success: true,
-      data: response.data
+      data: shipmentData  // ✅ Return the correct shipment data, not wrapped
     };
 
   } catch (error) {

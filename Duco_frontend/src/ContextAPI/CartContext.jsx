@@ -182,10 +182,24 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const removeFromCart = (id) => {
-    setCart((prev) => prev.filter((item) => item.id !== id));
-    // ✅ Also remove preview images from memory
-    delete previewImagesRef.current[id];
+  const removeFromCart = (id, quantity = null, color = null, design = null) => {
+    setCart((prev) => prev.filter((item) => {
+      // ✅ Match by id AND color (if color is provided)
+      if (color) {
+        return !(item.id === id && item.color === color);
+      }
+      // ✅ Fallback: remove by id only (for non-color items)
+      return item.id !== id;
+    }));
+    
+    // ✅ Remove preview images from memory
+    // Note: Only delete if no other variants with same base id exist
+    if (color) {
+      const itemKey = `${id}-${color}`;
+      delete previewImagesRef.current[itemKey];
+    } else {
+      delete previewImagesRef.current[id];
+    }
   };
 
   const clearCart = () => {
@@ -194,14 +208,59 @@ export const CartProvider = ({ children }) => {
     localStorage.removeItem("cart");
   };
 
-  const updateQuantity = (productId, sizeQty) => {
-    setCart((prev) =>
-      prev.map((item) =>
-        item.id === productId || item._id === productId
-          ? { ...item, quantity: sizeQty }
-          : item
-      )
-    );
+  // ✅ Update quantity for a specific variant (productId + color)
+  const updateQuantity = (productId, sizeQty, color = null) => {
+    setCart((prev) => {
+      console.log(`🔄 updateQuantity called:`, {
+        productId,
+        color,
+        sizeQty,
+        currentCartItems: prev.map(i => ({
+          id: i.id,
+          color: i.color,
+          colorcode: i.colorcode,
+          quantity: i.quantity
+        }))
+      });
+      
+      return prev.map((item) => {
+        // ✅ Match by productId AND color (if color provided)
+        const matchesId = item.id === productId || item._id === productId;
+        
+        if (!matchesId) return item;
+        
+        // ✅ If no color specified, match only by ID (backward compatibility)
+        if (color === null) {
+          console.warn(`⚠️ updateQuantity: No color provided for ${productId}, updating all variants (backward compatibility)`);
+          return { ...item, quantity: sizeQty };
+        }
+        
+        // ✅ Normalize colors for comparison (case-insensitive, handle hex codes)
+        const normalizeColor = (c) => {
+          if (!c) return '';
+          const str = String(c).trim().toLowerCase();
+          // Normalize hex codes (remove #, ensure lowercase)
+          if (str.startsWith('#')) return str;
+          if (/^[0-9a-f]{6}$/i.test(str)) return `#${str}`;
+          return str;
+        };
+        
+        const itemColor = normalizeColor(item.color);
+        const itemColorCode = normalizeColor(item.colorcode);
+        const targetColor = normalizeColor(color);
+        
+        const matchesColor = itemColor === targetColor || itemColorCode === targetColor;
+        
+        if (matchesColor) {
+          console.log(`✅ updateQuantity: Matched item ${item.id} (${item.products_name || item.name}) with color ${item.color || item.colorcode}`);
+          return { ...item, quantity: sizeQty };
+        } else {
+          console.log(`⏭️ updateQuantity: Skipped item ${item.id} - color mismatch (item: ${item.color || item.colorcode}, target: ${color})`);
+        }
+        
+        return item;
+      });
+    });
   };
 
   // ✅ Get preview images from memory

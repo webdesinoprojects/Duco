@@ -104,6 +104,11 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 connectDb();
 
 /* =========================
+   SCHEDULED JOBS (cron)
+   ========================= */
+require('./jobs/deliveryReminderJob');
+
+/* =========================
    HEALTH CHECK
    ========================= */
 app.get('/health', (_req, res) => {

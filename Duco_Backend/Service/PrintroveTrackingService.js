@@ -2,6 +2,7 @@
 const axios = require('axios');
 const Order = require('../DataBase/Models/OrderModel');
 const { getPrintroveToken } = require('../Controller/printroveAuth');
+const { fetchAndUpdateAwbCode } = require('../Services/shiprocketService');
 
 class PrintroveTrackingService {
   constructor() {
@@ -304,6 +305,31 @@ class PrintroveTrackingService {
       
       if (!order) {
         throw new Error(`Order ${orderId} not found`);
+      }
+
+      // ✅ Just-in-Time Shiprocket sync: if shipment_id exists but awb is missing, fetch from Shiprocket and update DB
+      const shipmentId = order.shiprocket?.shipmentId;
+      const hasAwb = !!order.shiprocket?.awbCode;
+      if (shipmentId && !hasAwb) {
+        try {
+          const result = await fetchAndUpdateAwbCode(shipmentId);
+          if (result.success && result.hasAwb) {
+            await Order.findByIdAndUpdate(orderId, {
+              $set: {
+                'shiprocket.awbCode': result.awbCode,
+                'shiprocket.courierName': result.courierName || order.shiprocket?.courierName,
+                'shiprocket.status': result.status || order.shiprocket?.status,
+                'shiprocket.lastUpdated': new Date(),
+              },
+            });
+            order.shiprocket = order.shiprocket || {};
+            order.shiprocket.awbCode = result.awbCode;
+            order.shiprocket.courierName = result.courierName || order.shiprocket.courierName;
+            order.shiprocket.status = result.status || order.shiprocket.status;
+          }
+        } catch (err) {
+          // Non-blocking: don't fail the request if Shiprocket fetch fails
+        }
       }
 
       // ✅ FIX: Find matching phone from user's saved addresses

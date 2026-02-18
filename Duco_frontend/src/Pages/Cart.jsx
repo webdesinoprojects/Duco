@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useContext, useMemo, useRef } from "react";
+import React, { useState, useEffect, useContext, useMemo, useRef } from "react";
 import CartItem from "../Components/CartItem.jsx";
 import AddressManagerEnhanced from "../Components/AddressManagerEnhanced";
 import Loading from "../Components/Loading";
@@ -513,17 +513,10 @@ const Cart = () => {
     const value = safeNum(num, 0);
     const isINR = currencySymbol === '₹' || !currencySymbol;
     
-    let formatted;
-    if (isINR) {
-      // INR: Round to whole numbers (₹10, ₹100)
-      formatted = `${currencySymbol}${Math.round(value)
-        .toString()
-        .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-    } else {
-      // International: Show 2 decimal places (€10.50, $25.00)
-      formatted = `${currencySymbol}${value.toFixed(2)
-        .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-    }
+    // ✅ Fix: Show 2 decimal places for ALL currencies to ensure math adds up correctly
+    // This prevents rounding errors like ₹8 + ₹0 = ₹9
+    const formatted = `${currencySymbol}${value.toFixed(2)
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
     
     console.log(`💱 formatCurrency: ${num} → ${formatted} (symbol: ${currencySymbol}, isINR: ${isINR})`);
     return formatted;
@@ -1047,19 +1040,14 @@ const Cart = () => {
     return cost;
   }, [pfPerUnit, totalQuantity, currencySymbol, priceIncrease, conversionRate, actualData]);
 
+  // ✅ TAX ON GROSS: Taxable = Subtotal + P&F (before discount)
   const taxableAmount = useMemo(() => {
-    const subtotalAfterDiscount = autoDiscount && autoDiscount.discountPercent > 0 
-      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
-      : itemsSubtotal;
-    return safeNum(subtotalAfterDiscount) + safeNum(printingCost) + safeNum(pfCost);
-  }, [itemsSubtotal, printingCost, pfCost, autoDiscount]);
+    return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
+  }, [itemsSubtotal, printingCost, pfCost]);
 
-  // ✅ Calculate tax information (type, amounts, rates)
+  // ✅ TAX ON GROSS: Tax calculated on Subtotal + P&F (before discount)
   const taxInfo = useMemo(() => {
-    const subtotalAfterDiscount = autoDiscount && autoDiscount.discountPercent > 0 
-      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
-      : itemsSubtotal;
-    const adjustedTaxable = safeNum(subtotalAfterDiscount) + safeNum(printingCost) + safeNum(pfCost);
+    const baseForTax = safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
     
     let gstRate = 0;
@@ -1100,18 +1088,18 @@ const Cart = () => {
       if (!isIndia) {
         // Outside India: 1% TAX
         gstRate = 1;
-        taxAmount = (adjustedTaxable * 1) / 100;
+        taxAmount = (baseForTax * 1) / 100;
         taxType = 'INTERNATIONAL';
       } else if (normalizedState === 'CHHATTISGARH') {
         // Home state (Chhattisgarh): 2.5% CGST + 2.5% SGST = 5% total
         gstRate = 5;
-        cgstAmount = (adjustedTaxable * 2.5) / 100;
-        sgstAmount = (adjustedTaxable * 2.5) / 100;
+        cgstAmount = (baseForTax * 2.5) / 100;
+        sgstAmount = (baseForTax * 2.5) / 100;
         taxType = 'INTRASTATE_CGST_SGST';
       } else {
         // Other Indian states: 5% IGST only
         gstRate = 5;
-        igstAmount = (adjustedTaxable * 5) / 100;
+        igstAmount = (baseForTax * 5) / 100;
         taxType = 'INTERSTATE';
       }
     }
@@ -1125,7 +1113,7 @@ const Cart = () => {
       taxAmount,
       totalTax: cgstAmount + sgstAmount + igstAmount + taxAmount,
     };
-  }, [itemsSubtotal, printingCost, pfCost, billingAddress, actualData, autoDiscount]);
+  }, [itemsSubtotal, printingCost, pfCost, billingAddress, actualData]);
 
   const gstTotal = useMemo(() => {
     return (safeNum(taxableAmount) * safeNum(gstPercent)) / 100;
@@ -1188,16 +1176,9 @@ const Cart = () => {
   }, [actualData, itemsSubtotal]);
 
   const grandTotal = useMemo(() => {
-    // ✅ pfCost and printingCost are already converted in their respective useMemo
-    // ✅ itemsSubtotal is already converted in its useMemo
-    
-    // ✅ Apply discount to items subtotal first
-    const subtotalAfterDiscount = autoDiscount && autoDiscount.discountPercent > 0 
-      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
-      : itemsSubtotal;
-    
-    // Taxable amount = discounted items + printing + P&F (all already in target currency)
-    const adjustedTaxable = safeNum(subtotalAfterDiscount) + safeNum(printingCost) + safeNum(pfCost);
+    // ✅ TAX ON GROSS: ((Subtotal + P&F) + Tax) - Discount
+    // Base for tax = subtotal + P&F (BEFORE discount)
+    const baseForTax = safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
     
     // ✅ Check if this is a B2B order
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
@@ -1253,20 +1234,20 @@ const Cart = () => {
       if (!isIndia) {
         // Outside India: 1% TAX
         gstRate = 1;
-        adjustedGst = (adjustedTaxable * 1) / 100;
+        adjustedGst = (baseForTax * 1) / 100;
         taxType = 'INTERNATIONAL';
         console.log("🌍 International order: 1% TAX applied");
       } else if (normalizedState === 'CHHATTISGARH') {
         // Home state (Chhattisgarh): 2.5% CGST + 2.5% SGST = 5% total
-        cgstAmount = (adjustedTaxable * 2.5) / 100;
-        sgstAmount = (adjustedTaxable * 2.5) / 100;
+        cgstAmount = (baseForTax * 2.5) / 100;
+        sgstAmount = (baseForTax * 2.5) / 100;
         adjustedGst = cgstAmount + sgstAmount;
         gstRate = 5;
         taxType = 'INTRASTATE_CGST_SGST';
         console.log("🏠 Chhattisgarh (home state) order: 2.5% CGST + 2.5% SGST applied");
       } else {
         // Outside home state (other Indian states): 5% IGST only
-        igstAmount = (adjustedTaxable * 5) / 100;
+        igstAmount = (baseForTax * 5) / 100;
         adjustedGst = igstAmount;
         gstRate = 5;
         taxType = 'INTERSTATE';
@@ -1274,12 +1255,17 @@ const Cart = () => {
       }
     }
     // ✅ B2C: No tax (gstRate = 0, adjustedGst = 0)
-    
-    // Total before round off
-    const total = adjustedTaxable + adjustedGst;
+
+    // Discount amount (subtracted at end)
+    const discountAmount = autoDiscount && autoDiscount.discountPercent > 0
+      ? (itemsSubtotal * autoDiscount.discountPercent) / 100
+      : 0;
+
+    // ✅ TAX ON GROSS: ((Subtotal + P&F) + Tax) - Discount
+    const total = (baseForTax + adjustedGst) - discountAmount;
     
     const isINR = currencySymbol === '₹' || !currencySymbol;
-    console.log(`💰 Grand Total Calculation:`, {
+    console.log(`💰 Grand Total Calculation (Tax on Gross):`, {
       itemsSubtotal: safeNum(itemsSubtotal),
       printingCost: safeNum(printingCost),
       pfCost: safeNum(pfCost),
@@ -1289,7 +1275,8 @@ const Cart = () => {
       sgstAmount,
       igstAmount,
       totalTax: adjustedGst,
-      adjustedTaxable,
+      baseForTax,
+      discountAmount,
       gstRate,
       totalBeforeRoundOff: total,
       totalAfterRoundOff: Math.ceil(total),
@@ -1328,7 +1315,8 @@ const Cart = () => {
               updateQuantity={(newQty) =>
                 updateQuantity(
                   item.id,
-                  newQty
+                  newQty,
+                  item.color || item.colorcode
                 )
               }
             />
@@ -1354,12 +1342,12 @@ const Cart = () => {
                 <>
                   <div className="flex justify-between text-green-400">
                     <span className="text-sm">Corporate Discount ({autoDiscount.discountPercent}%)</span>
-                    <span className="text-sm font-semibold">- {formatCurrency(Math.ceil((itemsSubtotal * autoDiscount.discountPercent) / 100))}</span>
+                    <span className="text-sm font-semibold">- {formatCurrency((itemsSubtotal * autoDiscount.discountPercent) / 100)}</span>
                   </div>
                   <div className="flex justify-between border-b pb-2 mb-2">
                     <span className="text-xs text-gray-400">Subtotal after discount:</span>
                     <span className="font-semibold text-sm">
-                      {formatCurrency(Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100))}
+                      {formatCurrency(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)}
                     </span>
                   </div>
                 </>
@@ -1388,17 +1376,14 @@ const Cart = () => {
               
               {/* Tax Breakdown - Only for B2B orders */}
               {(() => {
-                // ✅ Check if this is a B2B order
+                // ✅ TAX ON GROSS: Taxable = Subtotal + P&F (before discount)
                 const isBulkOrder = actualData.some(item => item.isCorporate === true);
-                const subtotalAfterDiscount = autoDiscount && autoDiscount.discountPercent > 0 
-                  ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
-                  : itemsSubtotal;
-                const taxableAmount = subtotalAfterDiscount + printingCost + pfCost;
+                const baseForTaxDisplay = itemsSubtotal + printingCost + pfCost;
                 
                 console.log('🧾 Order Summary - B2B Check:', {
                   isBulkOrder,
                   actualDataLength: actualData.length,
-                  taxableAmount,
+                  baseForTaxDisplay,
                   currency,
                   currencySymbol,
                   actualData: actualData.map(item => ({ name: item.name, isCorporate: item.isCorporate }))
@@ -1470,12 +1455,12 @@ const Cart = () => {
                   isIndia,
                   currency,
                   currencySymbol,
-                  taxableAmount
+                  baseForTaxDisplay
                 });
                 
                 if (!isIndia) {
-                  // ✅ Outside India: TAX 1%
-                  const taxAmount = (taxableAmount * 1) / 100;
+                  // ✅ Outside India: TAX 1% (Tax on Gross)
+                  const taxAmount = (baseForTaxDisplay * 1) / 100;
                   return (
                     <div className="flex justify-between border-t pt-2 mt-2">
                       <span>TAX (1%)</span>
@@ -1483,9 +1468,9 @@ const Cart = () => {
                     </div>
                   );
                 } else if (isChhattisgarh) {
-                  // ✅ Home state (Chhattisgarh): CGST 2.5% + SGST 2.5% = 5%
-                  const cgstAmount = (taxableAmount * 2.5) / 100;
-                  const sgstAmount = (taxableAmount * 2.5) / 100;
+                  // ✅ Home state (Chhattisgarh): CGST 2.5% + SGST 2.5% = 5% (Tax on Gross)
+                  const cgstAmount = (baseForTaxDisplay * 2.5) / 100;
+                  const sgstAmount = (baseForTaxDisplay * 2.5) / 100;
                   return (
                     <>
                       <div className="flex justify-between border-t pt-2 mt-2">
@@ -1499,8 +1484,8 @@ const Cart = () => {
                     </>
                   );
                 } else {
-                  // ✅ Other Indian states: IGST 5% only
-                  const igstAmount = (taxableAmount * 5) / 100;
+                  // ✅ Other Indian states: IGST 5% only (Tax on Gross)
+                  const igstAmount = (baseForTaxDisplay * 5) / 100;
                   return (
                     <div className="flex justify-between border-t pt-2 mt-2">
                       <span>IGST (5%)</span>
@@ -1521,7 +1506,7 @@ const Cart = () => {
             <div className="border-t pt-4 mb-6">
               <div className="flex justify-between mb-2">
                 <span className="font-bold">Grand Total</span>
-                <span className="font-bold">{formatCurrency(Math.ceil(grandTotal))}</span>
+                <span className="font-bold">{formatCurrency(grandTotal)}</span>
               </div>
             </div>
 
@@ -1580,7 +1565,7 @@ const Cart = () => {
                     <div className="flex-1">
                       <p className="text-green-400 font-semibold">🎉 Corporate Discount Applied!</p>
                       <p className="text-sm text-gray-300 mt-1">
-                        {autoDiscount.discountPercent}% discount - You save {formatCurrency(Math.ceil(autoDiscount.amount))}
+                        {autoDiscount.discountPercent}% discount - You save {formatCurrency(autoDiscount.amount)}
                       </p>
                       <p className="text-xs text-gray-400 mt-1">
                         💡 Discount automatically applied based on your order quantity

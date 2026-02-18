@@ -206,19 +206,22 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
     return result;
   };
 
-  // ✅ Determine which image to display
+  // ✅ Determine which image to display (matching selected color)
   useEffect(() => {
     let imageToDisplay = null;
 
     console.log('🖼️ CartItem - Determining display image:', {
       itemName: item.products_name || item.name,
       itemId: item.id,
+      itemColor: item.color,
+      itemColortext: item.colortext,
       hasPreviewImages: !!item.previewImages,
       previewImagesType: typeof item.previewImages,
       previewImagesKeys: item.previewImages ? Object.keys(item.previewImages) : [],
       previewImagesFront: item.previewImages?.front ? `✅ ${item.previewImages.front.length} chars` : '❌ MISSING',
       isBlankFront: item.previewImages?.front ? isBlankImage(item.previewImages.front) : null,
       hasImageUrl: !!item.image_url?.[0]?.url?.[0],
+      hasProductData: !!productData?.image_url,
       hasDesign: !!item.design,
       designKeys: item.design ? Object.keys(item.design) : [],
     });
@@ -232,25 +235,55 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
       imageToDisplay = item.previewImages.front;
       console.log('✅ Using preview image (front)');
     }
-    // Fallback to product image
-    else if (item.image_url?.[0]?.url?.[0]) {
-      imageToDisplay = item.image_url[0].url[0];
-      console.log('✅ Using product image');
-    }
-    // Fallback to base T-shirt mockup
-    else if (item.previewImages?.front) {
-      // Even if blank, use it but with fallback styling
-      imageToDisplay = item.previewImages.front;
-      console.log('⚠️ Using blank preview image (fallback)');
-    }
-    // Final fallback to default T-shirt
+    // ✅ Find matching color variant image
     else {
-      imageToDisplay = menstshirt;
-      console.log('⚠️ Using default T-shirt mockup');
+      // Try to find matching color in item.image_url or productData.image_url
+      const imageUrlArray = item.image_url || productData?.image_url || [];
+      const itemColor = item.color || item.colorCode || '';
+      const itemColortext = item.colortext || '';
+      
+      // Normalize for matching
+      const itemColorNorm = String(itemColor).toLowerCase().trim();
+      const itemColortextNorm = String(itemColortext).toLowerCase().trim();
+      
+      // Find matching color variant
+      const matchedColorVariant = imageUrlArray.find((variant) => {
+        const variantColorCode = String(variant.colorcode || '').toLowerCase().trim();
+        const variantColorName = String(variant.color || '').toLowerCase().trim();
+        
+        // Match by color code (hex) or color name
+        const matchesCode = variantColorCode === itemColorNorm || 
+                           variantColorCode === itemColorNorm.replace('#', '');
+        const matchesName = variantColorName === itemColortextNorm || 
+                           variantColorName === itemColorNorm;
+        
+        return matchesCode || matchesName;
+      });
+      
+      if (matchedColorVariant?.url?.[0]) {
+        imageToDisplay = matchedColorVariant.url[0];
+        console.log(`✅ Using matched color image: ${matchedColorVariant.color} (${matchedColorVariant.colorcode})`);
+      }
+      // Fallback to first available image
+      else if (imageUrlArray?.[0]?.url?.[0]) {
+        imageToDisplay = imageUrlArray[0].url[0];
+        console.log('⚠️ Using first available image (color match not found)');
+      }
+      // Fallback to base T-shirt mockup
+      else if (item.previewImages?.front) {
+        // Even if blank, use it but with fallback styling
+        imageToDisplay = item.previewImages.front;
+        console.log('⚠️ Using blank preview image (fallback)');
+      }
+      // Final fallback to default T-shirt
+      else {
+        imageToDisplay = menstshirt;
+        console.log('⚠️ Using default T-shirt mockup');
+      }
     }
 
     setDisplayImage(imageToDisplay);
-  }, [item]);
+  }, [item, productData]);
 
   // ✅ Apply location pricing to a base price
   const applyLocationPricing = (basePrice, priceIncrease, conversionRate) => {

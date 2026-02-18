@@ -29,7 +29,20 @@ export const normalizeInvoiceData = (invoice, totals) => {
   const currency = invoice.currency || 'INR';
   const currencySymbol = currencySymbols[currency] || '₹';
   const paymentmode = invoice.paymentmode || 'online';
-  const amountPaid = invoice.amountPaid || 0;
+  
+  // ✅ Get order data for 50% payment tracking
+  const order = invoice.order || {};
+  const isFullyPaid = order.remainingPaymentId || (order.remainingAmount !== undefined && order.remainingAmount === 0);
+  
+  // ✅ Calculate correct amounts for 50% payments
+  let amountPaid;
+  if (paymentmode === '50%') {
+    const totalAmount = Number(order.totalPay || order.totalAmount || order.price || 0);
+    const paidAmount = Number(order.advancePaidAmount || order.price || 0);
+    amountPaid = isFullyPaid ? totalAmount : paidAmount;
+  } else {
+    amountPaid = invoice.amountPaid || 0;
+  }
 
   // Normalize items
   const items = (invoice.items || []).map((it, i) => ({
@@ -48,9 +61,8 @@ export const normalizeInvoiceData = (invoice, totals) => {
   const pf = Number(invoice.charges?.pf ?? invoice.pfCharges ?? 0);
   const printing = Number(invoice.charges?.printing ?? invoice.printingCharges ?? 0);
 
-  // Calculate display total (for 50% payments, show amountPaid)
+  // Calculate display total (always show full grand total)
   const grandTotal = totals?.grandTotal || 0;
-  const displayTotal = paymentmode === '50%' && amountPaid > 0 ? amountPaid : grandTotal;
 
   // Extract tax info from invoice
   const tax = invoice.tax || {};
@@ -94,13 +106,14 @@ export const normalizeInvoiceData = (invoice, totals) => {
     discount: discount,
     subtotalAfterDiscount: subtotalAfterDiscount,
     taxableAmount: taxableAmount,
-    total: displayTotal,
+    total: grandTotal, // ✅ Always show full total
     terms: invoice.terms || [],
     forCompany: invoice.forCompany || invoice.company?.name || '',
     currency: currency,
     currencySymbol: currencySymbol,
     paymentmode: paymentmode,
-    amountPaid: amountPaid,
+    amountPaid: amountPaid, // ✅ Updated to reflect full payment when complete
+    isFullyPaid: isFullyPaid, // ✅ Add fully paid status
     additionalFilesMeta: additionalFilesMeta,
     // ✅ Payment currency and location info
     paymentCurrency: paymentCurrency,

@@ -421,10 +421,12 @@ const InvoiceTemplate = ({ data }) => {
                 </>
               )}
               
-              {/* ? FULL PAYMENT: Show Paid Amount after discount for non-50% modes */}
+              {/* ✅ FULL PAYMENT: Show Paid Amount after discount for non-50% modes */}
               {!hasPartialPayment && showPaidAmount && (
                 <tr style={{ backgroundColor: "#c8e6c9", borderTop: "1px solid #4caf50" }}>
-                  <td style={{ padding: "4px 8px", fontWeight: "bold" }}>Paid Amount</td>
+                  <td style={{ padding: "4px 8px", fontWeight: "bold" }}>
+                    {paymentmode === '50%' ? 'Paid Amount (100% - Fully Paid)' : 'Paid Amount'}
+                  </td>
                   <td style={{ padding: "4px 8px", textAlign: "right" }}>-</td>
                   <td style={{ padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>{finalAmountAfterDiscount.toFixed(2)}</td>
                 </tr>

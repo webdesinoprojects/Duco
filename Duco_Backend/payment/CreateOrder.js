@@ -521,6 +521,56 @@ const verifyRemainingPayment = async (req, res) => {
       // Don't fail the whole payment if wallet update fails
     }
 
+    // ✅ SEND EMAIL NOTIFICATION FOR COMPLETED PAYMENT
+    console.log('📧 Sending completion email notification...');
+    try {
+      const emailService = require('../Service/EmailService');
+      const { getInvoiceByOrderId } = require('../Controller/invoiceService');
+      
+      // Get customer email
+      const customerEmail = 
+        order.addresses?.billing?.email ||
+        order.address?.email ||
+        order.user?.email;
+      
+      const customerName = 
+        order.addresses?.billing?.fullName ||
+        order.address?.fullName ||
+        'Valued Customer';
+
+      if (customerEmail) {
+        // Get updated invoice
+        const { invoice, totals } = await getInvoiceByOrderId(order._id);
+        
+        try {
+          console.log('📧 Sending completion email notification...');
+          const emailResult = await emailService.sendOrderConfirmation({
+            customerEmail,
+            customerName,
+            orderId: savedOrder.orderId || savedOrder._id,
+            totalAmount: totals?.grandTotal?.toFixed(2) || '0.00',
+            currency: invoice?.currency || 'INR',
+            paymentMode: '50% - Fully Paid',
+            invoicePdfPath: null,
+            items: invoice?.items || [],
+          });
+          
+          if (emailResult.success) {
+            console.log('✅ Completion email sent successfully to:', customerEmail);
+          } else {
+            console.warn('⚠️ Completion email failed:', emailResult.error);
+          }
+        } catch (emailErr) {
+          console.error('❌ Error sending completion email:', emailErr.message);
+        }
+      } else {
+        console.warn('⚠️ No customer email found for order:', order._id);
+      }
+    } catch (emailErr) {
+      console.error('❌ Failed to queue completion email:', emailErr.message);
+      // Don't fail the whole payment if email fails
+    }
+
     console.log('✅ Remaining payment verified and order updated:', {
       orderId: savedOrder.orderId || savedOrder._id,
       paymentId: razorpay_payment_id,

@@ -222,12 +222,34 @@ const createShiprocketOrder = async (order, isRetry = false) => {
 
     shipping_is_billing: true,
 
-    order_items: order.products.map((p, i) => ({
-      name: p.name || `Item-${i + 1}`,
-      sku: p.sku || `SKU-${i + 1}`,
-      units: p.qty || 1,
-      selling_price: Number(p.price),
-    })),
+    // ✅ CRITICAL FIX: Map actual order products instead of hardcoded dummy data
+    order_items: order.products.map((p, i) => {
+      // Handle quantity which can be either a number or an object like {S: 2, M: 3}
+      let totalQuantity = 1;
+      if (typeof p.quantity === 'object' && p.quantity) {
+        // Sum all size quantities
+        totalQuantity = Object.values(p.quantity).reduce((sum, q) => sum + Number(q || 0), 0);
+      } else if (typeof p.quantity === 'number') {
+        totalQuantity = p.quantity;
+      } else if (p.qty) {
+        totalQuantity = p.qty;
+      }
+
+      // Ensure at least 1 unit
+      totalQuantity = Math.max(1, totalQuantity);
+
+      return {
+        // ✅ Use products_name (our actual field name), fallback to name
+        name: p.products_name || p.name || `Item-${i + 1}`,
+        // ✅ Generate SKU from product ID since we don't have a SKU field
+        // Format: PRD-${productId} for uniqueness
+        sku: p.sku || `PRD-${p._id || p.id || p.productId || `ITEM${i + 1}`}`,
+        // ✅ Use correct quantity field with proper aggregation
+        units: totalQuantity,
+        // ✅ Use actual product price
+        selling_price: Number(p.price || 0),
+      };
+    }),
 
     payment_method: order.paymentmode === "COD" ? "COD" : "Prepaid",
     sub_total: Number(order.price),
@@ -251,6 +273,12 @@ const createShiprocketOrder = async (order, isRetry = false) => {
     const token = await getShiprocketToken();
 
     console.log(`[Shiprocket] Creating shipment for order: ${order.orderId}`);
+    
+    // ✅ DEBUG: Log the actual order items being sent to Shiprocket
+    console.log('[Shiprocket] 📦 Order Items being sent to Shiprocket:');
+    payload.order_items.forEach((item, idx) => {
+      console.log(`  [Item ${idx + 1}] ${item.name} | SKU: ${item.sku} | Qty: ${item.units} | Price: ₹${item.selling_price}`);
+    });
     
     // ========================================
     // DEBUG: CONFIRM PHONE BEFORE SHIPROCKET
@@ -386,6 +414,9 @@ const createShiprocketOrder = async (order, isRetry = false) => {
 /**
  * Fetch AWB code from Shiprocket for an existing shipment
  * Call this periodically or on-demand to get the tracking number after it's assigned
+ * 
+ * NOTE: This function ONLY FETCHES from Shiprocket API
+ * Database persistence is handled by the calling function (e.g., OrderController.refetchTrackingId)
  */
 const fetchAndUpdateAwbCode = async (shipmentId) => {
   try {
@@ -394,6 +425,7 @@ const fetchAndUpdateAwbCode = async (shipmentId) => {
     const result = await getShipmentDetails(shipmentId);
 
     if (!result.success) {
+      console.error(`[Shiprocket] Failed to get shipment details for ${shipmentId}:`, result.error);
       return {
         success: false,
         error: result.error,
@@ -406,7 +438,14 @@ const fetchAndUpdateAwbCode = async (shipmentId) => {
     const courierName = shipmentData.courier_name || shipmentData.courier || '';
     const status = shipmentData.status || '';
 
-    console.log(`[Shiprocket] Shipment ${shipmentId} status: ${status}, AWB: ${awbCode || 'not assigned yet'}`);
+    console.log(`[Shiprocket] 📊 Extracted from API response: awbCode='${awbCode}', courierName='${courierName}', status=${status}`);
+
+    // ✅ Only log when AWB is found
+    if (awbCode) {
+      console.log(`[Shiprocket] ✅ Shipment ${shipmentId} status: ${status}, AWB: ${awbCode}`);
+    } else {
+      console.log(`[Shiprocket] ⏳ Shipment ${shipmentId} - AWB not assigned yet (status: ${status})`);
+    }
 
     return {
       success: true,

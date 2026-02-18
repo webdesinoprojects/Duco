@@ -11,6 +11,7 @@ const LZString = require('lz-string'); // ✅ added for decompression
 const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload'); // ✅ Cloudinary upload
 const aiSensyService = require('../Service/AiSensyService'); // ✅ AiSensy WhatsApp notifications
 const emailService = require('../Service/EmailService'); // ✅ Email notifications
+const invoicePDFService = require('../Service/InvoicePDFService'); // ✅ PDF generation (singleton instance)
 
 // --- Razorpay client ---
 const razorpay = new Razorpay({
@@ -771,8 +772,17 @@ async function buildInvoiceArtifacts(order, req) {
       billingCountry: invoice.billTo?.country
     });
 
-    const pdfPath = null;
-    const invoiceUrl = null;
+    // ✅ Generate PDF invoice
+    console.log('📄 Generating invoice PDF...');
+    let pdfPath = null;
+    let invoiceUrl = null;
+    try {
+      pdfPath = await invoicePDFService.generatePDF(invoiceData, order.orderId || order._id);
+      console.log('✅ Invoice PDF generated:', pdfPath);
+    } catch (pdfError) {
+      console.error('❌ Failed to generate invoice PDF:', pdfError.message);
+      // Continue without PDF - email will still send without attachment
+    }
 
     const customerName =
       order.addresses?.billing?.fullName ||
@@ -1564,14 +1574,31 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (store pickup)');
       }
 
-      // ✅ Build invoice artifacts and defer email until PDF upload
+      // ✅ Build invoice artifacts and send email (synchronous)
       const artifacts = await buildInvoiceArtifacts(order, req);
-      const emailResult = { success: false, error: 'invoice_pending_upload' };
+      
+      // ✅ Send email before returning response
+      let emailQueued = false;
+      if (artifacts?.customerEmail) {
+        try {
+          console.log('📧 Sending order confirmation email (store pickup)...');
+          const emailResult = await sendOrderEmail(order, artifacts);
+          if (emailResult.success) {
+            console.log('✅ Email sent successfully');
+            emailQueued = true;
+          } else {
+            console.warn('⚠️ Email sending failed:', emailResult.error);
+          }
+        } catch (err) {
+          console.error('❌ Email sending error:', err.message);
+        }
+      }
+      
       const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
       const notifications = {
-        emailSent: false,
-        emailError: emailResult.error,
-        emailStatus: 'pending',
+        emailSent: emailQueued,
+        emailError: emailQueued ? null : 'no_email_found',
+        emailStatus: emailQueued ? 'sent' : 'failed',
         whatsappSent: !!whatsappResult.success,
         whatsappError: whatsappResult.success ? null : (whatsappResult.error || whatsappResult.message),
       };
@@ -1667,14 +1694,31 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (netbanking)');
       }
 
-      // ✅ Build invoice artifacts and defer email until PDF upload
+      // ✅ Build invoice artifacts and send email (synchronous)
       const artifacts = await buildInvoiceArtifacts(order, req);
-      const emailResult = { success: false, error: 'invoice_pending_upload' };
+      
+      // ✅ Send email before returning response
+      let emailQueued = false;
+      if (artifacts?.customerEmail) {
+        try {
+          console.log('📧 Sending order confirmation email (netbanking)...');
+          const emailResult = await sendOrderEmail(order, artifacts);
+          if (emailResult.success) {
+            console.log('✅ Email sent successfully');
+            emailQueued = true;
+          } else {
+            console.warn('⚠️ Email sending failed:', emailResult.error);
+          }
+        } catch (err) {
+          console.error('❌ Email sending error:', err.message);
+        }
+      }
+      
       const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
       const notifications = {
-        emailSent: false,
-        emailError: emailResult.error,
-        emailStatus: 'pending',
+        emailSent: emailQueued,
+        emailError: emailQueued ? null : 'no_email_found',
+        emailStatus: emailQueued ? 'sent' : 'failed',
         whatsappSent: !!whatsappResult.success,
         whatsappError: whatsappResult.success ? null : (whatsappResult.error || whatsappResult.message),
       };
@@ -1817,14 +1861,31 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (online)');
       }
 
-      // ✅ Build invoice artifacts and defer email until PDF upload
+      // ✅ Build invoice artifacts and send email (synchronous)
       const artifacts = await buildInvoiceArtifacts(order, req);
-      const emailResult = { success: false, error: 'invoice_pending_upload' };
+      
+      // ✅ Send email before returning response
+      let emailQueued = false;
+      if (artifacts?.customerEmail) {
+        try {
+          console.log('📧 Sending order confirmation email (online payment)...');
+          const emailResult = await sendOrderEmail(order, artifacts);
+          if (emailResult.success) {
+            console.log('✅ Email sent successfully');
+            emailQueued = true;
+          } else {
+            console.warn('⚠️ Email sending failed:', emailResult.error);
+          }
+        } catch (err) {
+          console.error('❌ Email sending error:', err.message);
+        }
+      }
+      
       const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
       const notifications = {
-        emailSent: false,
-        emailError: emailResult.error,
-        emailStatus: 'pending',
+        emailSent: emailQueued,
+        emailError: emailQueued ? null : 'no_email_found',
+        emailStatus: emailQueued ? 'sent' : 'failed',
         whatsappSent: !!whatsappResult.success,
         whatsappError: whatsappResult.success ? null : (whatsappResult.error || whatsappResult.message),
       };
@@ -1846,7 +1907,7 @@ const completeOrder = async (req, res) => {
         order = await Order.create({
           products: cleanedItems,
           price: totalPay,
-          totalPay: totalPay, // ✅ Add totalPay field for Printrove compatibility
+          totalPay: totalAmount, // ✅ Store FULL order amount, not advance
           ...(addresses ? { addresses } : { address: legacyAddress }),
           user,
           razorpayPaymentId: payment.id,
@@ -1889,7 +1950,7 @@ const completeOrder = async (req, res) => {
           order = await Order.create({
             products: cleanedItems,
             price: totalPay,
-            totalPay: totalPay,
+            totalPay: totalAmount, // ✅ Store FULL order amount, not advance
             ...(addresses ? { addresses } : { address: legacyAddress }),
             user,
             razorpayPaymentId: payment.id,
@@ -1966,14 +2027,31 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (50%)');
       }
 
-      // ✅ Build invoice artifacts and defer email until PDF upload
+      // ✅ Build invoice artifacts and send email (synchronous)
       const artifacts = await buildInvoiceArtifacts(order, req);
-      const emailResult = { success: false, error: 'invoice_pending_upload' };
+      
+      // ✅ Send email before returning response
+      let emailQueued = false;
+      if (artifacts?.customerEmail) {
+        try {
+          console.log('📧 Sending order confirmation email (50% payment)...');
+          const emailResult = await sendOrderEmail(order, artifacts);
+          if (emailResult.success) {
+            console.log('✅ Email sent successfully');
+            emailQueued = true;
+          } else {
+            console.warn('⚠️ Email sending failed:', emailResult.error);
+          }
+        } catch (err) {
+          console.error('❌ Email sending error:', err.message);
+        }
+      }
+      
       const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
       const notifications = {
-        emailSent: false,
-        emailError: emailResult.error,
-        emailStatus: 'pending',
+        emailSent: emailQueued, // Mark as sent since it's queued
+        emailError: emailQueued ? null : 'no_email_found',
+        emailStatus: emailQueued ? 'sent' : 'failed',
         whatsappSent: !!whatsappResult.success,
         whatsappError: whatsappResult.success ? null : (whatsappResult.error || whatsappResult.message),
       };

@@ -23,10 +23,10 @@ const computeTotals = (doc = {}) => {
   const discountAmount = discountPercent > 0 ? (subtotal * discountPercent) / 100 : 0;
   const discountedSubtotal = subtotal - discountAmount;
 
-  // 3. Add P&F charges to discounted subtotal
+  // 3. Add P&F charges
   const chargesTotal = ["pf", "printing"].reduce((s, k) => s + safeNum(charges[k]), 0);
-  // ✅ TAXABLE VALUE IS NOW BASED ON DISCOUNTED SUBTOTAL
-  const taxableValue = discountedSubtotal + chargesTotal;
+  // ✅ TAX ON GROSS: Base for tax = Subtotal + P&F (BEFORE discount)
+  const baseForTax = subtotal + chargesTotal;
 
   // Use dynamic tax rates - handle both GST and international TAX
   const cgstRate = safeNum(tax.cgstRate);
@@ -34,29 +34,27 @@ const computeTotals = (doc = {}) => {
   const igstRate = safeNum(tax.igstRate);
   const taxRate = safeNum(tax.taxRate); // For international orders
 
-  // 4. Calculate tax on DISCOUNTED taxable value
-  const cgstAmt = (taxableValue * cgstRate) / 100;
-  const sgstAmt = (taxableValue * sgstRate) / 100;
-  const igstAmt = (taxableValue * igstRate) / 100;
-  const taxAmt = (taxableValue * taxRate) / 100; // International tax
+  // 4. Calculate tax on GROSS (baseForTax = subtotal + P&F, before discount)
+  const cgstAmt = (baseForTax * cgstRate) / 100;
+  const sgstAmt = (baseForTax * sgstRate) / 100;
+  const igstAmt = (baseForTax * igstRate) / 100;
+  const taxAmt = (baseForTax * taxRate) / 100; // International tax
 
-  // Total tax calculation based on type:
-  // - INTERNATIONAL: 1% TAX
-  // - INTRASTATE_IGST: 5% IGST only (Chhattisgarh)
-  // - INTERSTATE: 2.5% CGST + 2.5% SGST (other Indian states)
-  // - INTRASTATE: Old format with CGST+SGST+IGST
-  // - B2C_NO_TAX: 0% (no tax)
+  // Total tax calculation based on type
   let totalTaxAmt;
   if (tax.type === 'INTERNATIONAL') {
     totalTaxAmt = taxAmt;
   } else if (tax.type === 'INTRASTATE_IGST') {
-    totalTaxAmt = igstAmt; // Only IGST for Chhattisgarh
+    totalTaxAmt = igstAmt;
   } else if (tax.type === 'B2C_NO_TAX') {
-    totalTaxAmt = 0; // No tax for B2C
+    totalTaxAmt = 0;
   } else {
-    totalTaxAmt = cgstAmt + sgstAmt + igstAmt; // INTERSTATE or INTRASTATE
+    totalTaxAmt = cgstAmt + sgstAmt + igstAmt;
   }
-  const grandTotal = taxableValue + totalTaxAmt;
+  // ✅ Formula: ((Subtotal + P&F) + Tax) - Discount
+  const grandTotal = (baseForTax + totalTaxAmt) - discountAmount;
+  // taxableValue for display: what tax was computed on
+  const taxableValue = baseForTax;
 
   return {
     subtotal: +subtotal.toFixed(2),
@@ -76,6 +74,43 @@ const computeTotals = (doc = {}) => {
     discount: doc.discount || null,
   };
 };
+
+/**
+ * Build totals from SAVED invoice document only (no tax/total recalculation).
+ * Used for API and PDF so displayed values match what was stored at order creation.
+ */
+function getTotalsFromSavedInvoice(invoiceObj = {}) {
+  const items = Array.isArray(invoiceObj.items) ? invoiceObj.items : [];
+  const charges = invoiceObj.charges || {};
+  const tax = invoiceObj.tax || {};
+  const savedTotal = safeNum(invoiceObj.total, 0);
+  const savedTotalTax = safeNum(tax.totalTax, 0);
+
+  const subtotal = items.reduce((sum, i) => sum + safeNum(i.price) * safeNum(i.qty), 0);
+  const discountAmount = safeNum(invoiceObj.discount?.amount, 0);
+  const discountPercent = safeNum(invoiceObj.discount?.percent, 0);
+  const discountedSubtotal = subtotal - discountAmount;
+  const chargesTotal = safeNum(charges.pf, 0) + safeNum(charges.printing, 0);
+  const taxableValue = savedTotal - savedTotalTax;
+  const totalQty = items.reduce((q, i) => q + safeNum(i.qty), 0);
+
+  return {
+    subtotal: +subtotal.toFixed(2),
+    discountAmount: +discountAmount.toFixed(2),
+    discountPercent: +discountPercent.toFixed(2),
+    discountedSubtotal: +discountedSubtotal.toFixed(2),
+    chargesTotal: +chargesTotal.toFixed(2),
+    taxableValue: Number(taxableValue.toFixed(2)),
+    totalTaxAmt: savedTotalTax,
+    grandTotal: savedTotal,
+    cgstAmt: safeNum(tax.cgstAmount, 0),
+    sgstAmt: safeNum(tax.sgstAmount, 0),
+    igstAmt: safeNum(tax.igstAmount, 0),
+    taxAmt: safeNum(tax.taxAmount, 0),
+    totalQty,
+    discount: invoiceObj.discount || null,
+  };
+}
 
 const formatDateDDMMYYYY = (date = new Date()) => {
   const d = new Date(date);
@@ -237,21 +272,28 @@ async function createInvoice(data) {
   // ✅ Determine if this is a B2B order
   const isB2B = data.orderType === 'B2B' || data.isB2B === true || data.isCorporate === true;
   
-  // Calculate taxable amount
+  // ✅ TAX ON GROSS: Base for tax = Subtotal + P&F (before discount)
   const items = Array.isArray(data.items) ? data.items : [];
   const charges = data.charges || {};
   const subtotal = items.reduce((sum, i) => sum + safeNum(i.price) * safeNum(i.qty), 0);
+  const discountData = data.discount || {};
+  const discountPercent = safeNum(discountData.discountPercent) || safeNum(discountData.percentage) || 0;
+  const discountAmount = discountPercent > 0 ? (subtotal * discountPercent) / 100 : safeNum(discountData.amount, 0);
   const chargesTotal = safeNum(charges.pf) + safeNum(charges.printing);
-  const taxableAmount = subtotal + chargesTotal;
+  const baseForTax = subtotal + chargesTotal;
+
+  // Tax calculated on gross (before discount)
+  const taxInfo = calculateTax(baseForTax, customerState, customerCountry, isB2B);
   
-  // ✅ Pass isB2B flag to calculateTax
-  const taxInfo = calculateTax(taxableAmount, customerState, customerCountry, isB2B);
-  
-  console.log('📊 TAX CALCULATION FOR INVOICE:', {
+  console.log('📊 TAX CALCULATION FOR INVOICE (Tax on Gross):', {
     customerState,
     customerCountry,
     isB2B,
-    taxableAmount,
+    subtotal,
+    discountAmount,
+    chargesTotal,
+    baseForTax: 'Subtotal + P&F (before discount)',
+    baseForTaxValue: baseForTax,
     taxType: taxInfo.type,
     cgstRate: taxInfo.cgstRate,
     sgstRate: taxInfo.sgstRate,
@@ -302,9 +344,7 @@ async function createInvoice(data) {
     data.orderType = 'B2C';
   }
   
-  // ✅ CRITICAL: Recalculate total based on tax info
-  // The frontend sends totalAmount (subtotal + charges), but we need to add tax
-  const taxableValue = subtotal + chargesTotal;
+  // ✅ TAX ON GROSS: Grand Total = ((Subtotal + P&F) + Tax) - Discount
   let totalTaxAmt;
   if (taxInfo.type === 'INTERNATIONAL') {
     totalTaxAmt = taxInfo.taxAmount;
@@ -315,7 +355,7 @@ async function createInvoice(data) {
   } else {
     totalTaxAmt = taxInfo.cgstAmount + taxInfo.sgstAmount + taxInfo.igstAmount;
   }
-  const calculatedTotal = taxableValue + totalTaxAmt;
+  const calculatedTotal = (baseForTax + totalTaxAmt) - discountAmount;
   
   // ✅ Override the total with the correctly calculated value
   data.total = calculatedTotal;
@@ -407,12 +447,12 @@ async function getInvoiceByOrderId(orderId) {
     }
   }
   
-  // ✅ Compute totals before returning
-  const totals = computeTotals(invoiceObj);
+  // ✅ Use SAVED values only (no recalculation of tax/total) so frontend and PDF match DB
+  const totals = getTotalsFromSavedInvoice(invoiceObj);
   
-  console.log('📄 Invoice API Response - Discount Check:');
+  console.log('📄 Invoice API Response (saved totals):');
   console.log('  Invoice Discount:', invoiceObj.discount);
-  console.log('  Totals Discount:', totals.discount);
+  console.log('  Totals grandTotal:', totals.grandTotal, 'totalTaxAmt:', totals.totalTaxAmt);
   console.log('  Order ID:', invoiceObj.order?._id || invoiceObj.order);
   
   return { invoice: invoiceObj, totals };

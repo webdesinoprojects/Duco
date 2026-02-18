@@ -195,6 +195,9 @@ class EmailService {
         paymentMode = 'Online',
         invoicePdfPath = null,
         items = [],
+        isPartialPayment50 = false,
+        walletUrl = null,
+        isPaymentComplete50 = false,
       } = orderData;
 
       if (!customerEmail) {
@@ -204,6 +207,8 @@ class EmailService {
       console.log('Attempting to send order email to:', customerEmail);
 
       const currencySymbol = currency === 'INR' ? '₹' : '$';
+      const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'https://ducoart.com';
+      const resolvedWalletUrl = walletUrl || `${baseUrl.replace(/\/$/, '')}/account/wallet`;
 
       // Generate items HTML
       const itemsHtml = items.map((item, index) => `
@@ -215,7 +220,140 @@ class EmailService {
         </tr>
       `).join('');
 
-      const htmlContent = `
+      // --- Template: 50% Partial Payment Confirmed (initial advance) ---
+      let htmlContent;
+      let textContent;
+      let subject = `Order Confirmation - ${orderId} | Duco`;
+
+      if (isPartialPayment50) {
+        subject = `50% Partial Payment Confirmed - Order #${orderId} | Duco`;
+        htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .header h1 { margin: 0; font-size: 28px; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .order-info { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .order-info p { margin: 10px 0; }
+            .order-info strong { color: #667eea; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+            .button { display: inline-block; background: #2563eb; color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+            .cta-box { background: #f0f7ff; border-left: 4px solid #2563eb; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>50% Partial Payment Confirmed</h1>
+              <p>Your advance payment has been received</p>
+            </div>
+            <div class="content">
+              <p>Hello <strong>${customerName}</strong>,</p>
+              <p>Your order has been placed successfully. We have received your <strong>50% advance payment</strong>.</p>
+              <div class="order-info">
+                <h3 style="color: #667eea; margin-top: 0;">Order Details</h3>
+                <p><strong>Order ID:</strong> ${orderId}</p>
+                <p><strong>Amount Paid (50%):</strong> ${currencySymbol}${totalAmount}</p>
+                <p><strong>Payment Method:</strong> 50% Advance</p>
+                <p><strong>Order Date:</strong> ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              </div>
+              <div class="cta-box">
+                <p style="margin: 0 0 12px 0;"><strong>Action required</strong></p>
+                <p style="margin: 0;">Please pay the remaining balance before delivery to avoid any delay. You can clear your dues directly via your wallet.</p>
+                <a href="${resolvedWalletUrl}" class="button">Pay Remaining Balance → Wallet</a>
+              </div>
+              <p>If you have any questions, contact us at <a href="mailto:support@ducoart.com">support@ducoart.com</a></p>
+              <p>Thank you for shopping with Duco! 🎨</p>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} Duco. All rights reserved.</p>
+              <p>Raipur, Chhattisgarh, India</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        `;
+        textContent = `
+50% Partial Payment Confirmed - Order #${orderId}
+
+Hello ${customerName},
+
+Your 50% advance payment has been received and your order is confirmed.
+
+Order ID: ${orderId}
+Amount Paid (50%): ${currencySymbol}${totalAmount}
+
+Please pay the remaining balance via your wallet: ${resolvedWalletUrl}
+
+Thank you for shopping with Duco!
+Contact: support@ducoart.com
+        `.trim();
+      } else if (isPaymentComplete50) {
+        subject = `Payment Complete – Thank You! Order #${orderId} | Duco`;
+        htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .header h1 { margin: 0; font-size: 28px; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .order-info { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .order-info p { margin: 10px 0; }
+            .order-info strong { color: #059669; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Payment Complete – Thank You!</h1>
+              <p>Your order is fully paid</p>
+            </div>
+            <div class="content">
+              <p>Hello <strong>${customerName}</strong>,</p>
+              <p>We have received your remaining payment. Your order is now <strong>fully paid</strong> and we will process it for dispatch.</p>
+              <div class="order-info">
+                <h3 style="color: #059669; margin-top: 0;">Order Details</h3>
+                <p><strong>Order ID:</strong> ${orderId}</p>
+                <p><strong>Total Amount:</strong> ${currencySymbol}${totalAmount}</p>
+                <p><strong>Payment Status:</strong> Fully Paid</p>
+                <p><strong>Date:</strong> ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              </div>
+              <p>You will receive shipping updates via email and WhatsApp.</p>
+              <p>Thank you for shopping with Duco! 🎨</p>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} Duco. All rights reserved.</p>
+              <p>Raipur, Chhattisgarh, India</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        `;
+        textContent = `
+Payment Complete – Thank You! Order #${orderId}
+
+Hello ${customerName},
+
+We have received your remaining payment. Your order is now fully paid.
+
+Order ID: ${orderId}
+Total Amount: ${currencySymbol}${totalAmount}
+
+Thank you for shopping with Duco!
+        `.trim();
+      } else {
+        // --- Default: standard order confirmation ---
+        htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -241,12 +379,9 @@ class EmailService {
               <h1>🎉 Order Confirmed!</h1>
               <p>Thank you for your order</p>
             </div>
-            
             <div class="content">
               <p>Hello <strong>${customerName}</strong>,</p>
-              
               <p>Your order has been successfully placed and is being processed.</p>
-              
               <div class="order-info">
                 <h3 style="color: #667eea; margin-top: 0;">Order Details</h3>
                 <p><strong>Order ID:</strong> ${orderId}</p>
@@ -268,10 +403,8 @@ class EmailService {
               </div>
 
               <p>If you have any questions, feel free to reach out to us at <a href="mailto:support@ducoart.com">support@ducoart.com</a></p>
-              
               <p>Thank you for shopping with Duco! 🎨</p>
             </div>
-            
             <div class="footer">
               <p>&copy; ${new Date().getFullYear()} Duco. All rights reserved.</p>
               <p>Raipur, Chhattisgarh, India</p>
@@ -281,7 +414,7 @@ class EmailService {
         </html>
       `;
 
-      const textContent = `
+        textContent = `
 Order Confirmed!
 
 Hello ${customerName},
@@ -298,6 +431,7 @@ Thank you for shopping with Duco!
 
 For any queries, contact us at support@ducoart.com
       `.trim();
+      }
 
       const attachments = [];
       if (invoicePdfPath) {
@@ -317,7 +451,7 @@ For any queries, contact us at support@ducoart.com
 
       const sendResult = await this.sendEmail({
         to: customerEmail,
-        subject: `Order Confirmation - ${orderId} | Duco`,
+        subject,
         text: textContent,
         html: htmlContent,
         attachments,
@@ -398,6 +532,130 @@ For any queries, contact us at support@ducoart.com
       });
     } catch (error) {
       console.error('❌ Error sending status update email:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Send delivery reminder email ("Coming Soon" - order arriving in 24-48h)
+   * @param {Object} data - { to, customerName, orderId, deliveryDateFormatted, productSummary, trackOrderUrl }
+   * @returns {Object} - { success, messageId? } or { success: false, error }
+   */
+  async sendDeliveryReminder(data) {
+    try {
+      const {
+        to,
+        customerName = 'Customer',
+        orderId,
+        deliveryDateFormatted,
+        productSummary,
+        trackOrderUrl,
+        hasPendingBalance = false,
+        walletUrl = null,
+      } = data;
+
+      if (!to) {
+        return { success: false, error: 'Recipient email not provided' };
+      }
+
+      const subject = `Get Ready! Your Order #${orderId} arrives soon 📦`;
+      const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'https://ducoart.com';
+      const resolvedWalletUrl = walletUrl || `${baseUrl.replace(/\/$/, '')}/account/wallet`;
+
+      const pendingBalanceBlock = hasPendingBalance && resolvedWalletUrl ? `
+                <div style="background: #fef3c7; border-left: 4px solid #d97706; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                  <p style="margin: 0 0 8px 0;"><strong>Action required</strong></p>
+                  <p style="margin: 0;">Please note: A pending balance remains on this order. To ensure smooth delivery, please clear your dues directly via your wallet as soon as possible.</p>
+                  <a href="${resolvedWalletUrl}" class="cta" style="display: inline-block; background: #d97706; color: #fff !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; margin-top: 12px;">Pay Balance → Wallet</a>
+                </div>
+      ` : '';
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
+            .wrapper { max-width: 560px; margin: 0 auto; padding: 24px 16px; }
+            .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 28px 24px; text-align: center; }
+            .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+            .header p { margin: 8px 0 0 0; font-size: 14px; opacity: 0.9; }
+            .content { padding: 28px 24px; }
+            .content p { margin: 0 0 14px 0; font-size: 15px; }
+            .highlight { background: #f0f7ff; border-left: 4px solid #2563eb; padding: 14px 16px; margin: 20px 0; border-radius: 0 8px 8px 0; font-size: 15px; }
+            .highlight strong { color: #1e40af; }
+            .meta { margin: 20px 0; }
+            .meta-row { display: flex; margin-bottom: 10px; font-size: 14px; }
+            .meta-label { font-weight: 600; color: #64748b; min-width: 140px; }
+            .meta-value { color: #1e293b; }
+            .cta { display: inline-block; background: #2563eb; color: #fff !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 20px 0; }
+            .cta:hover { background: #1d4ed8; }
+            .footer { padding: 20px 24px; text-align: center; font-size: 13px; color: #64748b; border-top: 1px solid #eee; }
+          </style>
+        </head>
+        <body>
+          <div class="wrapper">
+            <div class="card">
+              <div class="header">
+                <h1>📦 Your order is on its way</h1>
+                <p>Arriving in the next 24–48 hours</p>
+              </div>
+              <div class="content">
+                <p>Hello <strong>${customerName}</strong>,</p>
+                <p>Good news — your order is scheduled for delivery soon. Here are the details:</p>
+                <div class="highlight">
+                  <strong>Arriving on ${deliveryDateFormatted}</strong>
+                </div>
+                <div class="meta">
+                  <div class="meta-row"><span class="meta-label">Order ID</span><span class="meta-value">#${orderId}</span></div>
+                  <div class="meta-row"><span class="meta-label">Items</span><span class="meta-value">${productSummary}</span></div>
+                </div>
+                ${pendingBalanceBlock}
+                <p>You can track your order and view full details using the button below.</p>
+                <a href="${trackOrderUrl}" class="cta">Track Your Order</a>
+                <p style="margin-top: 24px;">Thank you for shopping with Duco! 🎨</p>
+              </div>
+              <div class="footer">
+                <p style="margin: 0;">Duco Art · Raipur, Chhattisgarh, India</p>
+                <p style="margin: 6px 0 0 0;"><a href="mailto:support@ducoart.com" style="color: #2563eb;">support@ducoart.com</a></p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const pendingBalanceText = hasPendingBalance && resolvedWalletUrl
+        ? `\n\nAction required: A pending balance remains on this order. Please clear your dues via your wallet: ${resolvedWalletUrl}\n`
+        : '';
+
+      const textContent = `
+Get Ready! Your Order #${orderId} arrives soon
+
+Hello ${customerName},
+
+Your order is scheduled for delivery in the next 24–48 hours.
+
+Arriving on: ${deliveryDateFormatted}
+Order ID: #${orderId}
+Items: ${productSummary}
+${pendingBalanceText}
+Track your order: ${trackOrderUrl}
+
+Thank you for shopping with Duco!
+      `.trim();
+
+      return await this.sendEmail({
+        to,
+        subject,
+        text: textContent,
+        html: htmlContent,
+      });
+    } catch (error) {
+      console.error('❌ Error sending delivery reminder email:', error);
       return { success: false, error: error.message };
     }
   }

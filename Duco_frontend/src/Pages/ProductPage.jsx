@@ -73,9 +73,9 @@ const ProductPage = () => {
   const { addToCart } = useContext(CartContext);
   const { id } = useParams();
   const SIZES = ["S", "M", "L", "XL", "2XL", "3XL"];
-  const initialQty = SIZES.reduce((acc, k) => ({ ...acc, [k]: 0 }), {});
+  // ✅ Multi-color quantity state: { "Yellow": { "M": 12 }, "Green": { "L": 5 } }
   const navigate = useNavigate();
-  const [qty, setQty] = useState(initialQty);
+  const [qty, setQty] = useState({});
   const [gender, setGender] = useState("");
   const [iscount, setIscount] = useState(0);
   const [videoThumbnail, setVideoThumbnail] = useState(null);
@@ -356,7 +356,10 @@ const ProductPage = () => {
   };
 
   const validateStockSelection = () => {
-    for (const [size, value] of Object.entries(qty)) {
+    const currentColor = colortext || "Default";
+    const colorQuantities = qty[currentColor] || {};
+    
+    for (const [size, value] of Object.entries(colorQuantities)) {
       const selectedQty = Number(value || 0);
       if (selectedQty <= 0) continue;
       const limit = getSizeStockLimit(size);
@@ -375,10 +378,12 @@ const ProductPage = () => {
     return true;
   };
 
-  const handleQty = (k, v) => {
-    const raw = Number(v.replace(/[^0-9]/g, "")) || 0;
-    const limit = getSizeStockLimit(k);
-    console.log(`📝 handleQty: size="${k}", raw=${raw}, limit=${limit}`);
+  const handleQty = (size, value) => {
+    const raw = Number(value.replace(/[^0-9]/g, "")) || 0;
+    const limit = getSizeStockLimit(size);
+    const currentColor = colortext || "Default";
+    
+    console.log(`📝 handleQty: color="${currentColor}", size="${size}", raw=${raw}, limit=${limit}`);
 
     let n = Math.max(0, Math.min(9999, raw));
 
@@ -387,17 +392,24 @@ const ProductPage = () => {
       if (n > limit) {
         n = limit;
         if (limit === 0) {
-          toast.error(`${k} size is out of stock`);
+          toast.error(`${size} size is out of stock`);
         } else {
-          toast.error(`Only ${limit} left for size ${k}`);
+          toast.error(`Only ${limit} left for size ${size}`);
         }
       }
     } else {
-      console.warn(`⚠️ No stock limit found for size ${k}`);
+      console.warn(`⚠️ No stock limit found for size ${size}`);
     }
 
-    console.log(`✅ Final qty for ${k}: ${n}`);
-    setQty((p) => ({ ...p, [k]: n }));
+    console.log(`✅ Final qty for ${currentColor} - ${size}: ${n}`);
+    // ✅ Update nested structure: preserve other colors, update current color's size
+    setQty((prev) => ({
+      ...prev,
+      [currentColor]: {
+        ...(prev[currentColor] || {}),
+        [size]: n,
+      },
+    }));
   };
 
   // Show skeleton loading while product is loading
@@ -624,7 +636,7 @@ const ProductPage = () => {
                       className={`h-12 w-16 rounded-xl border-2 text-center focus:outline-none focus:ring-2 ${borderColor} ${bgColor} ${textColor} ${
                         isOutOfStock ? "cursor-not-allowed" : "focus:ring-sky-400"
                       }`}
-                      value={qty[s] === 0 ? "" : qty[s]}
+                      value={(qty[colortext]?.[s] || 0) === 0 ? "" : qty[colortext]?.[s] || 0}
                       onChange={(e) => handleQty(s, e.target.value)}
                       placeholder="0"
                       disabled={isOutOfStock}
@@ -648,7 +660,10 @@ const ProductPage = () => {
                 setIsOpenLog(true);
                 return;
               }
-              const allZero = Object.values(qty).every((value) => value <= 0);
+              // ✅ Check if current color has any quantities
+              const currentColor = colortext || "Default";
+              const colorQuantities = qty[currentColor] || {};
+              const allZero = Object.values(colorQuantities).every((value) => Number(value || 0) <= 0);
               if (allZero) {
                 toast.error("Please select at least one size");
                 return;
@@ -744,24 +759,43 @@ const ProductPage = () => {
                   if (!validateStockSelection()) {
                     return;
                   }
-                  addToCart({
-                    id,
-                    design: {
-                      front: {},
-                      back: {},
-                      left: {},
-                      right: {}
-                    },
-                    color: selectedColorCode,
-                    quantity: qty,
-                    colortext,
-                    price: Math.round(price),
-                    gender,
-                    isCorporate: product?.isCorporate || false, // From database
-                    isBulkProduct: product?.isCorporate || false, // Flag for bulk items
-                    category: product?.category || null, // Include category for validation
-                    isPlainTshirt: true // ✅ Mark as plain t-shirt for easy identification
-                  });
+                  // ✅ Flatten multi-color quantities: add one cart item per color (with all sizes)
+                  for (const [colorName, sizes] of Object.entries(qty)) {
+                    if (!sizes || typeof sizes !== 'object') continue;
+                    
+                    // Filter out zero quantities
+                    const nonZeroSizes = Object.fromEntries(
+                      Object.entries(sizes).filter(([_, qty]) => Number(qty || 0) > 0)
+                    );
+                    
+                    // Skip if no quantities for this color
+                    if (Object.keys(nonZeroSizes).length === 0) continue;
+                    
+                    // Find the color code for this color name
+                    const colorGroup = product?.image_url?.find(c => c.color === colorName);
+                    const colorCode = colorGroup?.colorcode || selectedColorCode;
+                    
+                    // ✅ Add one cart item per color with all its sizes
+                    addToCart({
+                      id,
+                      design: {
+                        front: {},
+                        back: {},
+                        left: {},
+                        right: {}
+                      },
+                      color: colorCode,
+                      quantity: nonZeroSizes, // All sizes for this color
+                      colortext: colorName,
+                      price: Math.round(price),
+                      gender,
+                      isCorporate: product?.isCorporate || false,
+                      isBulkProduct: product?.isCorporate || false,
+                      category: product?.category || null,
+                      isPlainTshirt: true
+                    });
+                  }
+                  
                   setShowModal(false);
                   navigate("/cart");
                 }}
@@ -774,10 +808,13 @@ const ProductPage = () => {
                   if (!validateStockSelection()) {
                     return;
                   }
+                  // ✅ Pass current color's quantities to design page
+                  const currentColor = colortext || "Default";
+                  const colorQuantities = qty[currentColor] || {};
                   navigate(
                     `/design/${id}/${selectedColorCode.replace("#", "")}`,
                     {
-                      state: { quantity: qty },
+                      state: { quantity: colorQuantities },
                     }
                   );
                   setShowModal(false);
@@ -803,7 +840,7 @@ const ProductPage = () => {
         onClose={() => setSelectedDesign(null)}
         id={id}
         addtocart={addToCart}
-        size={qty}
+        size={qty[colortext] || {}}
         color={selectedColorCode}
         colortext={colortext}
         gender={gender}

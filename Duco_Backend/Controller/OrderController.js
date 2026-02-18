@@ -32,7 +32,8 @@ const startAwbPolling = () => {
       ).limit(10).lean();
 
       if (ordersNeedingAwb.length > 0) {
-        console.log(`[AWB Polling] 🔍 Found ${ordersNeedingAwb.length} orders waiting for AWB code`);
+        // ✅ SILENT MODE: Only log when AWB is found, not every poll
+        let awbFound = false;
 
         // Check each order for AWB updates
         for (const order of ordersNeedingAwb) {
@@ -40,33 +41,50 @@ const startAwbPolling = () => {
             const result = await fetchAndUpdateAwbCode(order.shiprocket.shipmentId);
 
             if (result.success && result.hasAwb) {
-              // Update order with new AWB
-              await Order.findByIdAndUpdate(
-                order._id,
-                {
-                  $set: {
-                    'shiprocket.awbCode': result.awbCode,
-                    'shiprocket.courierName': result.courierName,
-                    'shiprocket.status': result.status,
-                    'shiprocket.lastUpdated': new Date()
-                  }
-                }
-              );
+              console.log(`[AWB Polling] Found AWB: ${result.awbCode} for order ${order.orderId}`);
+              // ✅ UPDATE DATABASE with AWB
+              try {
+                const updateResult = await Order.findByIdAndUpdate(
+                  order._id,
+                  {
+                    $set: {
+                      'shiprocket.awbCode': result.awbCode,
+                      'shiprocket.courierName': result.courierName,
+                      'shiprocket.status': result.status,
+                    }
+                  },
+                  { new: false } // Don't fetch the document again
+                );
 
-              console.log(`[AWB Polling] ✅ AWB assigned for order ${order.orderId}: ${result.awbCode}`);
+                if (updateResult) {
+                  console.log(`[AWB Polling] ✅ AWB assigned and saved for order ${order.orderId}: ${result.awbCode}`);
+                  awbFound = true;
+                } else {
+                  console.error(`[AWB Polling] ❌ Failed to update order ${order.orderId} - document not found`);
+                }
+              } catch (dbErr) {
+                console.error(`[AWB Polling] ❌ Database error updating order ${order.orderId}:`, dbErr.message);
+              }
+            } else if (result.success && !result.hasAwb) {
+              console.log(`[AWB Polling] No AWB yet for order ${order.orderId} (status: ${result.status})`);
             }
           } catch (err) {
             // Silent fail - don't spam logs
-            // console.error(`[AWB Polling] Error checking order ${order._id}:`, err.message);
+            console.error(`[AWB Polling] Error processing order ${order.orderId}:`, err.message);
           }
+        }
+        
+        // Only log when polling actually finds something
+        if (!awbFound && ordersNeedingAwb.length <= 2) {
+          // Silent for small batches - likely same orders being polled
         }
       }
     } catch (err) {
       console.error('[AWB Polling] Error in polling job:', err.message);
     }
-  }, 60000); // Run every 60 seconds
+  }, 300000); // ✅ Run every 5 minutes (5 * 60 * 1000) instead of every 60 seconds
 
-  console.log('[AWB Polling] ✅ Started AWB polling job (runs every 60 seconds)');
+  console.log('[AWB Polling] ✅ Started AWB polling job (runs every 5 minutes)');
 };
 
 // Start polling when module loads
@@ -672,6 +690,14 @@ exports.refetchTrackingId = async (req, res) => {
     // Fetch AWB code from Shiprocket
     const awbResult = await fetchAndUpdateAwbCode(order.shiprocket.shipmentId);
 
+    console.log(`[Refetch] Result from Shiprocket API:`, {
+      success: awbResult.success,
+      hasAwb: awbResult.hasAwb,
+      awbCode: awbResult.awbCode,
+      courierName: awbResult.courierName,
+      status: awbResult.status
+    });
+
     if (!awbResult.success) {
       return res.status(500).json({ 
         error: 'Failed to fetch tracking from Shiprocket',
@@ -679,34 +705,53 @@ exports.refetchTrackingId = async (req, res) => {
       });
     }
 
-    // If AWB is now available, update the order
+    // If AWB is now available, update the order in MongoDB
     if (awbResult.hasAwb) {
-      console.log(`✅ AWB code found: ${awbResult.awbCode}`);
+      console.log(`✅ AWB is assigned: '${awbResult.awbCode}' - proceeding to save to database...`);
       
-      const updatedOrder = await Order.findByIdAndUpdate(
-        id,
-        {
-          $set: {
-            'shiprocket.awbCode': awbResult.awbCode,
-            'shiprocket.courierName': awbResult.courierName || order.shiprocket.courierName,
-            'shiprocket.status': awbResult.status || order.shiprocket.status,
-            'shiprocket.lastUpdated': new Date()
-          }
-        },
-        { new: true, runValidators: true }
-      ).lean();
+      try {
+        const updatedOrder = await Order.findByIdAndUpdate(
+          id,
+          {
+            $set: {
+              'shiprocket.awbCode': awbResult.awbCode,
+              'shiprocket.courierName': awbResult.courierName || order.shiprocket.courierName,
+              'shiprocket.status': awbResult.status || order.shiprocket.status,
+            }
+          },
+          { new: true, runValidators: true }
+        ).lean();
 
-      return res.json({
-        success: true,
-        message: 'Tracking ID fetched successfully',
-        hasAwb: true,
-        awbCode: awbResult.awbCode,
-        courierName: awbResult.courierName,
-        order: updatedOrder
-      });
+        if (!updatedOrder) {
+          console.error(`❌ Failed to update order in MongoDB: Order not found`);
+          return res.status(500).json({ 
+            error: 'Failed to save tracking to database',
+            details: 'Order update returned null'
+          });
+        }
+
+        console.log(`✅ Successfully saved AWB to MongoDB for order ${order.orderId}: ${awbResult.awbCode}`);
+        console.log(`✅ Updated shiprocket data:`, updatedOrder.shiprocket);
+
+        return res.json({
+          success: true,
+          message: 'Tracking ID fetched and saved successfully',
+          hasAwb: true,
+          awbCode: awbResult.awbCode,
+          courierName: awbResult.courierName,
+          order: updatedOrder
+        });
+      } catch (dbErr) {
+        console.error(`❌ Database error while saving AWB:`, dbErr.message);
+        return res.status(500).json({ 
+          error: 'Failed to save tracking to database',
+          details: dbErr.message
+        });
+      }
     } else {
       // AWB not yet assigned, but shipment exists
       console.log(`⏳ AWB not yet assigned for shipment: ${order.shiprocket.shipmentId}`);
+      console.log(`[Refetch] Shipment status from API: ${awbResult.status} | AWB code extracted: '${awbResult.awbCode}' | hasAwb flag: ${awbResult.hasAwb}`);
       
       const adminInstructions = {
         step1: 'Go to https://app.shiprocket.in',

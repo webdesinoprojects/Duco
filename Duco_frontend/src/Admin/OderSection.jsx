@@ -262,9 +262,8 @@ const OderSection = () => {
                     <p className="font-semibold text-lg">
                       {(() => {
                         const currency = order.currency || 'INR';
-                        const baseAmount = order.paymentmode === '50%' 
-                          ? Number(order.price || 0) * 2 
-                          : Number(order.price || 0);
+                        // ✅ Use totalPay/totalAmount from backend for accurate total
+                        const baseAmount = Number(order.totalPay || order.totalAmount || order.price || 0);
                         return formatPrice(baseAmount, currency);
                       })()}
                     </p>
@@ -295,16 +294,40 @@ const OderSection = () => {
                   <div className="bg-gray-50 rounded p-2">
                     {order.paymentmode === '50%' ? (
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
-                            💰 50% Advance
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-700">
-                          <p>Total: {formatPrice(Number(order.price || 0) * 2, order.currency || 'INR')}</p>
-                          <p className="text-orange-600 font-medium">Paid: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
-                          <p className="text-orange-600 font-medium">Due: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
-                        </div>
+                        {(() => {
+                          const totalAmount = Number(order.totalPay || order.totalAmount || order.price || 0);
+                          const paidAmount = Number(order.advancePaidAmount || order.price || 0);
+                          const dueAmount = Number(order.remainingAmount || (totalAmount - paidAmount) || 0);
+                          const isFullyPaid = order.remainingPaymentId || (order.remainingAmount !== undefined && order.remainingAmount === 0);
+                          
+                          return (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                  isFullyPaid 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-orange-100 text-orange-800'
+                                }`}>
+                                  {isFullyPaid ? '✅ Fully Paid' : '💰 50% Advance'}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-700">
+                                <p>Total: {formatPrice(totalAmount, order.currency || 'INR')}</p>
+                                <p className={`font-medium ${
+                                  isFullyPaid ? 'text-green-600' : 'text-orange-600'
+                                }`}>
+                                  Paid: {formatPrice(isFullyPaid ? totalAmount : paidAmount, order.currency || 'INR')}
+                                </p>
+                                {!isFullyPaid && (
+                                  <p className="text-orange-600 font-medium">Due: {formatPrice(dueAmount, order.currency || 'INR')}</p>
+                                )}
+                                {isFullyPaid && (
+                                  <p className="text-xs text-green-600 mt-1">✅ Payment Complete</p>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     ) : order.paymentmode === 'store_pickup' ? (
                       <div className="space-y-1">

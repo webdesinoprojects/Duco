@@ -28,11 +28,10 @@ const safeNum = (v, fallback = 0) => {
 // Format currency based on type
 const formatCurrency = (amount, symbol, isINR = true) => {
   const num = safeNum(amount);
-  if (isINR) {
-    return `${symbol}${num.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-  } else {
-    return `${symbol}${num.toFixed(2)}`;
-  }
+  // ✅ Fix: Show 2 decimal places for all currencies to ensure math adds up
+  // Prevents confusion like ₹8 + ₹0 = ₹9 
+  const formatted = num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${symbol}${formatted}`;
 };
 
 // Use the new InvoiceTemplate component
@@ -490,13 +489,8 @@ export default function OrderSuccess() {
               <h1 className="text-3xl font-bold text-gray-800 mb-2">
                 Thank you for your order!
               </h1>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600">
                 Your order <span className="font-semibold text-lg text-gray-800">#{orderId}</span> has been placed successfully.
-              </p>
-              <p className="text-sm text-gray-500">
-                {emailSent
-                  ? "A confirmation email and invoice have been sent to your registered email address."
-                  : "We could not confirm email delivery for this order."}
               </p>
             </div>
           </div>

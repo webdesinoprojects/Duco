@@ -72,7 +72,7 @@ export default function TrackOrder() {
       return {
         id: trackingData.order._id,
         status: trackingData.order.status,
-        total: trackingData.order.totalPay || trackingData.order.price,
+        total: trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price,
         printroveOrderId: trackingData.order.printroveOrderId,
         printroveStatus: trackingData.order.printroveStatus,
         trackingUrl: trackingData.order.printroveTrackingUrl
@@ -153,20 +153,30 @@ export default function TrackOrder() {
       
       if (result.success) {
         if (result.hasAwb) {
-          // Update tracking data with new AWB code
-          setTrackingData(prev => ({
-            ...prev,
-            order: {
-              ...prev.order,
-              shiprocket: {
-                ...prev.order.shiprocket,
-                awbCode: result.awbCode,
-                courierName: result.courierName || prev.order.shiprocket.courierName,
-              }
-            }
-          }));
-          setAdminInstructions(null);
           console.log("✅ Tracking ID fetched successfully:", result.awbCode);
+          
+          // ✅ CRITICAL FIX: Use the full updated order from backend to ensure state matches DB
+          if (result.order) {
+            setTrackingData(prev => ({
+              ...prev,
+              order: result.order  // Use full updated order from backend
+            }));
+          } else {
+            // Fallback: manual update if full order not provided
+            setTrackingData(prev => ({
+              ...prev,
+              order: {
+                ...prev.order,
+                shiprocket: {
+                  ...prev.order.shiprocket,
+                  awbCode: result.awbCode,
+                  courierName: result.courierName || prev.order.shiprocket.courierName,
+                }
+              }
+            }));
+          }
+          
+          setAdminInstructions(null);
         } else {
           // Store admin instructions for display
           setAdminInstructions(result.adminActions || null);
@@ -270,11 +280,11 @@ export default function TrackOrder() {
                 )}
                 {typeof orderSummary.total !== "undefined" && (
                   <span className="text-xs md:text-sm text-gray-300">
-                    Total: ₹{Number(orderSummary.total).toLocaleString()}
+                    Total: ₹{Number(orderSummary.total).toFixed(2)}
                   </span>
                 )}
                 {walletBalance !== null && (
-                  <Badge>Wallet: ₹{walletBalance.toLocaleString()}</Badge>
+                  <Badge>Wallet: ₹{walletBalance.toFixed(2)}</Badge>
                 )}
               </div>
             )}
@@ -294,7 +304,7 @@ export default function TrackOrder() {
                   ? "Loading..."
                   : walletBalance === null
                     ? "Wallet"
-                    : `₹${walletBalance.toLocaleString()}`}
+                    : `₹${walletBalance.toFixed(2)}`}
               </span>
             </button>
 
@@ -390,7 +400,7 @@ export default function TrackOrder() {
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Order Value</div>
               <div className="text-xl font-bold text-white mt-1">
-                ₹{(trackingData.order.totalPay || trackingData.order.price || 0).toLocaleString()}
+                ₹{(trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0).toLocaleString()}
               </div>
             </div>
 
@@ -612,8 +622,8 @@ export default function TrackOrder() {
               <div className="border-t border-gray-700 pt-4">
                 <h3 className="text-base font-semibold text-white mb-3">Order Summary</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InfoRow label="Subtotal" value={`₹${(trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0).toLocaleString()}`} />
-                  <InfoRow label="Paid Amount" value={`₹${((trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0) - (trackingData.order.remainingAmount || 0)).toLocaleString()}`} />
+                  <InfoRow label="Grand Total" value={`₹${Number(trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0).toFixed(2)}`} />
+                  <InfoRow label="Paid Amount" value={`₹${Number((trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0) - (trackingData.order.remainingAmount || 0)).toFixed(2)}`} />
                   <InfoRow label="Payment Status" value={trackingData.order.paymentStatus || 'N/A'} />
                   <InfoRow label="Payment Method" value={trackingData.order.paymentmode || 'N/A'} />
                 </div>

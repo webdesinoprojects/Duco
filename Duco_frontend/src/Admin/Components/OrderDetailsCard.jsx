@@ -22,11 +22,9 @@ const formatCurrency = (amount, currency = 'INR') => {
   const symbol = currencySymbols[currency] || '₹';
   const value = Number(amount || 0);
   
-  if (currency === 'INR') {
-    return `${symbol}${Math.round(value).toLocaleString('en-IN')}`;
-  } else {
-    return `${symbol}${value.toFixed(2)}`;
-  }
+  // ✅ Fix: Show 2 decimal places for all currencies to ensure math adds up
+  // Prevents confusion like ₹8 + ₹0 = ₹9
+  return `${symbol}${value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 };
 
 function sortedEntries(quantity = {}) {
@@ -295,31 +293,68 @@ const OrderDetailsCard = ({ orderId }) => {
           <h3 className="text-lg font-semibold mb-2">Payment & Delivery</h3>
           <div className="space-y-2">
             <p>
-              Total Amount: {formatCurrency(order.price || order.amount || 0, order.currency)}
+              Total Amount: {formatCurrency(
+                Number(order.totalPay || order.totalAmount || order.price || order.amount || 0), 
+                order.currency
+              )}
             </p>
             
             {/* ✅ 50% Payment Information */}
-            {order.paymentmode === '50%' && (
-              <div className="bg-orange-50 border border-orange-200 rounded p-3 my-2">
-                <p className="text-sm font-semibold text-orange-800">💰 50% Advance Payment</p>
-                <p className="text-sm text-orange-700 mt-1">
-                  Amount Paid: {formatCurrency((order.price || order.amount || 0) / 2, order.currency)}
-                </p>
-                <p className="text-sm text-orange-700">
-                  Amount Due: {formatCurrency((order.price || order.amount || 0) / 2, order.currency)}
-                </p>
-                <p className="text-xs text-orange-600 mt-1">
-                  ⚠️ Remaining payment due before delivery
-                </p>
-              </div>
-            )}
+            {order.paymentmode === '50%' && (() => {
+              const totalAmount = Number(order.totalPay || order.totalAmount || order.price || order.amount || 0);
+              const paidAmount = Number(order.advancePaidAmount || order.price || order.amount || 0);
+              const dueAmount = Number(order.remainingAmount || (totalAmount - paidAmount) || 0);
+              const isFullyPaid = order.remainingPaymentId || (order.remainingAmount !== undefined && order.remainingAmount === 0);
+              
+              return (
+                <div className={`border rounded p-3 my-2 ${
+                  isFullyPaid 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-orange-50 border-orange-200'
+                }`}>
+                  <p className={`text-sm font-semibold ${
+                    isFullyPaid ? 'text-green-800' : 'text-orange-800'
+                  }`}>
+                    {isFullyPaid ? '✅ Payment Complete (50% + Remaining)' : '💰 50% Advance Payment'}
+                  </p>
+                  <p className={`text-sm mt-1 ${
+                    isFullyPaid ? 'text-green-700' : 'text-orange-700'
+                  }`}>
+                    Amount Paid: {formatCurrency(isFullyPaid ? totalAmount : paidAmount, order.currency)}
+                  </p>
+                  {!isFullyPaid && (
+                    <>
+                      <p className="text-sm text-orange-700">
+                        Amount Due: {formatCurrency(dueAmount, order.currency)}
+                      </p>
+                      <p className="text-xs text-orange-600 mt-1">
+                        ⚠️ Remaining payment due before delivery
+                      </p>
+                    </>
+                  )}
+                  {isFullyPaid && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✅ Both payments received
+                    </p>
+                  )}
+                  {order.remainingPaymentId && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Remaining Payment ID: {order.remainingPaymentId}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
             
             {/* ✅ Store Pickup Information */}
             {order.paymentmode === 'store_pickup' && (
               <div className="bg-blue-50 border border-blue-200 rounded p-3 my-2">
                 <p className="text-sm font-semibold text-blue-800">🏬 Pickup from Store</p>
                 <p className="text-sm text-blue-700 mt-1">
-                  Payment Due: {formatCurrency(order.price || order.amount || 0, order.currency)}
+                  Payment Due: {formatCurrency(
+                    Number(order.totalPay || order.totalAmount || order.price || order.amount || 0), 
+                    order.currency
+                  )}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
                   ℹ️ Payment to be collected at pickup
@@ -337,7 +372,13 @@ const OrderDetailsCard = ({ orderId }) => {
             
             {/* ✅ Payment Mode Display */}
             <p className="text-sm text-gray-600">
-              Payment Mode: <span className="font-medium text-gray-800">{order.paymentmode || 'N/A'}</span>
+              Payment Mode: <span className="font-medium text-gray-800">{(() => {
+                if (order.paymentmode === '50%') {
+                  const isFullyPaid = order.remainingPaymentId || (order.remainingAmount !== undefined && order.remainingAmount === 0);
+                  return `50% Razorpay${isFullyPaid ? ' (Fully Paid)' : ''}`;
+                }
+                return order.paymentmode || 'N/A';
+              })()}</span>
             </p>
             
             <div className="pt-2 border-t border-gray-200">
