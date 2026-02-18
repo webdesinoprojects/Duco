@@ -67,7 +67,51 @@ const clearTokenCache = () => {
   console.log('[Shiprocket] Token cache cleared');
 };
 
+/**
+ * Get shipment details from Shiprocket to fetch AWB code
+ * The AWB code is assigned after pickup scheduling or courier assignment
+ */
+const getShipmentDetails = async (shipmentId) => {
+  try {
+    const token = await getShiprocketToken();
+
+    console.log(`[Shiprocket] Fetching shipment details for ID: ${shipmentId}`);
+
+    const response = await axios.get(
+      `https://apiv2.shiprocket.in/v1/external/shipments/${shipmentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000
+      }
+    );
+
+    console.log(`[Shiprocket] Shipment details retrieved:`, response.data);
+
+    return {
+      success: true,
+      data: response.data
+    };
+
+  } catch (error) {
+    const statusCode = error.response?.status;
+    const errorData = error.response?.data;
+    const errorMessage = errorData?.message || error.message;
+
+    console.error(`[Shiprocket] Failed to fetch shipment details (Status: ${statusCode}):`, errorMessage);
+
+    return {
+      success: false,
+      error: errorMessage || 'Failed to fetch shipment details',
+      statusCode
+    };
+  }
+};
+
 module.exports = { 
   getShiprocketToken,
-  clearTokenCache 
+  clearTokenCache,
+  getShipmentDetails
 };

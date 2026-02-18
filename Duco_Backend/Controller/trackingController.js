@@ -13,6 +13,13 @@ const getOrderTracking = async (req, res) => {
       return res.status(400).json({ error: 'Order ID is required' });
     }
 
+    // ✅ DISABLE CACHING: Force fresh data every time
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+
     // Get comprehensive tracking info
     const trackingInfo = await PrintroveTrackingService.getTrackingInfo(orderId);
     
@@ -27,6 +34,12 @@ const getOrderTracking = async (req, res) => {
 
   } catch (error) {
     console.error('Error getting order tracking:', error);
+    // ✅ Also disable caching for error responses
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to get tracking information' 
@@ -152,11 +165,15 @@ const getUserOrdersWithTracking = async (req, res) => {
             orderId: 1,
             status: 1,
             createdAt: 1,
+            totalAmount: 1,
             totalPay: 1,
             price: 1,
             currency: 1,
             displayPrice: 1,
             orderType: 1,
+            paymentStatus: 1,
+            paymentmode: 1,
+            remainingAmount: 1,
             printroveOrderId: 1,
             hasLogistics: 1,
             trackingUrl: 1,

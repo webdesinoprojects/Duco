@@ -2,7 +2,78 @@ const mongoose = require('mongoose');
 const Order = require('../DataBase/Models/OrderModel');
 const Product = require('../DataBase/Models/ProductsModel');
 const Design = require('../DataBase/Models/DesignModel');
-const { createShiprocketOrder } = require("../Services/shiprocketService");
+const { createShiprocketOrder, fetchAndUpdateAwbCode } = require("../Services/shiprocketService");
+
+// ================================================================
+// 🔄 BACKGROUND JOB - Poll for AWB Updates Every Minute
+// ================================================================
+/**
+ * Automatically checks all orders with shipmentId but no awbCode
+ * to see if Shiprocket has assigned an AWB code yet
+ * Runs every 60 seconds in the background
+ */
+let awbPollingInterval = null;
+
+const startAwbPolling = () => {
+  if (awbPollingInterval) {
+    console.log('[AWB Polling] ℹ️ Polling already running, skipping restart');
+    return;
+  }
+
+  awbPollingInterval = setInterval(async () => {
+    try {
+      // Find orders with shipmentId but no awbCode
+      const ordersNeedingAwb = await Order.find(
+        {
+          'shiprocket.shipmentId': { $exists: true, $ne: null },
+          'shiprocket.awbCode': { $in: [null, '', undefined] }
+        },
+        '_id orderId shiprocket.shipmentId'
+      ).limit(10).lean();
+
+      if (ordersNeedingAwb.length > 0) {
+        console.log(`[AWB Polling] 🔍 Found ${ordersNeedingAwb.length} orders waiting for AWB code`);
+
+        // Check each order for AWB updates
+        for (const order of ordersNeedingAwb) {
+          try {
+            const result = await fetchAndUpdateAwbCode(order.shiprocket.shipmentId);
+
+            if (result.success && result.hasAwb) {
+              // Update order with new AWB
+              await Order.findByIdAndUpdate(
+                order._id,
+                {
+                  $set: {
+                    'shiprocket.awbCode': result.awbCode,
+                    'shiprocket.courierName': result.courierName,
+                    'shiprocket.status': result.status,
+                    'shiprocket.lastUpdated': new Date()
+                  }
+                }
+              );
+
+              console.log(`[AWB Polling] ✅ AWB assigned for order ${order.orderId}: ${result.awbCode}`);
+            }
+          } catch (err) {
+            // Silent fail - don't spam logs
+            // console.error(`[AWB Polling] Error checking order ${order._id}:`, err.message);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[AWB Polling] Error in polling job:', err.message);
+    }
+  }, 60000); // Run every 60 seconds
+
+  console.log('[AWB Polling] ✅ Started AWB polling job (runs every 60 seconds)');
+};
+
+// Start polling when module loads
+if (typeof window === 'undefined') { // Only in Node.js, not in browser
+  startAwbPolling();
+}
+
 
 // ================================================================
 // 🧩 Helper – Flatten base64 or nested design objects
@@ -288,6 +359,13 @@ exports.getOrdersByUser = async (req, res) => {
 // ================================================================
 exports.getAllOrders = async (req, res) => {
   try {
+    // ✅ DISABLE CACHING: Force fresh data every time
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+
     // Check if this is a lightweight request (for dropdowns, etc.)
     const lightweight = req.query.lightweight === 'true';
     
@@ -557,5 +635,112 @@ exports.updateOrderStatus = async (req, res) => {
   } catch (err) {
     console.error('Error updating order:', err);
     res.status(500).json({ error: 'Failed to update order' });
+  }
+};
+
+// ================================================================
+// -------- REFETCH TRACKING ID FROM SHIPROCKET --------
+// ================================================================
+/**
+ * Fetch AWB/Tracking code from Shiprocket and update order
+ * Called by frontend when user wants to check for tracking number
+ * Useful because AWB is assigned after shipment creation
+ */
+exports.refetchTrackingId = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Check if order has shiprocket shipment
+    if (!order.shiprocket?.shipmentId) {
+      return res.status(400).json({ 
+        error: 'No Shiprocket shipment found for this order',
+        message: 'This order has not been shipped via Shiprocket'
+      });
+    }
+
+    console.log(`🔄 Refetching tracking ID for order: ${order.orderId}, shipmentId: ${order.shiprocket.shipmentId}`);
+
+    // Fetch AWB code from Shiprocket
+    const awbResult = await fetchAndUpdateAwbCode(order.shiprocket.shipmentId);
+
+    if (!awbResult.success) {
+      return res.status(500).json({ 
+        error: 'Failed to fetch tracking from Shiprocket',
+        details: awbResult.error
+      });
+    }
+
+    // If AWB is now available, update the order
+    if (awbResult.hasAwb) {
+      console.log(`✅ AWB code found: ${awbResult.awbCode}`);
+      
+      const updatedOrder = await Order.findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            'shiprocket.awbCode': awbResult.awbCode,
+            'shiprocket.courierName': awbResult.courierName || order.shiprocket.courierName,
+            'shiprocket.status': awbResult.status || order.shiprocket.status,
+            'shiprocket.lastUpdated': new Date()
+          }
+        },
+        { new: true, runValidators: true }
+      ).lean();
+
+      return res.json({
+        success: true,
+        message: 'Tracking ID fetched successfully',
+        hasAwb: true,
+        awbCode: awbResult.awbCode,
+        courierName: awbResult.courierName,
+        order: updatedOrder
+      });
+    } else {
+      // AWB not yet assigned, but shipment exists
+      console.log(`⏳ AWB not yet assigned for shipment: ${order.shiprocket.shipmentId}`);
+      
+      const adminInstructions = {
+        step1: 'Go to https://app.shiprocket.in',
+        step2: `Find order: ${order.orderId} (Shipment ID: ${order.shiprocket.shipmentId})`,
+        step3: 'Click "Schedule Pickup" button',
+        step4: 'Select pickup date and confirm',
+        step5: 'After pickup is scheduled, Shiprocket will assign AWB automatically'
+      };
+
+      return res.json({
+        success: true,
+        message: 'Shipment created but AWB not yet assigned. Admin must schedule pickup manually.',
+        hasAwb: false,
+        shipmentId: order.shiprocket.shipmentId,
+        orderId: order.orderId,
+        status: awbResult.status || 'PENDING',
+        adminActions: {
+          required: true,
+          description: 'Shiprocket API does not support auto-pickup. Manual scheduling required.',
+          instructions: adminInstructions,
+          expectedWaitTime: '24-48 hours after scheduling pickup',
+          autoPolling: 'System checks Shiprocket every 60 seconds for AWB updates'
+        },
+        userMessage: {
+          title: '⏳ Your order is being processed',
+          body: 'Your shipment has been created. The tracking ID will appear within 24-48 hours after our team schedules the pickup.',
+          action: 'Check this page again soon for your tracking number'
+        },
+        order
+      });
+    }
+
+  } catch (err) {
+    console.error('Error refetching tracking ID:', err);
+    res.status(500).json({ error: 'Failed to refetch tracking ID' });
   }
 };

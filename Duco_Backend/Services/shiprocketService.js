@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { getShiprocketToken } = require("../utils/shiprocket");
+const { getShiprocketToken, getShipmentDetails } = require("../utils/shiprocket");
 
 // ========================================
 // VALIDATION HELPERS
@@ -87,50 +87,40 @@ const getMockShiprocketResponse = (order) => {
 // ========================================
 
 /**
- * Schedule pickup for a shipment (optional feature)
- * Only called if SHIPROCKET_AUTO_PICKUP=true
+ * Schedule pickup for a shipment
+ * NOTE: Shiprocket API endpoints for auto-scheduling are deprecated/broken (404 errors)
+ * AWB is ONLY assigned after manual pickup scheduling from Shiprocket Dashboard
+ * This function is a placeholder for future enhancements
  */
 const schedulePickup = async (shipmentId) => {
-  // Skip if auto-pickup is disabled
+  // Auto-pickup via API is not available in current Shiprocket API
+  // Users must schedule pickup manually from Shiprocket dashboard
+  
   if (process.env.SHIPROCKET_AUTO_PICKUP !== 'true') {
     console.log('[Shiprocket] Auto-pickup disabled, skipping pickup scheduling');
     return { success: true, skipped: true };
   }
 
   try {
-    const token = await getShiprocketToken();
-    
-    console.log(`[Shiprocket] Scheduling pickup for shipment: ${shipmentId}`);
-    
-    const response = await axios.post(
-      "https://apiv2.shiprocket.in/v1/external/shipments/request-pickup",
-      {
-        shipment_id: shipmentId
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 10000
-      }
-    );
-
-    console.log('[Shiprocket] Pickup scheduled successfully:', response.data);
+    console.log(`[Shiprocket] ⚠️ Note: Shiprocket API endpoints for auto-pickup are unavailable`);
+    console.log(`[Shiprocket] 📋 AdminInstructions: Schedule pickup manually from Shiprocket dashboard`);
+    console.log(`[Shiprocket] 🔗 URL: https://app.shiprocket.in → Orders → ${shipmentId} → Schedule Pickup`);
     
     return {
       success: true,
-      data: response.data
+      skipped: true,
+      message: 'Auto-pickup via API unavailable. Please schedule manually from Shiprocket dashboard.',
+      requiresManualAction: true,
+      shipmentId: shipmentId
     };
 
   } catch (err) {
-    console.error('[Shiprocket] Pickup scheduling failed:', err.response?.data || err.message);
+    console.error('[Shiprocket] Pickup scheduling failed:', err.message);
     
-    // Don't fail the entire order if pickup scheduling fails
     return {
       success: false,
-      error: err.response?.data?.message || 'Pickup scheduling failed',
-      nonCritical: true // Indicates this error shouldn't block order
+      error: err.message,
+      nonCritical: true
     };
   }
 };
@@ -298,10 +288,23 @@ const createShiprocketOrder = async (order, isRetry = false) => {
     // Schedule pickup if enabled
     const shipmentId = response.data.shipment_id;
     if (shipmentId) {
+      console.log('[Shiprocket] 📋 Calling schedulePickup for shipment:', shipmentId);
       const pickupResult = await schedulePickup(shipmentId);
-      if (pickupResult.success && !pickupResult.skipped) {
-        console.log('[Shiprocket] Pickup scheduled for shipment:', shipmentId);
+      
+      if (pickupResult.success) {
+        if (pickupResult.skipped) {
+          console.log('[Shiprocket] ⏭️ Pickup scheduling skipped (auto-pickup disabled) for shipment:', shipmentId);
+        } else {
+          console.log('[Shiprocket] ✅ Pickup scheduled successfully for shipment:', shipmentId);
+          console.log('[Shiprocket] Pickup details:', pickupResult.data);
+        }
+      } else {
+        console.warn('[Shiprocket] ⚠️ Pickup scheduling failed (non-critical):', pickupResult.error);
+        console.warn('[Shiprocket] Error details:', pickupResult.details);
+        console.log('[Shiprocket] 💡 Tip: Try scheduling pickup manually from Shiprocket dashboard');
       }
+    } else {
+      console.warn('[Shiprocket] ⚠️ No shipmentId in response, skipping pickup scheduling');
     }
 
     return {
@@ -380,7 +383,52 @@ const createShiprocketOrder = async (order, isRetry = false) => {
   }
 };
 
+/**
+ * Fetch AWB code from Shiprocket for an existing shipment
+ * Call this periodically or on-demand to get the tracking number after it's assigned
+ */
+const fetchAndUpdateAwbCode = async (shipmentId) => {
+  try {
+    console.log(`[Shiprocket] Fetching AWB code for shipment: ${shipmentId}`);
+
+    const result = await getShipmentDetails(shipmentId);
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error,
+        hasAwb: false
+      };
+    }
+
+    const shipmentData = result.data;
+    const awbCode = shipmentData.awb_code || shipmentData.awb || '';
+    const courierName = shipmentData.courier_name || shipmentData.courier || '';
+    const status = shipmentData.status || '';
+
+    console.log(`[Shiprocket] Shipment ${shipmentId} status: ${status}, AWB: ${awbCode || 'not assigned yet'}`);
+
+    return {
+      success: true,
+      hasAwb: !!awbCode,
+      awbCode,
+      courierName,
+      status,
+      shipmentData
+    };
+
+  } catch (err) {
+    console.error('[Shiprocket] Error fetching AWB code:', err.message);
+    return {
+      success: false,
+      error: err.message,
+      hasAwb: false
+    };
+  }
+};
+
 module.exports = { 
   createShiprocketOrder,
-  schedulePickup 
+  schedulePickup,
+  fetchAndUpdateAwbCode
 };

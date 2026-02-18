@@ -56,7 +56,14 @@ const OrderBulk = () => {
     try {
       setLoading(true);
       const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
-      const res = await fetch(`${API_BASE}/api/order?page=${page}&limit=${itemsPerPage}&orderType=B2B`);
+      // ✅ Add cache-busting parameter to force fresh data
+      const timestamp = Date.now();
+      const res = await fetch(`${API_BASE}/api/order?page=${page}&limit=${itemsPerPage}&orderType=B2B&t=${timestamp}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -280,16 +287,36 @@ const OrderBulk = () => {
                     <div className="bg-gray-50 rounded p-2">
                       {order.paymentmode === '50%' ? (
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
-                              💰 50% Paid
-                            </span>
-                          </div>
-                          <div className="text-xs text-gray-700">
-                            <p>Total: {formatPrice(Number(order.price || 0) * 2, order.currency || 'INR')}</p>
-                            <p className="text-orange-600 font-medium">Paid: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
-                            <p className="text-orange-600 font-medium">Due: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
-                          </div>
+                          {/* Check if it's fully paid now */}
+                          {String(order.paymentStatus || "").toLowerCase() === 'paid' && Number(order.remainingAmount || 0) === 0 ? (
+                            // ✅ FULLY PAID
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                  ✅ Fully Paid
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-700">
+                                <p>Total: {formatPrice(Number(order.totalAmount || order.price || 0) * 2, order.currency || 'INR')}</p>
+                                <p className="text-green-600 font-medium">Paid: {formatPrice(Number(order.totalAmount || order.price || 0) * 2, order.currency || 'INR')}</p>
+                                <p className="text-green-600 text-xs">No pending amount</p>
+                              </div>
+                            </div>
+                          ) : (
+                            // ✅ STILL PENDING
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                                  💰 50% Paid
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-700">
+                                <p>Total: {formatPrice(Number(order.totalAmount || order.price || 0) * 2, order.currency || 'INR')}</p>
+                                <p className="text-orange-600 font-medium">Paid: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
+                                <p className="text-orange-600 font-medium">Due: {formatPrice(Number(order.remainingAmount || order.price || 0), order.currency || 'INR')}</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : order.paymentmode === 'store_pickup' ? (
                         <div className="space-y-1">

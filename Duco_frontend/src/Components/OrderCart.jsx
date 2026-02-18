@@ -97,7 +97,7 @@ const OrderCart = ({ order }) => {
         </p>
 
         <p className="mt-2 font-semibold text-sm">
-          ₹{Number(order.totalPay ?? order.price ?? 0).toFixed(2)}
+          ₹{Number(order.totalAmount ?? order.totalPay ?? order.price ?? 0).toFixed(2)}
         </p>
 
         {(order.printroveOrderId || order.hasLogistics) && (

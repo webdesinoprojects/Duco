@@ -607,27 +607,6 @@ export default function OrderSuccess() {
         </div>
       </div>
 
-      {orderInfo && String(orderInfo?.paymentStatus || "").toLowerCase() === "partial" && Number(orderInfo?.remainingAmount || 0) > 0 && (
-        <div className="mx-auto max-w-5xl mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6 border border-yellow-200">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-gray-800">Remaining Payment Due</h2>
-                <p className="text-sm text-gray-600">
-                  ₹{Number(orderInfo.remainingAmount).toFixed(2)}
-                </p>
-              </div>
-              <button
-                onClick={() => navigate(`/payment?orderId=${orderId}&type=remaining`)}
-                className="px-5 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors"
-              >
-                Pay Remaining 50%
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* GRAND TOTAL SECTION */}
       <div className="mx-auto max-w-5xl mb-8">
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-8 text-white">

@@ -2,6 +2,7 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 require('dotenv').config();
 const Order = require('../DataBase/Models/OrderModel');
+const Invoice = require('../DataBase/Models/InvoiceModule');
 
 // Debug environment variables
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
@@ -360,7 +361,7 @@ const createRemainingOrder = async (req, res) => {
     const orderData = {
       amount: amountInPaise,
       currency: 'INR',
-      receipt: `remaining_${order._id}_${Date.now()}`,
+      receipt: `rem_${String(order._id).slice(-20)}_${Date.now().toString().slice(-8)}`,
       payment_capture: 1,
       notes: {
         payment_type: 'remaining',
@@ -386,8 +387,23 @@ const createRemainingOrder = async (req, res) => {
     });
   } catch (err) {
     console.error('❌ Remaining payment order creation failed:', err.message);
+    console.error('❌ Full error object:', err);
+    console.error('❌ Error stack:', err.stack);
+    console.error('❌ Error details:', {
+      message: err.message,
+      description: err.description,
+      code: err.code,
+      statusCode: err.statusCode,
+      error: err.error,
+      name: err.name,
+    });
     console.groupEnd();
-    return res.status(500).json({ success: false, message: err.message || 'Failed to create remaining payment order' });
+    return res.status(500).json({ 
+      success: false, 
+      message: err.message || err.description || 'Failed to create remaining payment order',
+      details: err.description || err.error?.description || 'Unknown error',
+      errorCode: err.code || err.error?.code,
+    });
   }
 };
 
@@ -396,11 +412,14 @@ const verifyRemainingPayment = async (req, res) => {
   console.group('🔐 BACKEND: Verifying Remaining Payment');
   try {
     const { orderId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+    console.log('📥 Request data:', { orderId, razorpay_order_id, razorpay_payment_id });
 
     if (!orderId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      console.error('❌ Missing verification data');
       return res.status(400).json({ success: false, message: 'Missing payment verification data' });
     }
 
+    console.log('🔐 Verifying signature...');
     const body = razorpay_order_id + '|' + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
@@ -408,32 +427,102 @@ const verifyRemainingPayment = async (req, res) => {
       .digest('hex');
 
     if (expectedSignature !== razorpay_signature) {
+      console.error('❌ Signature mismatch');
       return res.status(400).json({ success: false, message: 'Signature mismatch' });
     }
+    console.log('✅ Signature verified');
 
+    console.log('🔍 Finding order...');
     const order = await Order.findOne({ orderId }) || await Order.findById(orderId).catch(() => null);
     if (!order) {
+      console.error('❌ Order not found:', orderId);
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
+    console.log('✅ Order found:', order._id);
+
+    console.log('📊 Order status before update:', {
+      orderId: order.orderId || order._id,
+      paymentStatus: order.paymentStatus,
+      remainingAmount: order.remainingAmount,
+      advancePaidAmount: order.advancePaidAmount,
+      totalAmount: order.totalAmount,
+    });
 
     if (order.remainingPaymentOrderId && order.remainingPaymentOrderId !== razorpay_order_id) {
+      console.error('❌ Payment order mismatch');
       return res.status(400).json({ success: false, message: 'Payment order mismatch' });
     }
 
     const remainingAmount = Number(order.remainingAmount || 0);
     if (!Number.isFinite(remainingAmount) || remainingAmount <= 0) {
+      console.warn('⚠️ No remaining amount due - order already paid?');
       return res.status(400).json({ success: false, message: 'No remaining amount due' });
     }
 
+    console.log('💰 Updating order payment status...');
     order.remainingAmount = 0;
     order.advancePaidAmount = Number(order.totalAmount || 0);
     order.paymentStatus = 'paid';
     order.remainingPaymentId = razorpay_payment_id;
     order.remainingPaymentOrderId = null;
-    await order.save();
+    
+    const savedOrder = await order.save();
+    console.log('✅ Order saved successfully');
+    console.log('📊 Order status after update:', {
+      orderId: savedOrder.orderId || savedOrder._id,
+      paymentStatus: savedOrder.paymentStatus,
+      remainingAmount: savedOrder.remainingAmount,
+      advancePaidAmount: savedOrder.advancePaidAmount,
+      totalAmount: savedOrder.totalAmount,
+      remainingPaymentId: savedOrder.remainingPaymentId,
+    });
+
+    // ✅ Update invoice amountPaid to full amount
+    console.log('📄 Updating invoice...');
+    try {
+      const invoice = await Invoice.findOne({ order: order._id });
+      if (invoice) {
+        invoice.amountPaid = Number(order.totalAmount || 0);
+        invoice.paymentmode = 'online'; // Change from 50% to online since it's now fully paid
+        await invoice.save();
+        console.log('✅ Invoice updated with full payment amount:', invoice.amountPaid);
+      } else {
+        console.warn('⚠️ No invoice found for order:', order._id);
+      }
+    } catch (invoiceErr) {
+      console.error('❌ Failed to update invoice:', invoiceErr.message);
+      // Don't fail the whole payment if invoice update fails
+    }
+
+    // ✅ Update wallet transaction status from "Pending" to "Paid Fully"
+    console.log('💰 Updating wallet transaction...');
+    try {
+      const Wallet = require('../DataBase/Models/Wallet');
+      const wallet = await Wallet.findOne({ user: order.user });
+      if (wallet) {
+        // Find the transaction for this order
+        const transaction = wallet.transactions.find(tx => 
+          String(tx.order) === String(order._id) && tx.status === 'Pending'
+        );
+        if (transaction) {
+          transaction.status = 'Paid Fully';
+          transaction.note = `Payment completed. Total amount: ₹${Number(order.totalAmount || 0).toLocaleString()}`;
+          wallet.balance = Math.max(0, (wallet.balance || 0) - Number(transaction.amount || 0));
+          await wallet.save();
+          console.log('✅ Wallet transaction updated to Paid Fully');
+        } else {
+          console.warn('⚠️ No pending wallet transaction found for order:', order._id);
+        }
+      } else {
+        console.warn('⚠️ No wallet found for user:', order.user);
+      }
+    } catch (walletErr) {
+      console.error('❌ Failed to update wallet transaction:', walletErr.message);
+      // Don't fail the whole payment if wallet update fails
+    }
 
     console.log('✅ Remaining payment verified and order updated:', {
-      orderId: order.orderId || order._id,
+      orderId: savedOrder.orderId || savedOrder._id,
       paymentId: razorpay_payment_id,
     });
     console.groupEnd();
@@ -441,6 +530,7 @@ const verifyRemainingPayment = async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     console.error('❌ Remaining payment verification failed:', err.message);
+    console.error('❌ Full error:', err);
     console.groupEnd();
     return res.status(500).json({ success: false, message: err.message || 'Remaining payment verification failed' });
   }

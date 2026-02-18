@@ -272,8 +272,33 @@ class PrintroveTrackingService {
   // Get comprehensive tracking info for an order
   async getTrackingInfo(orderId) {
     try {
-      // ✅ PERFORMANCE FIX: Exclude large base64 image fields from products
-      const order = await Order.findById(orderId)
+      // ✅ FORCE FRESH DATA: Explicitly request latest from DB (no cache)
+      const order = await Order.findById(orderId, {
+        // Include ALL payment-related fields
+        _id: 1,
+        orderId: 1,
+        user: 1,
+        products: 1,
+        price: 1,
+        totalAmount: 1,
+        totalPay: 1,
+        remainingAmount: 1,
+        paymentStatus: 1,
+        paymentmode: 1,
+        advancePaidAmount: 1,
+        status: 1,
+        addresses: 1,
+        address: 1,
+        printroveOrderId: 1,
+        printroveStatus: 1,
+        printroveTrackingUrl: 1,
+        printroveEstimatedDelivery: 1,
+        deliveryExpectedDate: 1,
+        shiprocket: 1,
+        designImages: 1,
+        createdAt: 1,
+        // ... all other fields you need
+      })
         .populate('user') // ✅ Populate ALL user fields including address array
         .lean(); // Use lean() for better performance
       

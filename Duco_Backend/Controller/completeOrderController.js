@@ -1040,6 +1040,7 @@ const completeOrder = async (req, res) => {
 
   // ✅ Extract discount from orderData (frontend sends it inside orderData)
   const discount = orderData?.discount || null;
+  const finalDiscount = discount;
 
   // 🧾 Log payment mode received from frontend
   console.log('🧾 PAYMENT MODE RECEIVED:', paymentmode);

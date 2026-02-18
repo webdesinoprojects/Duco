@@ -79,14 +79,9 @@ const Contact = () => {
                   <div>
                     <h3 className="font-bold text-lg mb-1">Our Location</h3>
                     <p className="text-gray-400">
-                      Plot No.238, KH No.146, Lal Dora/Abadi of Village, Burari, New Delhi, Central Delhi, Delhi, 110084<br />
-                      UDYAM : UDYAM-UP-64-0054061 (Micro/Traders)<br />
-                      GSTIN/UIN: 07AESPC7373N2ZR<br />
-                      State Name : Delhi, Code : 07<br />
-                      <br />
-                      {/* Existing address below */}
+                      Plot No. 238, KH No. 146, Lal Dora/Abadi of Village, Burari, New Delhi, Central Delhi, Delhi – 110084<br />
                       LIG-64, Avanti Vihar Shadija Compound , <br />
-                      Raipur(C.G.) INDIA 492007{" "}
+                      Raipur(C.G.) INDIA 492007
                     </p>
                   </div>
                 </div>

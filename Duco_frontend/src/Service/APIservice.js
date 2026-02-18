@@ -457,6 +457,12 @@ export async function getOrderById(orderId) {
   return res.data;
 }
 
+export async function refetchTrackingId(orderId) {
+  if (!orderId) throw new Error("orderId is required");
+  const res = await axios.get(`${API_BASE}api/order/${orderId}/refetch-tracking`);
+  return res.data;
+}
+
 export async function uploadInvoicePdf(orderId, pdfBlob) {
   if (!orderId) throw new Error("orderId is required");
   if (!pdfBlob) throw new Error("pdfBlob is required");

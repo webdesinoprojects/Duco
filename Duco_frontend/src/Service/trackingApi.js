@@ -27,7 +27,9 @@ const handle = async (res) => {
 
 // Get comprehensive tracking information for an order
 export const getOrderTracking = async (orderId) => {
-  const response = await fetch(`${API_BASE}/tracking/${orderId}`, {
+  // ✅ Add cache-busting query parameter to force fresh data
+  const timestamp = Date.now();
+  const response = await fetch(`${API_BASE}/tracking/${orderId}?t=${timestamp}`, {
     method: "GET",
     headers: jsonHeaders
   });

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getLogisticsByOrder } from "../Service/logisticsApi";
 import { getOrderTracking, syncOrderStatus } from "../Service/trackingApi";
-import { getWallet } from "../Service/APIservice";
+import { getWallet, refetchTrackingId } from "../Service/APIservice";
 import { FaWallet, FaSync, FaExternalLinkAlt, FaShippingFast, FaBox, FaCheckCircle, FaClock } from "react-icons/fa";
 
 const ACCENT = "#E5C870";
@@ -54,12 +54,14 @@ export default function TrackOrder() {
 
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [refetchingTracking, setRefetchingTracking] = useState(false);
   const [err, setErr] = useState("");
   const [rows, setRows] = useState([]);
 
   // Enhanced tracking data
   const [trackingData, setTrackingData] = useState(null);
   const [timeline, setTimeline] = useState([]);
+  const [adminInstructions, setAdminInstructions] = useState(null);
 
   // Wallet state (JS-friendly)
   const [walletBalance, setWalletBalance] = useState(null);
@@ -135,6 +137,52 @@ export default function TrackOrder() {
     }
   };
 
+  const handleRefetchTracking = async () => {
+    if (!orderId || refetchingTracking) return;
+
+    // Check if order has shiprocket shipment info
+    if (!trackingData?.order?.shiprocket?.shipmentId) {
+      setErr("This order doesn't have a Shiprocket shipment yet.");
+      return;
+    }
+
+    try {
+      setRefetchingTracking(true);
+      setErr("");
+      const result = await refetchTrackingId(orderId);
+      
+      if (result.success) {
+        if (result.hasAwb) {
+          // Update tracking data with new AWB code
+          setTrackingData(prev => ({
+            ...prev,
+            order: {
+              ...prev.order,
+              shiprocket: {
+                ...prev.order.shiprocket,
+                awbCode: result.awbCode,
+                courierName: result.courierName || prev.order.shiprocket.courierName,
+              }
+            }
+          }));
+          setAdminInstructions(null);
+          console.log("✅ Tracking ID fetched successfully:", result.awbCode);
+        } else {
+          // Store admin instructions for display
+          setAdminInstructions(result.adminActions || null);
+          setErr(result.userMessage?.body || "Please check again soon for your tracking number.");
+        }
+      } else {
+        setErr(result.details || "Failed to fetch tracking ID");
+      }
+    } catch (e) {
+      console.error("Refetch tracking failed:", e);
+      setErr(e?.message || "Failed to fetch tracking ID");
+    } finally {
+      setRefetchingTracking(false);
+    }
+  };
+
   // Fetch wallet balance (best-effort)
   const fetchWallet = async () => {
     try {
@@ -173,6 +221,24 @@ export default function TrackOrder() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
+
+  // ✅ Auto-refresh data when returning from payment page
+  useEffect(() => {
+    // Refresh every 5 seconds in case user just completed a payment
+    const interval = setInterval(async () => {
+      if (orderId) {
+        try {
+          const trackingRes = await getOrderTracking(orderId);
+          setTrackingData(trackingRes);
+          setTimeline(trackingRes.timeline || []);
+        } catch (e) {
+          // Silent fail - don't disrupt the page
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [orderId]);
 
   useEffect(() => {
@@ -440,6 +506,74 @@ export default function TrackOrder() {
                 </div>
               </div>
 
+              {/* Shiprocket Tracking (if available or pending) */}
+              {trackingData.order.shiprocket?.shipmentId ? (
+                <div className="mb-6">
+                  <h3 className="text-base font-semibold text-white mb-3">Tracking Details</h3>
+                  <div className="bg-gray-800 rounded-lg p-4">
+                    {trackingData.order.shiprocket?.awbCode ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Tracking ID (AWB)</Label>
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="text-lg font-semibold text-yellow-400 font-mono">{trackingData.order.shiprocket.awbCode}</span>
+                            <CopyBtn text={trackingData.order.shiprocket.awbCode} />
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">Shiprocket Tracking Number</div>
+                        </div>
+                        {trackingData.order.shiprocket?.courierName && (
+                          <div>
+                            <Label>Courier</Label>
+                            <div className="mt-1">
+                              <span className="text-lg font-semibold text-white">{trackingData.order.shiprocket.courierName}</span>
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">Shipping Partner</div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="p-4 rounded bg-blue-900/20 border border-blue-700/50">
+                          <p className="text-sm font-semibold text-blue-300 mb-2">
+                            ⏳ Tracking ID Coming Soon
+                          </p>
+                          <p className="text-xs text-blue-200">
+                            Your shipment has been created with our delivery partner. The tracking ID will be available within 24-48 hours.
+                          </p>
+                        </div>
+
+                        {adminInstructions && (
+                          <div className="p-4 rounded bg-amber-900/20 border border-amber-700/50">
+                            <p className="text-sm font-semibold text-amber-300 mb-3">
+                              ℹ️ What happens next:
+                            </p>
+                            <ol className="text-xs text-amber-100 space-y-2 list-decimal list-inside">
+                              <li>Admin schedules pickup on Shiprocket dashboard</li>
+                              <li>Shiprocket confirms pickup with courier</li>
+                              <li>Tracking ID is automatically assigned</li>
+                              <li>Your tracking number appears here</li>
+                            </ol>
+                            <p className="text-xs text-amber-200 mt-3">
+                              System checks for updates automatically every 60 seconds
+                            </p>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleRefetchTracking}
+                          disabled={refetchingTracking}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold transition hover:opacity-90 disabled:opacity-50"
+                          style={{ backgroundColor: ACCENT, color: BG }}
+                        >
+                          <FaSync className={refetchingTracking ? "animate-spin" : ""} />
+                          <span>{refetchingTracking ? "Checking..." : "Refresh Tracking Status"}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
               {/* Shipping Address */}
               <div className="mb-6">
                 <h3 className="text-base font-semibold text-white mb-3">Shipping Address</h3>
@@ -478,8 +612,8 @@ export default function TrackOrder() {
               <div className="border-t border-gray-700 pt-4">
                 <h3 className="text-base font-semibold text-white mb-3">Order Summary</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InfoRow label="Subtotal" value={`₹${(trackingData.order.price || 0).toLocaleString()}`} />
-                  <InfoRow label="Total Amount" value={`₹${(trackingData.order.totalPay || trackingData.order.price || 0).toLocaleString()}`} />
+                  <InfoRow label="Subtotal" value={`₹${(trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0).toLocaleString()}`} />
+                  <InfoRow label="Paid Amount" value={`₹${((trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0) - (trackingData.order.remainingAmount || 0)).toLocaleString()}`} />
                   <InfoRow label="Payment Status" value={trackingData.order.paymentStatus || 'N/A'} />
                   <InfoRow label="Payment Method" value={trackingData.order.paymentmode || 'N/A'} />
                 </div>

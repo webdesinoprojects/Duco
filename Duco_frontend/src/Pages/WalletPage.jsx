@@ -1,7 +1,7 @@
 // src/pages/WalletPage.jsx
 import { useEffect, useMemo, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getWallet } from "../Service/APIservice";
+import { fetchOrdersByUser, getWallet } from "../Service/APIservice";
 import { UserContext } from "../ContextAPI/UserContext.jsx";
 
 const ACCENT = "#E5C870";
@@ -16,6 +16,7 @@ const Badge = ({ tone = "neutral", children }) => {
     credit: "border-emerald-400/30 text-emerald-300",
     debit: "border-rose-400/30 text-rose-300",
     pending: "border-amber-400/30 text-amber-300",
+    success: "border-green-400/30 text-green-300",
   };
   return (
     <span
@@ -65,6 +66,9 @@ export default function WalletPage({ userFromContext }) {
   const [data, setData] = useState(null); // wallet
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [remainingOrders, setRemainingOrders] = useState([]);
+  const [remainingLoading, setRemainingLoading] = useState(false);
+  const [remainingError, setRemainingError] = useState("");
 
   // Check if user is logged in
   useEffect(() => {
@@ -108,6 +112,31 @@ export default function WalletPage({ userFromContext }) {
     return () => { mounted = false; };
   }, [userId]);
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!userId) return;
+        setRemainingLoading(true);
+        setRemainingError("");
+        const orders = await fetchOrdersByUser(userId);
+        if (!mounted) return;
+        const list = Array.isArray(orders) ? orders : [];
+        const due = list.filter((order) => {
+          const status = String(order?.paymentStatus || "").toLowerCase();
+          const remaining = Number(order?.remainingAmount || 0);
+          return status === "partial" && remaining > 0;
+        });
+        setRemainingOrders(due);
+      } catch (e) {
+        if (mounted) setRemainingError(e?.message || "Failed to load remaining payments");
+      } finally {
+        if (mounted) setRemainingLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [userId]);
+
   const transactions = useMemo(
     () => (Array.isArray(data?.transactions) ? data.transactions : []),
     [data]
@@ -146,6 +175,49 @@ export default function WalletPage({ userFromContext }) {
         </div>
       )}
 
+      {/* Remaining payments */}
+      {!err && (
+        <div className="mb-6">
+          <div className="mb-3 text-sm text-white/70">Remaining Payments</div>
+          {remainingLoading && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+              Loading remaining payments...
+            </div>
+          )}
+          {!remainingLoading && remainingError && (
+            <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+              {remainingError}
+            </div>
+          )}
+          {!remainingLoading && !remainingError && remainingOrders.length === 0 && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+              No remaining payments due.
+            </div>
+          )}
+          {!remainingLoading && !remainingError && remainingOrders.length > 0 && (
+            <div className="grid gap-3 md:grid-cols-2">
+              {remainingOrders.map((order) => (
+                <div key={order?._id} className="rounded-xl border border-yellow-400/20 bg-yellow-500/10 p-4">
+                  <div className="text-xs uppercase tracking-wide text-yellow-200/80">Remaining Due</div>
+                  <div className="mt-1 text-lg font-semibold text-yellow-100">
+                    {currency(Number(order?.remainingAmount || 0))}
+                  </div>
+                  <div className="mt-1 text-xs text-yellow-200/70">
+                    Order: {shortId(order?._id || order?.id)}
+                  </div>
+                  <button
+                    onClick={() => navigate(`/payment?orderId=${order?._id || order?.id}&type=remaining`)}
+                    className="mt-3 inline-flex items-center rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-400"
+                  >
+                    Pay Remaining 50%
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Loading skeleton */}
       {loading && (
         <div className="grid gap-3 md:grid-cols-2">
@@ -167,7 +239,7 @@ export default function WalletPage({ userFromContext }) {
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
           {/* Mobile – cards */}
           <div className="divide-y divide-white/10 md:hidden">
-            {transactions.map(tx => <TxCard key={tx?._id} tx={tx} />)}
+            {transactions.map(tx => <TxCard key={tx?._id} tx={tx} navigate={navigate} />)}
           </div>
 
           {/* Desktop – table */}
@@ -175,15 +247,16 @@ export default function WalletPage({ userFromContext }) {
             <table className="min-w-full table-fixed">
               <thead className="border-b border-white/10 bg-black/40">
                 <tr className="text-left text-sm text-white/60">
-                  <th className="px-4 py-3 w-[18%]">Date</th>
-                  <th className="px-4 py-3 w-[16%]">Type</th>
-                  <th className="px-4 py-3 w-[16%]">Amount</th>
+                  <th className="px-4 py-3 w-[16%]">Date</th>
+                  <th className="px-4 py-3 w-[12%]">Type</th>
+                  <th className="px-4 py-3 w-[12%]">Amount</th>
                   <th className="px-4 py-3">Order</th>
-                  <th className="px-4 py-3 w-[16%]">Status</th>
+                  <th className="px-4 py-3 w-[12%]">Status</th>
+                  <th className="px-4 py-3 w-[18%]">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
-                {transactions.map(tx => <TxRow key={tx?._id} tx={tx} />)}
+                {transactions.map(tx => <TxRow key={tx?._id} tx={tx} navigate={navigate} />)}
               </tbody>
             </table>
           </div>
@@ -193,9 +266,12 @@ export default function WalletPage({ userFromContext }) {
   );
 }
 
-function TxCard({ tx }) {
+function TxCard({ tx, navigate }) {
   const isCredit = (tx?.type || "").toLowerCase() === "credit";
   const tone = isCredit ? "credit" : "debit";
+  const is50Percent = (tx?.type === "50%" || String(tx?.type).toLowerCase().includes("50"));
+  const isPending = String(tx?.status || "").toLowerCase() === "pending";
+  const showPayButton = is50Percent && isPending;
 
   return (
     <div className="px-4 py-3">
@@ -219,13 +295,25 @@ function TxCard({ tx }) {
         </div>
       </div>
       {tx?.note && <p className="mt-2 text-sm text-white/70">{tx.note}</p>}
+      {showPayButton && (
+        <button
+          onClick={() => navigate(`/payment?orderId=${tx?.order?._id || tx?.order}&type=remaining`)}
+          className="mt-3 w-full inline-flex items-center justify-center rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-400"
+        >
+          Pay Remaining 50%
+        </button>
+      )}
     </div>
   );
 }
 
-function TxRow({ tx }) {
+function TxRow({ tx, navigate }) {
   const isCredit = (tx?.type || "").toLowerCase() === "credit";
   const tone = isCredit ? "credit" : "debit";
+  const is50Percent = (tx?.type === "50%" || String(tx?.type).toLowerCase().includes("50"));
+  const isPending = String(tx?.status || "").toLowerCase() === "pending";
+  const showPayButton = is50Percent && isPending;
+  
   return (
     <tr className="text-sm">
       <td className="px-4 py-3 text-white/70">{fmtDate(tx?.createdAt || tx?.date)}</td>
@@ -239,6 +327,18 @@ function TxRow({ tx }) {
       </td>
       <td className="px-4 py-3">
         <Badge tone={statusTone(tx?.status)}>{tx?.status || "Completed"}</Badge>
+      </td>
+      <td className="px-4 py-3">
+        {showPayButton ? (
+          <button
+            onClick={() => navigate(`/payment?orderId=${tx?.order?._id || tx?.order}&type=remaining`)}
+            className="inline-flex items-center rounded-lg bg-yellow-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-400"
+          >
+            Pay Remaining 50%
+          </button>
+        ) : (
+          <span className="text-white/40 text-xs">—</span>
+        )}
       </td>
     </tr>
   );
@@ -257,7 +357,7 @@ function shortId(id) {
 
 function statusTone(status) {
   const s = (status || "").toLowerCase();
-  if (["success", "completed", "paid", "captured"].includes(s)) return "credit";
+  if (["success", "completed", "paid", "captured", "paid fully"].includes(s)) return "success";
   if (["pending", "processing"].includes(s)) return "pending";
   if (["failed", "cancelled", "rejected"].includes(s)) return "debit";
   return "neutral";
