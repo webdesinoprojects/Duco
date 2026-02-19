@@ -553,6 +553,7 @@ const verifyRemainingPayment = async (req, res) => {
             paymentMode: '50% - Fully Paid',
             invoicePdfPath: null,
             items: invoice?.items || [],
+            isPaymentComplete50: true,
           });
           
           if (emailResult.success) {

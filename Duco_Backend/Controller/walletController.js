@@ -34,7 +34,16 @@ const getWallet = async (req, res) => {
       console.log(`✅ Created new wallet for user ${userId}`);
     }
     
-    res.json({ success: true, data: wallet });
+    // ✅ Recalculate balance from pending transactions (ignore stale DB field)
+    const pendingBalance = (wallet.transactions || [])
+      .filter(tx => String(tx?.status || "").toLowerCase() === "pending")
+      .reduce((sum, tx) => sum + Number(tx?.amount || 0), 0);
+    
+    // Update balance in response (don't save to DB to avoid race conditions)
+    const walletObj = wallet.toObject();
+    walletObj.balance = Number(pendingBalance.toFixed(2));
+    
+    res.json({ success: true, data: walletObj });
   } catch (err) {
     console.error("❌ Wallet error:", err.message);
     res.status(500).json({ 
@@ -47,8 +56,8 @@ const getWallet = async (req, res) => {
 // 🔹 Create transaction (handles both credit & debit and updates balance)
 
 async function createTransaction(userId, orderId, amount, type) {
-  // For 50% payment, the remaining balance due is 50% of total
-  const remainingDue = type === "50%" ? Math.ceil(amount / 2) : 0;
+  // For 50% payment, the remaining balance due is 50% of total (preserve 2 decimal places)
+  const remainingDue = type === "50%" ? Number((amount / 2).toFixed(2)) : 0;
 
   const allowedTypes = new Set(["50%", "100%", "MISC"]);
   if (!allowedTypes.has(String(type))) {
@@ -73,7 +82,7 @@ async function createTransaction(userId, orderId, amount, type) {
     type,
     status: type === "50%" ? "Pending" : "Completed",
     note: type === "50%" 
-      ? `50% advance paid (₹${Math.ceil(amount / 2).toLocaleString()}). Remaining ₹${remainingDue.toLocaleString()} due before delivery.`
+      ? `50% advance paid (₹${Number((amount / 2).toFixed(2)).toLocaleString()}). Remaining ₹${remainingDue.toLocaleString()} due before delivery.`
       : `Full payment of ₹${amount.toLocaleString()} completed.`,
     createdAt: new Date(),
   });

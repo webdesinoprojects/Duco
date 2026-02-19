@@ -1,12 +1,46 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   FaMapMarkerAlt,
   FaPhone,
   FaEnvelope,
   FaPaperPlane,
 } from "react-icons/fa";
+import { sendContactMessage } from "../Service/APIservice";
 
 const Contact = () => {
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' });
+
+  const handleChange = (e) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitStatus({ type: '', message: '' });
+
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+      setSubmitStatus({ type: 'error', message: 'Please fill in all fields.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await sendContactMessage(formData);
+      if (res.success) {
+        setSubmitStatus({ type: 'success', message: 'Message sent successfully! We will get back to you soon.' });
+        setFormData({ name: '', email: '', message: '' });
+      } else {
+        setSubmitStatus({ type: 'error', message: res.message || 'Failed to send message. Please try again.' });
+      }
+    } catch (err) {
+      setSubmitStatus({ type: 'error', message: err?.response?.data?.message || 'Failed to send message. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen  text-white">
       {/* Decorative elements */}
@@ -22,13 +56,21 @@ const Contact = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Contact Form */}
           <div className="bg-gray-900 p-8 rounded-xl shadow-lg">
-            <form className="space-y-6">
+            {submitStatus.message && (
+              <div className={`p-4 mb-4 rounded-lg text-sm ${submitStatus.type === 'success' ? 'bg-green-500/10 border border-green-500/20 text-green-400' : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'}`}>
+                {submitStatus.message}
+              </div>
+            )}
+            <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label className="block mb-2 text-[#E5C870]">Full Name</label>
                 <input
                   type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-[#E5C870] focus:outline-none"
-                  placeholder="John Doe"
+                  placeholder="Enter Name"
                 />
               </div>
 
@@ -38,8 +80,11 @@ const Contact = () => {
                 </label>
                 <input
                   type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-[#E5C870] focus:outline-none"
-                  placeholder="john@example.com"
+                  placeholder="Enter Email"
                 />
               </div>
 
@@ -47,6 +92,9 @@ const Contact = () => {
                 <label className="block mb-2 text-[#E5C870]">Message</label>
                 <textarea
                   rows="5"
+                  name="message"
+                  value={formData.message}
+                  onChange={handleChange}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:border-[#E5C870] focus:outline-none"
                   placeholder="Your message..."
                 ></textarea>
@@ -54,9 +102,10 @@ const Contact = () => {
 
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 bg-[#E5C870] hover:bg-[#d4b55f] text-black font-bold py-3 px-6 rounded-lg transition duration-300"
+                disabled={isSubmitting}
+                className="w-full flex items-center justify-center gap-2 bg-[#E5C870] hover:bg-[#d4b55f] text-black font-bold py-3 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <FaPaperPlane /> Send Message
+                <FaPaperPlane /> {isSubmitting ? 'Sending...' : 'Send Message'}
               </button>
             </form>
           </div>

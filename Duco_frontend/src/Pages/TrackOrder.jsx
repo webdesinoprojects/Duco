@@ -69,13 +69,21 @@ export default function TrackOrder() {
 
   const orderSummary = useMemo(() => {
     if (trackingData?.order) {
+      // ✅ Calculate exact values matching invoice PDF
+      const order = trackingData.order;
+      const grandTotal = Number(order.totalAmount || order.totalPay || order.price || 0);
+      const paidAmount = Number(order.advancePaidAmount || 0);
+      const pendingAmount = Number((grandTotal - paidAmount).toFixed(2));
+      
       return {
-        id: trackingData.order._id,
-        status: trackingData.order.status,
-        total: trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price,
-        printroveOrderId: trackingData.order.printroveOrderId,
-        printroveStatus: trackingData.order.printroveStatus,
-        trackingUrl: trackingData.order.printroveTrackingUrl
+        id: order._id,
+        status: order.status,
+        total: grandTotal,
+        paidAmount: paidAmount,
+        pendingAmount: pendingAmount,
+        printroveOrderId: order.printroveOrderId,
+        printroveStatus: order.printroveStatus,
+        trackingUrl: order.printroveTrackingUrl
       };
     }
 
@@ -283,8 +291,8 @@ export default function TrackOrder() {
                     Total: ₹{Number(orderSummary.total).toFixed(2)}
                   </span>
                 )}
-                {walletBalance !== null && (
-                  <Badge>Wallet: ₹{walletBalance.toFixed(2)}</Badge>
+                {orderSummary?.pendingAmount > 0 && (
+                  <Badge>Wallet: ₹{orderSummary.pendingAmount.toFixed(2)}</Badge>
                 )}
               </div>
             )}
@@ -300,11 +308,9 @@ export default function TrackOrder() {
             >
               <FaWallet className="text-lg md:text-xl" />
               <span className="text-sm md:text-base">
-                {walletLoading
-                  ? "Loading..."
-                  : walletBalance === null
-                    ? "Wallet"
-                    : `₹${walletBalance.toFixed(2)}`}
+                {orderSummary?.pendingAmount > 0
+                  ? `₹${orderSummary.pendingAmount.toFixed(2)}`
+                  : "Wallet"}
               </span>
             </button>
 

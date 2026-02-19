@@ -160,6 +160,7 @@ app.use('/api/blogs', blogRoutes);
 app.use('/api', landingPageRoutes);
 app.use('/api', geolocationRoutes);
 app.use('/api', stockRoutes);
+app.use('/api', require('./Router/contactRoutes'));
 
 /* =========================
    ADMIN LOGIN

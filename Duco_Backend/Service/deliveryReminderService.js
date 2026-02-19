@@ -139,7 +139,7 @@ async function runDailyReminders() {
     }
 
     const orderIdDisplay = getOrderIdDisplay(order);
-    const trackOrderUrl = `${baseUrl.replace(/\/$/, '')}/account/orders/${order._id}`;
+    const trackOrderUrl = `${baseUrl.replace(/\/$/, '')}/get/logistics/${order._id}`;
     const walletUrl = `${baseUrl.replace(/\/$/, '')}/account/wallet`;
     const deliveryDateFormatted = formatDeliveryDate(order.deliveryExpectedDate);
     const productSummary = getProductSummary(order.products);

@@ -1,7 +1,7 @@
 // src/pages/WalletPage.jsx
 import { useEffect, useMemo, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchOrdersByUser, getWallet } from "../Service/APIservice";
+import { getWallet } from "../Service/APIservice";
 import { UserContext } from "../ContextAPI/UserContext.jsx";
 
 const ACCENT = "#E5C870";
@@ -66,9 +66,6 @@ export default function WalletPage({ userFromContext }) {
   const [data, setData] = useState(null); // wallet
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [remainingOrders, setRemainingOrders] = useState([]);
-  const [remainingLoading, setRemainingLoading] = useState(false);
-  const [remainingError, setRemainingError] = useState("");
 
   // Check if user is logged in
   useEffect(() => {
@@ -77,15 +74,6 @@ export default function WalletPage({ userFromContext }) {
       setErr("Please log in to view your wallet");
     }
   }, [contextUser]);
-
-  const balance = useMemo(() => {
-    // Prefer explicit balance if present; otherwise compute credits - debits
-    if (data?.balance != null) return Number(data.balance);
-    const tx = Array.isArray(data?.transactions) ? data.transactions : [];
-    const credits = tx.filter(t => t?.type?.toLowerCase() === "credit").reduce((s, t) => s + Number(t?.amount || 0), 0);
-    const debits = tx.filter(t => t?.type?.toLowerCase() !== "credit").reduce((s, t) => s + Number(t?.amount || 0), 0);
-    return credits - debits;
-  }, [data]);
 
   useEffect(() => {
     let mounted = true;
@@ -112,35 +100,50 @@ export default function WalletPage({ userFromContext }) {
     return () => { mounted = false; };
   }, [userId]);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        if (!userId) return;
-        setRemainingLoading(true);
-        setRemainingError("");
-        const orders = await fetchOrdersByUser(userId);
-        if (!mounted) return;
-        const list = Array.isArray(orders) ? orders : [];
-        const due = list.filter((order) => {
-          const status = String(order?.paymentStatus || "").toLowerCase();
-          const remaining = Number(order?.remainingAmount || 0);
-          return status === "partial" && remaining > 0;
-        });
-        setRemainingOrders(due);
-      } catch (e) {
-        if (mounted) setRemainingError(e?.message || "Failed to load remaining payments");
-      } finally {
-        if (mounted) setRemainingLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [userId]);
+  // ✅ Sort transactions: Pending first, then by date (newest first)
+  const transactions = useMemo(() => {
+    const txs = Array.isArray(data?.transactions) ? data.transactions : [];
+    return [...txs].sort((a, b) => {
+      const aStatus = String(a?.status || "").toLowerCase();
+      const bStatus = String(b?.status || "").toLowerCase();
+      
+      // Pending transactions always come first
+      if (aStatus === 'pending' && bStatus !== 'pending') return -1;
+      if (aStatus !== 'pending' && bStatus === 'pending') return 1;
+      
+      // Otherwise sort by date (newest first)
+      const aDate = new Date(a?.createdAt || a?.date || 0);
+      const bDate = new Date(b?.createdAt || b?.date || 0);
+      return bDate - aDate;
+    });
+  }, [data]);
 
-  const transactions = useMemo(
-    () => (Array.isArray(data?.transactions) ? data.transactions : []),
-    [data]
-  );
+  // ✅ Calculate the True Pending Amount - single source of truth
+  // ✅ Calculate the True Pending Amount using the correct formula
+  const totalPending = useMemo(() => {
+    return transactions
+      .filter(tx => String(tx?.status || "").toLowerCase() === "pending")
+      .reduce((sum, tx) => {
+        const is50Percent = (tx?.type === "50%" || String(tx?.type).toLowerCase().includes("50"));
+        const trueAmount = (is50Percent && tx?.order?.totalAmount && tx?.order?.advancePaidAmount)
+          ? (tx.order.totalAmount - tx.order.advancePaidAmount)
+          : parseFloat(tx?.amount || 0);
+        return sum + trueAmount;
+      }, 0);
+  }, [transactions]);
+
+  // ✅ Balance is now derived from totalPending (avoids stale DB values)
+  const balance = useMemo(() => {
+    return totalPending;
+  }, [totalPending]);
+
+  // ✅ Get the list of pending transactions for the "Remaining Due" cards
+  const pendingTransactions = useMemo(() => {
+    return transactions.filter(tx => 
+      String(tx?.status || "").toLowerCase() === "pending" &&
+      Number(tx?.amount || 0) > 0
+    );
+  }, [transactions]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:py-10" style={{ color: "white", backgroundColor: BG }}>
@@ -156,7 +159,7 @@ export default function WalletPage({ userFromContext }) {
         <div className="rounded-2xl border px-5 py-3 shadow-sm backdrop-blur"
              style={{ borderColor: `${ACCENT}33`, background: "linear-gradient(180deg, rgba(229,200,112,0.08), rgba(229,200,112,0.02))" }}>
           <div className="text-xs uppercase tracking-wide text-white/60">Current Balance</div>
-          <div className="text-2xl font-semibold">{loading ? "—" : currency(balance)}</div>
+          <div className="text-2xl font-semibold">{loading ? "—" : `₹${totalPending.toFixed(2)}`}</div>
         </div>
       </div>
 
@@ -175,44 +178,50 @@ export default function WalletPage({ userFromContext }) {
         </div>
       )}
 
-      {/* Remaining payments */}
+      {/* Remaining payments - calculated from transactions */}
       {!err && (
         <div className="mb-6">
           <div className="mb-3 text-sm text-white/70">Remaining Payments</div>
-          {remainingLoading && (
+          {loading && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
               Loading remaining payments...
             </div>
           )}
-          {!remainingLoading && remainingError && (
-            <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-200">
-              {remainingError}
-            </div>
-          )}
-          {!remainingLoading && !remainingError && remainingOrders.length === 0 && (
+          {!loading && pendingTransactions.length === 0 && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
               No remaining payments due.
             </div>
           )}
-          {!remainingLoading && !remainingError && remainingOrders.length > 0 && (
+          {!loading && pendingTransactions.length > 0 && (
             <div className="grid gap-3 md:grid-cols-2">
-              {remainingOrders.map((order) => (
-                <div key={order?._id} className="rounded-xl border border-yellow-400/20 bg-yellow-500/10 p-4">
-                  <div className="text-xs uppercase tracking-wide text-yellow-200/80">Remaining Due</div>
-                  <div className="mt-1 text-lg font-semibold text-yellow-100">
-                    {currency(Number(order?.remainingAmount || 0))}
+              {pendingTransactions.map((tx) => {
+                const orderId = tx?.order?._id || tx?.order;
+                const is50Percent = (tx?.type === "50%" || String(tx?.type).toLowerCase().includes("50"));
+                const trueAmount = (is50Percent && tx?.order?.totalAmount && tx?.order?.advancePaidAmount)
+                  ? (tx.order.totalAmount - tx.order.advancePaidAmount)
+                  : Number(tx?.amount || 0);
+
+                return (
+                  <div key={tx?._id} className="rounded-xl border border-yellow-400/20 bg-yellow-500/10 p-4">
+                    <div className="text-xs uppercase tracking-wide text-yellow-200/80">Remaining Due</div>
+                    <div className="mt-1 text-lg font-semibold text-yellow-100">
+                      ₹{trueAmount.toFixed(2)}
+                    </div>
+                    <div className="mt-1 text-xs text-yellow-200/70">
+                      Order: {shortId(orderId)}
+                    </div>
+                    <p className="text-sm text-gray-400 mt-2">
+                      50% advance paid. Remaining ₹{trueAmount.toFixed(2)} due before delivery.
+                    </p>
+                    <button
+                      onClick={() => navigate(`/payment?orderId=${orderId}&type=remaining`)}
+                      className="mt-3 inline-flex items-center rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-400"
+                    >
+                      Pay Remaining 50%
+                    </button>
                   </div>
-                  <div className="mt-1 text-xs text-yellow-200/70">
-                    Order: {shortId(order?._id || order?.id)}
-                  </div>
-                  <button
-                    onClick={() => navigate(`/payment?orderId=${order?._id || order?.id}&type=remaining`)}
-                    className="mt-3 inline-flex items-center rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-400"
-                  >
-                    Pay Remaining 50%
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -249,7 +258,7 @@ export default function WalletPage({ userFromContext }) {
                 <tr className="text-left text-sm text-white/60">
                   <th className="px-4 py-3 w-[16%]">Date</th>
                   <th className="px-4 py-3 w-[12%]">Type</th>
-                  <th className="px-4 py-3 w-[12%]">Amount</th>
+                  <th className="px-4 py-3 w-[12%]">Amount (Due)</th>
                   <th className="px-4 py-3">Order</th>
                   <th className="px-4 py-3 w-[12%]">Status</th>
                   <th className="px-4 py-3 w-[18%]">Action</th>
@@ -272,13 +281,18 @@ function TxCard({ tx, navigate }) {
   const is50Percent = (tx?.type === "50%" || String(tx?.type).toLowerCase().includes("50"));
   const isPending = String(tx?.status || "").toLowerCase() === "pending";
   const showPayButton = is50Percent && isPending;
+  
+  // Calculate exact remaining amount from order if available
+  const displayAmount = (is50Percent && tx?.order?.totalAmount && tx?.order?.advancePaidAmount)
+    ? Number((tx.order.totalAmount - tx.order.advancePaidAmount).toFixed(2))
+    : Number((tx?.amount || 0).toFixed(2));
 
   return (
     <div className="px-4 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm text-white/60">{fmtDate(tx?.createdAt || tx?.date)}</div>
-          <div className="mt-1 font-medium">{currency(tx?.amount)}</div>
+          <div className="mt-1 font-medium">{currency(displayAmount)}</div>
           <div className="mt-1">
             <Badge tone={tone}>{isCredit ? "Credit" : (tx?.type || "Debit")}</Badge>
           </div>
@@ -314,11 +328,16 @@ function TxRow({ tx, navigate }) {
   const isPending = String(tx?.status || "").toLowerCase() === "pending";
   const showPayButton = is50Percent && isPending;
   
+  // Calculate exact remaining amount from order if available
+  const displayAmount = (is50Percent && tx?.order?.totalAmount && tx?.order?.advancePaidAmount)
+    ? Number((tx.order.totalAmount - tx.order.advancePaidAmount).toFixed(2))
+    : Number((tx?.amount || 0).toFixed(2));
+  
   return (
     <tr className="text-sm">
       <td className="px-4 py-3 text-white/70">{fmtDate(tx?.createdAt || tx?.date)}</td>
       <td className="px-4 py-3"><Badge tone={tone}>{isCredit ? "Credit" : (tx?.type || "Debit")}</Badge></td>
-      <td className="px-4 py-3 font-medium">{currency(tx?.amount)}</td>
+      <td className="px-4 py-3 font-medium">{currency(displayAmount)}</td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="truncate text-white/80">{shortId(tx?.order?._id || tx?.order)}</span>

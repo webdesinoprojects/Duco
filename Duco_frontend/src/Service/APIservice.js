@@ -521,3 +521,10 @@ export const uploadDesignImagesForOrder = async (orderId, designImages) => {
     };
   }
 };
+
+/* ------------------------------- CONTACT US ------------------------------- */
+export async function sendContactMessage({ name, email, message }) {
+  const url = `${API_BASE}api/contact`;
+  const res = await axios.post(url, { name, email, message });
+  return res.data;
+}
