@@ -285,13 +285,13 @@ const PaymentPage = () => {
     return ["Pay Online"];
   }, [isB2B]);
 
-  // Calculate 50% amount for B2B orders
+  // Calculate 50% amount for B2B orders - EXACT calculation (no Math.ceil rounding)
   const halfPayAmount = useMemo(() => {
     const displayTotal =
       orderpayload?.totalPayDisplay || orderpayload?.totals?.grandTotal || 0;
 
     if (displayTotal > 0) {
-      return Math.ceil(displayTotal / 2);
+      return Number((displayTotal / 2).toFixed(2));
     }
 
     const inrTotal = orderpayload?.totalPay || 0;
@@ -304,16 +304,16 @@ const PaymentPage = () => {
         convertedTotal,
         "INR"
       );
-      return Math.ceil(convertedTotal / 2);
+      return Number((convertedTotal / 2).toFixed(2));
     }
 
-    return Math.ceil(inrTotal / 2);
+    return Number((inrTotal / 2).toFixed(2));
   }, [orderpayload, toConvert]);
 
-  // Calculate 50% amount in INR for Razorpay
+  // Calculate 50% amount in INR for Razorpay - EXACT calculation (no Math.ceil rounding)
   const halfPayAmountINR = useMemo(() => {
     const inrTotal = orderpayload?.totalPay || 0;
-    const half = Math.ceil(inrTotal / 2);
+    const half = Number((inrTotal / 2).toFixed(2));
     console.log("💰 PaymentPage halfPayAmountINR:", {
       totalPay: inrTotal,
       half,

@@ -95,6 +95,8 @@ const InvoiceTemplate = ({ data }) => {
   const igstAmount = Number(tax?.igstAmount || 0);
   const taxAmount = Number(tax?.taxAmount || 0);
   const totalTax = cgstAmount + sgstAmount + igstAmount + taxAmount;
+  
+  // ✅ FIXED: Grand Total = Taxable Amount + Total Tax (exact formula)
   const displayGrandTotal = actualTaxableValue + totalTax;
 
   const finalAmountAfterDiscount = displayGrandTotal;

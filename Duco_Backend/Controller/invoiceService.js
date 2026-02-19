@@ -25,8 +25,8 @@ const computeTotals = (doc = {}) => {
 
   // 3. Add P&F charges
   const chargesTotal = ["pf", "printing"].reduce((s, k) => s + safeNum(charges[k]), 0);
-  // ✅ TAX ON GROSS: Base for tax = Subtotal + P&F (BEFORE discount)
-  const baseForTax = subtotal + chargesTotal;
+  // ✅ TAX ON NET: Base for tax = Subtotal after discount + P&F (AFTER discount)
+  const baseForTax = discountedSubtotal + chargesTotal;
 
   // Use dynamic tax rates - handle both GST and international TAX
   const cgstRate = safeNum(tax.cgstRate);
@@ -34,7 +34,7 @@ const computeTotals = (doc = {}) => {
   const igstRate = safeNum(tax.igstRate);
   const taxRate = safeNum(tax.taxRate); // For international orders
 
-  // 4. Calculate tax on GROSS (baseForTax = subtotal + P&F, before discount)
+  // 4. Calculate tax on NET (baseForTax = subtotal after discount + P&F)
   const cgstAmt = (baseForTax * cgstRate) / 100;
   const sgstAmt = (baseForTax * sgstRate) / 100;
   const igstAmt = (baseForTax * igstRate) / 100;
@@ -51,8 +51,8 @@ const computeTotals = (doc = {}) => {
   } else {
     totalTaxAmt = cgstAmt + sgstAmt + igstAmt;
   }
-  // ✅ Formula: ((Subtotal + P&F) + Tax) - Discount
-  const grandTotal = (baseForTax + totalTaxAmt) - discountAmount;
+  // ✅ Formula: (Subtotal after discount + P&F) + Tax
+  const grandTotal = baseForTax + totalTaxAmt;
   // taxableValue for display: what tax was computed on
   const taxableValue = baseForTax;
 
@@ -76,22 +76,52 @@ const computeTotals = (doc = {}) => {
 };
 
 /**
- * Build totals from SAVED invoice document only (no tax/total recalculation).
- * Used for API and PDF so displayed values match what was stored at order creation.
+ * Build totals from SAVED invoice document with RECALCULATION for correct display.
+ * ✅ FIXED: Recalculates taxable amount and tax to use discount-first formula.
+ * Used for API and PDF so displayed values are always correct.
  */
 function getTotalsFromSavedInvoice(invoiceObj = {}) {
   const items = Array.isArray(invoiceObj.items) ? invoiceObj.items : [];
   const charges = invoiceObj.charges || {};
   const tax = invoiceObj.tax || {};
-  const savedTotal = safeNum(invoiceObj.total, 0);
-  const savedTotalTax = safeNum(tax.totalTax, 0);
 
   const subtotal = items.reduce((sum, i) => sum + safeNum(i.price) * safeNum(i.qty), 0);
   const discountAmount = safeNum(invoiceObj.discount?.amount, 0);
   const discountPercent = safeNum(invoiceObj.discount?.percent, 0);
   const discountedSubtotal = subtotal - discountAmount;
   const chargesTotal = safeNum(charges.pf, 0) + safeNum(charges.printing, 0);
-  const taxableValue = savedTotal - savedTotalTax;
+  
+  // ✅ CORRECT FORMULA: Taxable = (Subtotal - Discount) + Charges
+  const taxableValue = discountedSubtotal + chargesTotal;
+  
+  // ✅ RECALCULATE TAX based on correct taxable value
+  const cgstRate = safeNum(tax.cgstRate, 0);
+  const sgstRate = safeNum(tax.sgstRate, 0);
+  const igstRate = safeNum(tax.igstRate, 0);
+  const intlTaxRate = safeNum(tax.taxRate, 0);
+  const taxType = String(tax.type || '').toUpperCase();
+  
+  const cgstAmt = cgstRate > 0 ? Number((taxableValue * cgstRate / 100).toFixed(2)) : 0;
+  const sgstAmt = sgstRate > 0 ? Number((taxableValue * sgstRate / 100).toFixed(2)) : 0;
+  const igstAmt = igstRate > 0 ? Number((taxableValue * igstRate / 100).toFixed(2)) : 0;
+  const taxAmt = (taxType === 'INTERNATIONAL' || taxType === 'INTERNATIONAL_TAX')
+    ? (intlTaxRate > 0 ? Number((taxableValue * intlTaxRate / 100).toFixed(2)) : 0)
+    : 0;
+  
+  let totalTaxAmt = 0;
+  if (taxType === 'INTERNATIONAL' || taxType === 'INTERNATIONAL_TAX') {
+    totalTaxAmt = taxAmt;
+  } else if (taxType === 'B2C_NO_TAX') {
+    totalTaxAmt = 0;
+  } else if (taxType === 'INTRASTATE_IGST' || taxType === 'INTERSTATE' || taxType === 'OUTSIDE_STATE_IGST') {
+    totalTaxAmt = igstAmt;
+  } else {
+    totalTaxAmt = cgstAmt + sgstAmt + igstAmt;
+  }
+  
+  // ✅ CORRECT FORMULA: Grand Total = Taxable + Tax
+  const grandTotal = Number((taxableValue + totalTaxAmt).toFixed(2));
+  
   const totalQty = items.reduce((q, i) => q + safeNum(i.qty), 0);
 
   return {
@@ -101,12 +131,12 @@ function getTotalsFromSavedInvoice(invoiceObj = {}) {
     discountedSubtotal: +discountedSubtotal.toFixed(2),
     chargesTotal: +chargesTotal.toFixed(2),
     taxableValue: Number(taxableValue.toFixed(2)),
-    totalTaxAmt: savedTotalTax,
-    grandTotal: savedTotal,
-    cgstAmt: safeNum(tax.cgstAmount, 0),
-    sgstAmt: safeNum(tax.sgstAmount, 0),
-    igstAmt: safeNum(tax.igstAmount, 0),
-    taxAmt: safeNum(tax.taxAmount, 0),
+    totalTaxAmt: Number(totalTaxAmt.toFixed(2)),
+    grandTotal: grandTotal,
+    cgstAmt: cgstAmt,
+    sgstAmt: sgstAmt,
+    igstAmt: igstAmt,
+    taxAmt: taxAmt,
     totalQty,
     discount: invoiceObj.discount || null,
   };

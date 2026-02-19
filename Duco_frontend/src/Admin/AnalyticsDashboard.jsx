@@ -1140,9 +1140,16 @@ export default function AnalyticsDashboard() {
                       {(() => {
                         const items = invoiceData.items || [];
                         const subtotal = items.reduce((sum, item) => sum + Number(item.qty || 0) * Number(item.price || 0), 0);
+                        
+                        // ✅ Account for discount in calculation
+                        const discountAmount = Number(invoiceData.discount?.amount || 0);
+                        const subtotalAfterDiscount = subtotal - discountAmount;
+                        
                         const pf = Number(invoiceData.charges?.pf || 0);
                         const printing = Number(invoiceData.charges?.printing || 0);
-                        const taxable = subtotal + pf + printing;
+                        
+                        // ✅ CORRECT: Taxable = (Subtotal - Discount) + P&F + Printing
+                        const taxable = subtotalAfterDiscount + pf + printing;
                         
                         const cgst = Number(invoiceData.tax?.cgstAmount || 0);
                         const sgst = Number(invoiceData.tax?.sgstAmount || 0);
@@ -1168,6 +1175,20 @@ export default function AnalyticsDashboard() {
                                 ))}
                               </div>
                             </div>
+
+                            {/* Discount (if applicable) */}
+                            {discountAmount > 0 && (
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between text-green-400">
+                                  <span>Discount ({invoiceData.discount?.percent || 0}%):</span>
+                                  <span>- {formatPrice(discountAmount, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
+                                </div>
+                                <div className="flex justify-between font-semibold">
+                                  <span className="text-gray-300">Subtotal After Discount:</span>
+                                  <span className="text-white">{formatPrice(subtotalAfterDiscount, invoiceData.paymentCurrency || invoiceData.currency || 'INR')}</span>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Charges */}
                             <div className="space-y-2 text-sm">
@@ -1334,7 +1355,12 @@ export default function AnalyticsDashboard() {
                             itemsTotal = selectedOrder.price - charges - tax;
                           }
                           
-                          const taxable = itemsTotal + (selectedOrder.pf || 0) + (selectedOrder.printing || 0);
+                          // ✅ Account for discount if present
+                          const discountAmount = Number(selectedOrder.discount?.amount || 0);
+                          const itemsAfterDiscount = itemsTotal - discountAmount;
+                          
+                          // ✅ CORRECT: Taxable = (Items - Discount) + P&F + Printing
+                          const taxable = itemsAfterDiscount + (selectedOrder.pf || 0) + (selectedOrder.printing || 0);
                           return Math.max(0, taxable);
                         })(), selectedOrder.paymentCurrency || selectedOrder.currency || 'INR')}
                       </span>

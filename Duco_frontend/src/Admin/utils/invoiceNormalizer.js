@@ -61,22 +61,8 @@ export const normalizeInvoiceData = (invoice, totals) => {
   const pf = Number(invoice.charges?.pf ?? invoice.pfCharges ?? 0);
   const printing = Number(invoice.charges?.printing ?? invoice.printingCharges ?? 0);
 
-  // Calculate display total (always show full grand total)
-  const grandTotal = totals?.grandTotal || 0;
-
   // Extract tax info from invoice
   const tax = invoice.tax || {};
-  
-  // ✅ CRITICAL FIX: Use recalculated tax amounts from totals (backend computeTotals)
-  // The backend computeTotals function recalculates tax amounts from rates
-  // This ensures existing orders show correct service charge amounts
-  if (totals) {
-    tax.cgstAmount = totals.cgstAmt || 0;
-    tax.sgstAmount = totals.sgstAmt || 0;
-    tax.igstAmount = totals.igstAmt || 0;
-    tax.taxAmount = totals.taxAmt || 0; // ✅ International 1% service charge
-    tax.totalTax = totals.totalTaxAmt || 0;
-  }
 
   // Extract additional files
   const additionalFilesMeta = invoice.additionalFilesMeta || [];
@@ -93,6 +79,19 @@ export const normalizeInvoiceData = (invoice, totals) => {
   const discountAmount = discount?.amount || 0;
   const subtotalAfterDiscount = subtotal - discountAmount;
   const taxableAmount = subtotalAfterDiscount + pf + printing;
+
+  // ✅ FIXED: Calculate correct Grand Total = Taxable Amount + Total Tax
+  const totalTax = (totals?.cgstAmt || 0) + (totals?.sgstAmt || 0) + (totals?.igstAmt || 0) + (totals?.taxAmt || 0);
+  const grandTotal = taxableAmount + totalTax;
+
+  // ✅ IMPORTANT: Update tax.totalTax to use correct calculated value
+  if (totals) {
+    tax.cgstAmount = totals.cgstAmt || 0;
+    tax.sgstAmount = totals.sgstAmt || 0;
+    tax.igstAmount = totals.igstAmt || 0;
+    tax.taxAmount = totals.taxAmt || 0; // ✅ International 1% service charge
+    tax.totalTax = totalTax; // ✅ Use correctly calculated total tax, not backend value
+  }
 
   return {
     company: invoice.company || {},

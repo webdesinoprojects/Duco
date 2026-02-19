@@ -208,8 +208,6 @@ function calculateOrderTotal(subtotal, charges = {}, customerState = '', custome
   const taxInfo = calculateTax(taxableAmount, customerState, customerCountry, isB2B);
   
   const grandTotal = taxableAmount + taxInfo.totalTax;
-  const roundedTotal = Math.ceil(grandTotal); // Always round up
-  const roundOff = roundedTotal - grandTotal; // Always positive
   
   return {
     subtotal: sub,
@@ -218,8 +216,6 @@ function calculateOrderTotal(subtotal, charges = {}, customerState = '', custome
     taxableAmount: taxableAmount,
     ...taxInfo,
     grandTotal: grandTotal,
-    roundOff: roundOff,
-    finalTotal: roundedTotal,
     isB2B: isB2B
   };
 }

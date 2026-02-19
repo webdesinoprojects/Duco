@@ -214,6 +214,52 @@ const getUser = async (req, res) => {
   }
 };
 
+// Get user by ID
+const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log('🔍 getUserById called with ID:', id);
+    
+    if (!id) {
+      return res.status(400).json({ 
+        ok: false, 
+        message: "User ID is required" 
+      });
+    }
+
+    const user = await User.findById(id).select('-password').lean();
+    
+    console.log('👤 User found in database:', !!user);
+    if (user) {
+      console.log('👤 User data:', {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone
+      });
+    }
+    
+    if (!user) {
+      return res.status(404).json({ 
+        ok: false, 
+        message: "User not found" 
+      });
+    }
+
+    res.status(200).json({ 
+      ok: true, 
+      data: user 
+    });
+  } catch (error) {
+    const detail = extractError(error);
+    console.error("getUserById error:", detail);
+    res
+      .status(500)
+      .json({ ok: false, message: "Server error", error: detail });
+  }
+};
+
 // === exports ===============================================================
 
 module.exports = {
@@ -221,4 +267,5 @@ module.exports = {
   sendOtp,
   verifyOtp,
   getUser,
+  getUserById,
 };

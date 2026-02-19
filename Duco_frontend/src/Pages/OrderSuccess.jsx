@@ -242,6 +242,10 @@ export default function OrderSuccess() {
           convertedTaxAmount = (convertedTaxableAmount * 0.01);
         }
 
+        // ✅ RECALCULATE TOTAL: Taxable Amount + Total Tax (correct formula)
+        const totalTaxSum = convertedCgstAmount + convertedSgstAmount + convertedIgstAmount + convertedTaxAmount;
+        const recalculatedTotal = convertedTaxableAmount + totalTaxSum;
+
         const formatted = {
           ...inv,
           items: items.map(item => ({
@@ -269,8 +273,8 @@ export default function OrderSuccess() {
           subtotal: convertAmount(subtotal),
           subtotalAfterDiscount: convertAmount(subtotalAfterDiscount),
           taxableAmount: convertedTaxableAmount,
-          totalTax: convertedCgstAmount + convertedSgstAmount + convertedIgstAmount + convertedTaxAmount,
-          total: convertAmount(total),
+          totalTax: totalTaxSum,
+          total: recalculatedTotal, // ✅ Use recalculated total (taxable + tax)
           currency: paymentCurrency,
           currencySymbol: currencySymbol,
           conversionRate: conversionRate,
@@ -294,6 +298,7 @@ export default function OrderSuccess() {
           taxableAmount: formatted.taxableAmount,
           totalTax: formatted.totalTax,
           total: formatted.total,
+          recalculated: true, // ✅ Flag to show total was recalculated
           taxType: formatted.tax?.type,
           conversionRate: conversionRate,
           currency: paymentCurrency,
@@ -537,6 +542,25 @@ export default function OrderSuccess() {
                   {formatCurrency(invoiceData.subtotal, currencySymbol, isINR)}
                 </span>
               </div>
+              
+              {/* Corporate Discount Display */}
+              {invoiceData.discount && invoiceData.discount.amount > 0 && (
+                <>
+                  <div className="flex justify-between text-green-600">
+                    <span className="text-sm">Corporate Discount ({invoiceData.discount.percent || invoiceData.discount.discountPercentage}%):</span>
+                    <span className="text-sm font-semibold">
+                      - {formatCurrency(invoiceData.discount.amount, currencySymbol, isINR)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-b pb-2 mb-2">
+                    <span className="text-xs text-gray-500">Subtotal after discount:</span>
+                    <span className="font-semibold text-sm text-gray-700">
+                      {formatCurrency(invoiceData.subtotalAfterDiscount || (invoiceData.subtotal - invoiceData.discount.amount), currencySymbol, isINR)}
+                    </span>
+                  </div>
+                </>
+              )}
+              
               <div className="flex justify-between">
                 <span className="text-gray-600">P&F Charges:</span>
                 <span className="font-semibold text-gray-800">

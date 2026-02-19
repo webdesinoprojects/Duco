@@ -46,7 +46,7 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
               {item.products_name || item.name || "Custom T-Shirt"}
             </h2>
             <PriceDisplay
-              price={Math.ceil(totalPrice)}
+              price={totalPrice}
               className="text-base sm:text-lg font-bold text-[#FDC305]"
             />
           </div>

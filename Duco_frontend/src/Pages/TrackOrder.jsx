@@ -96,6 +96,10 @@ export default function TrackOrder() {
       : { id: o };
   }, [trackingData, rows]);
 
+  const isB2BOrder =
+    trackingData?.order?.orderType === "B2B" ||
+    trackingData?.order?.paymentmode === "store_pickup";
+
   const fetchData = async () => {
     if (!orderId) return;
     try {
@@ -523,7 +527,7 @@ export default function TrackOrder() {
               </div>
 
               {/* Shiprocket Tracking (if available or pending) */}
-              {trackingData.order.shiprocket?.shipmentId ? (
+              {!isB2BOrder && trackingData.order.shiprocket?.shipmentId ? (
                 <div className="mb-6">
                   <h3 className="text-base font-semibold text-white mb-3">Tracking Details</h3>
                   <div className="bg-gray-800 rounded-lg p-4">
@@ -575,15 +579,17 @@ export default function TrackOrder() {
                           </div>
                         )}
 
-                        <button
-                          onClick={handleRefetchTracking}
-                          disabled={refetchingTracking}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold transition hover:opacity-90 disabled:opacity-50"
-                          style={{ backgroundColor: ACCENT, color: BG }}
-                        >
-                          <FaSync className={refetchingTracking ? "animate-spin" : ""} />
-                          <span>{refetchingTracking ? "Checking..." : "Refresh Tracking Status"}</span>
-                        </button>
+                        {!isB2BOrder && (
+                          <button
+                            onClick={handleRefetchTracking}
+                            disabled={refetchingTracking}
+                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold transition hover:opacity-90 disabled:opacity-50"
+                            style={{ backgroundColor: ACCENT, color: BG }}
+                          >
+                            <FaSync className={refetchingTracking ? "animate-spin" : ""} />
+                            <span>{refetchingTracking ? "Checking..." : "Refresh Tracking Status"}</span>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

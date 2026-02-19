@@ -27,16 +27,13 @@ const currencySymbols = {
   SGD: "S$",
 };
 
-// ✅ Format price with proper currency formatting
+// ✅ Format price with proper currency formatting (exact 2 decimals)
 const formatPrice = (amount, currency = 'INR') => {
   const symbol = currencySymbols[currency] || currency;
   const num = Number(amount || 0);
   
-  if (currency === 'INR') {
-    return `${symbol}${Math.round(num).toLocaleString('en-IN')}`;
-  } else {
-    return `${symbol}${num.toFixed(2)}`;
-  }
+  // Show exact amount with 2 decimals for all currencies
+  return `${symbol}${num.toFixed(2)}`;
 };
 
 const OrderBulk = () => {

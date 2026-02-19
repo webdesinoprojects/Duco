@@ -520,7 +520,7 @@ exports.getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
     const order = await Order.findById(id)
-      .populate('user', 'name email')
+      .populate('user', 'name email number')
       .lean();
 
     if (!order) {

@@ -131,6 +131,10 @@ const OrderDetailsCard = ({ orderId }) => {
         );
         const data = await res.json();
         console.log("🧾 Order fetched:", data);
+        console.log("👤 Order userId:", data?.userId);
+        console.log("👤 Order userId type:", typeof data?.userId);
+        console.log("👤 Order addresses:", data?.addresses);
+        console.log("👤 Order address:", data?.address);
         setOrder(data);
       } catch (err) {
         console.error("❌ Failed to fetch order:", err);
@@ -143,25 +147,29 @@ const OrderDetailsCard = ({ orderId }) => {
   // ✅ Fetch customer info from userId if it's just an ID
   useEffect(() => {
     const fetchCustomerInfo = async () => {
-      if (!order?.userId) return;
+      const userRef = order?.user || order?.userId;
+      if (!userRef) return;
       
       try {
-        // If userId is already an object, no need to fetch
-        if (typeof order.userId === 'object') {
-          setCustomerInfo(order.userId);
+        if (typeof userRef === 'object') {
+          setCustomerInfo(userRef);
           return;
         }
         
-        // If userId is a string, fetch the user details
-        if (typeof order.userId === 'string') {
-          const res = await fetch(
-            `${API_BASE_URL}/api/users/${order.userId}`
-          );
+        if (typeof userRef === 'string') {
+          console.log('🔍 Fetching customer info for userId:', userRef);
+          console.log('🔗 API URL:', `${API_BASE_URL}/user/${userRef}`);
+          
+          const res = await fetch(`${API_BASE_URL}/user/${userRef}`);
+          console.log('📡 Response status:', res.status);
+          console.log('📡 Response headers:', res.headers);
+          
           if (!res.ok) {
             console.warn("Failed to fetch customer info");
             return;
           }
           const userData = await res.json();
+          console.log('👤 User data received:', userData);
           setCustomerInfo(userData?.data || userData);
         }
       } catch (err) {
@@ -169,7 +177,7 @@ const OrderDetailsCard = ({ orderId }) => {
       }
     };
     fetchCustomerInfo();
-  }, [order?.userId]);
+  }, [order?.user, order?.userId]);
 
   // ✅ Fetch all products (for fallback images)
   useEffect(() => {
@@ -260,32 +268,45 @@ const OrderDetailsCard = ({ orderId }) => {
         <div>
           <h3 className="text-lg font-semibold mb-2">Customer Information</h3>
           <div className="space-y-1">
-            <p>{
-              customerInfo?.name || 
-              customerInfo?.fullName ||
-              order.userId?.name ||
-              order.userId?.fullName ||
-              order.address?.fullName || 
-              'N/A'
-            }</p>
-            <p className="text-blue-600">{
-              customerInfo?.phone ||
-              customerInfo?.email ||
-              order.userId?.phone ||
-              order.address?.mobileNumber || 
-              'N/A'
-            }</p>
-            <p className="text-gray-600">{
-              customerInfo?.email ||
-              order.userId?.email ||
-              order.address?.email ||
-              'N/A'
-            }</p>
-            <p className="text-gray-600">
-              {order.address?.houseNumber}, {order.address?.street},{" "}
-              {order.address?.city}, {order.address?.state} -{" "}
-              {order.address?.pincode}
-            </p>
+            {(() => {
+              const billingAddr = order.addresses?.billing || order.address || {};
+              const userObj = customerInfo || order.user || order.userId || {};
+              const addressLine = [
+                billingAddr.houseNumber,
+                billingAddr.street,
+                billingAddr.city,
+                billingAddr.state,
+                billingAddr.pincode ? `- ${billingAddr.pincode}` : "",
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+              
+              return (
+                <>
+                  <p>{
+                    userObj?.name ||
+                    userObj?.fullName ||
+                    billingAddr.fullName ||
+                    'N/A'
+                  }</p>
+                  <p className="text-blue-600">{
+                    billingAddr.phone ||
+                    billingAddr.mobileNumber ||
+                    userObj?.number ||
+                    userObj?.phone ||
+                    userObj?.email ||
+                    'N/A'
+                  }</p>
+                  <p className="text-gray-600">{
+                    userObj?.email ||
+                    billingAddr.email ||
+                    'N/A'
+                  }</p>
+                  <p className="text-gray-600">{addressLine || 'N/A'}</p>
+                </>
+              );
+            })()}
           </div>
         </div>
 

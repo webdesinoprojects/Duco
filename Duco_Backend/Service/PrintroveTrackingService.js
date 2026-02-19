@@ -283,6 +283,7 @@ class PrintroveTrackingService {
         price: 1,
         totalAmount: 1,
         totalPay: 1,
+        orderType: 1,
         remainingAmount: 1,
         paymentStatus: 1,
         paymentmode: 1,

@@ -1040,14 +1040,27 @@ const Cart = () => {
     return cost;
   }, [pfPerUnit, totalQuantity, currencySymbol, priceIncrease, conversionRate, actualData]);
 
-  // ✅ TAX ON GROSS: Taxable = Subtotal + P&F (before discount)
-  const taxableAmount = useMemo(() => {
-    return safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
-  }, [itemsSubtotal, printingCost, pfCost]);
+  // ✅ Calculate discount amount first (exact, no rounding)
+  const discountAmount = useMemo(() => {
+    if (autoDiscount && autoDiscount.discountPercent > 0) {
+      return (safeNum(itemsSubtotal) * safeNum(autoDiscount.discountPercent)) / 100;
+    }
+    return 0;
+  }, [itemsSubtotal, autoDiscount]);
 
-  // ✅ TAX ON GROSS: Tax calculated on Subtotal + P&F (before discount)
+  // ✅ Subtotal after discount (exact)
+  const subtotalAfterDiscount = useMemo(() => {
+    return safeNum(itemsSubtotal) - safeNum(discountAmount);
+  }, [itemsSubtotal, discountAmount]);
+
+  // ✅ TAXABLE = Subtotal after discount + P&F + Printing (exact, no rounding)
+  const taxableAmount = useMemo(() => {
+    return safeNum(subtotalAfterDiscount) + safeNum(printingCost) + safeNum(pfCost);
+  }, [subtotalAfterDiscount, printingCost, pfCost]);
+
+  // ✅ TAX ON NET: Tax calculated on (Subtotal after discount + P&F + Printing)
   const taxInfo = useMemo(() => {
-    const baseForTax = safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
+    const baseForTax = taxableAmount; // This is already: subtotalAfterDiscount + P&F + Printing
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
     
     let gstRate = 0;
@@ -1113,7 +1126,7 @@ const Cart = () => {
       taxAmount,
       totalTax: cgstAmount + sgstAmount + igstAmount + taxAmount,
     };
-  }, [itemsSubtotal, printingCost, pfCost, billingAddress, actualData]);
+  }, [taxableAmount, billingAddress, actualData]);
 
   const gstTotal = useMemo(() => {
     return (safeNum(taxableAmount) * safeNum(gstPercent)) / 100;
@@ -1152,8 +1165,8 @@ const Cart = () => {
       );
 
       if (matchingTier) {
-        // ✅ Calculate discount amount (will be recalculated by backend, this is just for display)
-        const discountAmount = Math.ceil((itemsSubtotal * matchingTier.discountPercentage) / 100);
+        // ✅ Calculate discount amount (exact, NO Math.ceil - backend will recalculate anyway)
+        const discountAmount = (itemsSubtotal * matchingTier.discountPercentage) / 100;
         setAutoDiscount({
           discountPercent: matchingTier.discountPercentage,
           amount: discountAmount,
@@ -1176,9 +1189,17 @@ const Cart = () => {
   }, [actualData, itemsSubtotal]);
 
   const grandTotal = useMemo(() => {
-    // ✅ TAX ON GROSS: ((Subtotal + P&F) + Tax) - Discount
-    // Base for tax = subtotal + P&F (BEFORE discount)
-    const baseForTax = safeNum(itemsSubtotal) + safeNum(printingCost) + safeNum(pfCost);
+    // ✅ TAX ON NET: Calculate discount first, then apply tax on discounted amount
+    // Calculate discount amount (exact, no rounding)
+    const calcDiscountAmount = autoDiscount && autoDiscount.discountPercent > 0
+      ? (safeNum(itemsSubtotal) * safeNum(autoDiscount.discountPercent)) / 100
+      : 0;
+    
+    // Subtotal after discount
+    const calcSubtotalAfterDiscount = safeNum(itemsSubtotal) - calcDiscountAmount;
+    
+    // ✅ TAXABLE = Subtotal after discount + P&F + Printing
+    const baseForTax = calcSubtotalAfterDiscount + safeNum(printingCost) + safeNum(pfCost);
     
     // ✅ Check if this is a B2B order
     const isBulkOrder = actualData.some(item => item.isCorporate === true);
@@ -1256,19 +1277,17 @@ const Cart = () => {
     }
     // ✅ B2C: No tax (gstRate = 0, adjustedGst = 0)
 
-    // Discount amount (subtracted at end)
-    const discountAmount = autoDiscount && autoDiscount.discountPercent > 0
-      ? (itemsSubtotal * autoDiscount.discountPercent) / 100
-      : 0;
-
-    // ✅ TAX ON GROSS: ((Subtotal + P&F) + Tax) - Discount
-    const total = (baseForTax + adjustedGst) - discountAmount;
+    // ✅ TAX ON NET: (Subtotal after discount + P&F) + Tax
+    const total = baseForTax + adjustedGst;
     
     const isINR = currencySymbol === '₹' || !currencySymbol;
-    console.log(`💰 Grand Total Calculation (Tax on Gross):`, {
+    console.log(`💰 Grand Total Calculation (Tax on Net):`, {
       itemsSubtotal: safeNum(itemsSubtotal),
+      discountAmount: calcDiscountAmount,
+      subtotalAfterDiscount: calcSubtotalAfterDiscount,
       printingCost: safeNum(printingCost),
       pfCost: safeNum(pfCost),
+      taxableAmount: baseForTax,
       isBulkOrder,
       taxType,
       cgstAmount,
@@ -1276,7 +1295,6 @@ const Cart = () => {
       igstAmount,
       totalTax: adjustedGst,
       baseForTax,
-      discountAmount,
       gstRate,
       totalBeforeRoundOff: total,
       totalAfterRoundOff: Math.ceil(total),
@@ -1288,7 +1306,7 @@ const Cart = () => {
     });
     
     return total; // Return before round off, we'll round in display
-  }, [itemsSubtotal, printingCost, pfCost, currencySymbol, billingAddress, actualData, resolvedLocation, conversionRate, priceIncrease, autoDiscount]);
+  }, [itemsSubtotal, discountAmount, subtotalAfterDiscount, printingCost, pfCost, currencySymbol, billingAddress, actualData, resolvedLocation, conversionRate, priceIncrease, autoDiscount]);
 
   if (loadingProducts) return <Loading />;
   if (!cart.length)
@@ -1342,12 +1360,12 @@ const Cart = () => {
                 <>
                   <div className="flex justify-between text-green-400">
                     <span className="text-sm">Corporate Discount ({autoDiscount.discountPercent}%)</span>
-                    <span className="text-sm font-semibold">- {formatCurrency((itemsSubtotal * autoDiscount.discountPercent) / 100)}</span>
+                    <span className="text-sm font-semibold">- {formatCurrency(discountAmount)}</span>
                   </div>
                   <div className="flex justify-between border-b pb-2 mb-2">
                     <span className="text-xs text-gray-400">Subtotal after discount:</span>
                     <span className="font-semibold text-sm">
-                      {formatCurrency(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)}
+                      {formatCurrency(subtotalAfterDiscount)}
                     </span>
                   </div>
                 </>
@@ -1362,23 +1380,19 @@ const Cart = () => {
                 <span>{formatCurrency(pfCost)}</span>
               </div>
               
-              {/* Subtotal before GST - matching invoice format */}
+              {/* Subtotal (Taxable) = Subtotal after discount + P&F + Printing */}
               <div className="flex justify-between border-t pt-2 mt-2">
                 <span className="font-medium">Subtotal (Taxable)</span>
                 <span className="font-medium">
-                  {formatCurrency(
-                    (autoDiscount && autoDiscount.discountPercent > 0 
-                      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
-                      : itemsSubtotal) + printingCost + pfCost
-                  )}
+                  {formatCurrency(taxableAmount)}
                 </span>
               </div>
               
               {/* Tax Breakdown - Only for B2B orders */}
               {(() => {
-                // ✅ TAX ON GROSS: Taxable = Subtotal + P&F (before discount)
+                // ✅ TAX ON NET: Taxable = Subtotal after discount + P&F + Printing
                 const isBulkOrder = actualData.some(item => item.isCorporate === true);
-                const baseForTaxDisplay = itemsSubtotal + printingCost + pfCost;
+                const baseForTaxDisplay = taxableAmount;
                 
                 console.log('🧾 Order Summary - B2B Check:', {
                   isBulkOrder,
@@ -1731,8 +1745,8 @@ const Cart = () => {
                   return;
                 }
 
-                // ✅ Validate totalPay before proceeding
-                const finalTotal = Math.ceil(grandTotal);
+                // ✅ Validate totalPay before proceeding (use exact value, not rounded)
+                const finalTotal = grandTotal;
                 if (!finalTotal || finalTotal <= 0 || isNaN(finalTotal)) {
                   toast.error("⚠ Invalid order total. Please refresh the page and try again.");
                   console.error("❌ Invalid grandTotal:", {
@@ -1877,7 +1891,7 @@ const Cart = () => {
                   printingUnits,
                   gstTotal,
                   grandTotal,
-                  totalPay: Math.ceil(grandTotal),
+                  totalPay: grandTotal,
                   billingAddress,
                   shippingAddress,
                   resolvedLocation,
@@ -1895,10 +1909,10 @@ const Cart = () => {
                 })));
                 console.groupEnd();
 
-                // ✅ Convert display amount back to INR for Razorpay (Razorpay only accepts INR)
-                const displayTotal = Math.ceil(grandTotal);
+                // ✅ Convert display amount back to INR for Razorpay (Razorpay only accepts INR) - EXACT calculation
+                const displayTotal = grandTotal;
                 const totalPayINR = conversionRate && conversionRate !== 1 
-                  ? Math.ceil(displayTotal / conversionRate) // Convert back to INR
+                  ? Number((displayTotal / conversionRate).toFixed(2)) // Convert back to INR (exact)
                   : displayTotal; // Already in INR
                 
                 console.log('💳 Payment amount conversion:', {
@@ -1948,9 +1962,9 @@ const Cart = () => {
                     printing: printingCost,
                     gst: gstTotal,
                     gstPercent: gstPercent,
-                    // ✅ Discount data at root level for backend
+                    // ✅ Discount data at root level for backend (use exact values, no Math.ceil)
                     discount: autoDiscount && autoDiscount.discountPercent > 0 ? {
-                      amount: Math.ceil((itemsSubtotal * autoDiscount.discountPercent) / 100),
+                      amount: discountAmount,
                       percent: autoDiscount.discountPercent,
                       discountPercent: autoDiscount.discountPercent
                     } : null,
@@ -1968,23 +1982,21 @@ const Cart = () => {
                       conversionRate: conversionRate,
                       // ✅ Auto-discount details
                       autoDiscount: autoDiscount,
-                      discountAmount: autoDiscount && autoDiscount.discountPercent > 0 ? Math.ceil((itemsSubtotal * autoDiscount.discountPercent) / 100) : 0,
+                      discountAmount: discountAmount,
                       finalTotal: autoDiscount && autoDiscount.discountPercent > 0 
-                        ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
-                        : Math.ceil(itemsSubtotal),
+                        ? subtotalAfterDiscount
+                        : itemsSubtotal,
                       // ✅ Discount object for invoice
                       discount: autoDiscount && autoDiscount.discountPercent > 0 ? {
-                        amount: Math.ceil((itemsSubtotal * autoDiscount.discountPercent) / 100),
+                        amount: discountAmount,
                         percent: autoDiscount.discountPercent,
                         discountPercent: autoDiscount.discountPercent
                       } : null,
                     },
-                    totalPay: autoDiscount && autoDiscount.discountPercent > 0 
-                      ? Math.ceil((itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100) * conversionRate)
-                      : totalPayINR, // ✅ Apply discount to payment amount
-                    totalPayDisplay: autoDiscount && autoDiscount.discountPercent > 0
-                      ? Math.ceil(itemsSubtotal - (itemsSubtotal * autoDiscount.discountPercent) / 100)
-                      : displayTotal, // ✅ Display amount with discount
+                    totalPay: Number((grandTotal * conversionRate).toFixed(2)),
+                    // ✅ Always use grandTotal for payment (includes tax)
+                    totalPayDisplay: grandTotal,
+                    // ✅ Always use grandTotal for display (includes tax)
                     displayCurrency: currency, // ✅ Keep currency for reference
                     conversionRate: conversionRate, // ✅ ADD: Include at root level for easy access
                     addresses: {

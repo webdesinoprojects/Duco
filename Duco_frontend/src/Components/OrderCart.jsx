@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaExternalLinkAlt, FaShippingFast } from "react-icons/fa";
+import { FaShippingFast } from "react-icons/fa";
 
 const OrderCart = ({ order }) => {
   const [image, setImage] = useState("");
@@ -104,16 +104,6 @@ const OrderCart = ({ order }) => {
           <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
             <FaShippingFast />
             Tracking available
-            {order.trackingUrl && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.open(order.trackingUrl, "_blank");
-                }}
-              >
-                <FaExternalLinkAlt />
-              </button>
-            )}
           </div>
         )}
       </div>

@@ -11,7 +11,7 @@ const LZString = require('lz-string'); // ✅ added for decompression
 const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload'); // ✅ Cloudinary upload
 const aiSensyService = require('../Service/AiSensyService'); // ✅ AiSensy WhatsApp notifications
 const emailService = require('../Service/EmailService'); // ✅ Email notifications
-const invoicePDFService = require('../Service/InvoicePDFService'); // ✅ PDF generation (singleton instance)
+const invoicePdfService = require('../Service/InvoicePDFService'); // ✅ Invoice PDF generation
 
 // --- Razorpay client ---
 const razorpay = new Razorpay({
@@ -455,6 +455,50 @@ function formatDateDDMMYYYY(d = new Date()) {
   return `${dd}-${mm}-${yyyy}`;
 }
 
+function normalizeColorName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeColorHex(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  const hex = raw.startsWith('#') ? raw.slice(1) : raw;
+  return /^[0-9a-f]{6}$/.test(hex) ? `#${hex}` : '';
+}
+
+function normalizeSizeKey(value) {
+  const raw = String(value || '').trim().toUpperCase();
+  const cleaned = raw.replace(/\s+/g, '').replace(/-/g, '');
+  if (['XXL', '2XL', '2X'].includes(cleaned)) return '2XL';
+  if (['XXXL', '3XL', '3X'].includes(cleaned)) return '3XL';
+  return cleaned;
+}
+
+function colorMatches(item, imageItem) {
+  const candidates = [
+    item?.color,
+    item?.colorcode,
+    item?.colorCode,
+    item?.colortext,
+  ].filter(Boolean);
+
+  const itemNameTokens = candidates.map(normalizeColorName).filter(Boolean);
+  const itemHexTokens = candidates.map(normalizeColorHex).filter(Boolean);
+
+  const imageName = normalizeColorName(imageItem?.color);
+  const imageHex = normalizeColorHex(imageItem?.colorcode);
+
+  const nameMatch = itemNameTokens.some((token) =>
+    token === imageName || token.includes(imageName) || imageName.includes(token)
+  );
+  const hexMatch = itemHexTokens.some((token) => token === imageHex);
+
+  return nameMatch || hexMatch;
+}
+
 // ✅ Stock Reduction Helper
 async function reduceProductStock(items) {
   console.log('📦 Starting stock reduction for order items...');
@@ -483,17 +527,12 @@ async function reduceProductStock(items) {
       });
 
       // Normalize color for case-insensitive comparison
-      const normalizedColor = typeof color === 'string' ? color.toLowerCase().trim() : '';
-
       // Find the matching color in product's image_url array
       let colorFound = false;
       let colorItem = null;
 
       for (const imageItem of product.image_url) {
-        const imageColor = typeof imageItem.color === 'string' ? imageItem.color.toLowerCase().trim() : '';
-        const imageColorCode = typeof imageItem.colorcode === 'string' ? imageItem.colorcode.toLowerCase().trim() : '';
-        
-        if (imageColor === normalizedColor || imageColorCode === normalizedColor) {
+        if (colorMatches(item, imageItem)) {
           colorFound = true;
           colorItem = imageItem;
           break;
@@ -510,9 +549,12 @@ async function reduceProductStock(items) {
       for (const [size, qty] of Object.entries(quantityObj)) {
         const quantity = safeNum(qty, 0);
         if (quantity <= 0) continue;
+        const normalizedSize = normalizeSizeKey(size);
+        if (!normalizedSize) continue;
 
         for (const contentItem of colorItem.content) {
-          if (contentItem.size === size) {
+          const contentSize = normalizeSizeKey(contentItem.size);
+          if (contentSize === normalizedSize) {
             const currentStock = contentItem.minstock || 0;
             const newStock = Math.max(0, currentStock - quantity);
             
@@ -621,13 +663,10 @@ async function validateStock(items) {
       let colorItem = null;
 
       for (const imageItem of product.image_url) {
-        const imageColor = typeof imageItem.color === 'string' ? imageItem.color.toLowerCase().trim() : '';
-        const imageColorCode = typeof imageItem.colorcode === 'string' ? imageItem.colorcode.toLowerCase().trim() : '';
-        
-        if (imageColor === normalizedColor || imageColorCode === normalizedColor) {
+        if (colorMatches(item, imageItem)) {
           colorFound = true;
           colorItem = imageItem;
-          console.log(`  ✅ Color match found: "${imageColor}" or "${imageColorCode}"`);
+          console.log(`  ✅ Color match found: "${imageItem.color}" or "${imageItem.colorcode}"`);
           break;
         }
       }
@@ -646,15 +685,18 @@ async function validateStock(items) {
       for (const [size, qty] of Object.entries(quantityObj)) {
         const quantity = safeNum(qty, 0);
         if (quantity <= 0) continue; // Skip zero quantities
+        const normalizedSize = normalizeSizeKey(size);
+        if (!normalizedSize) continue;
 
         let sizeFound = false;
         let availableStock = 0;
 
         for (const contentItem of colorItem.content) {
-          if (contentItem.size === size) {
+          const contentSize = normalizeSizeKey(contentItem.size);
+          if (contentSize === normalizedSize) {
             sizeFound = true;
             availableStock = contentItem.minstock || 0;
-            console.log(`    ✅ Size match found: "${size}", stock: ${availableStock}, needed: ${quantity}`);
+            console.log(`    ✅ Size match found: "${normalizedSize}", stock: ${availableStock}, needed: ${quantity}`);
             
             if (availableStock < quantity) {
               console.log(`    ❌ Insufficient stock: need ${quantity}, have ${availableStock}`);
@@ -728,6 +770,19 @@ async function buildInvoiceArtifacts(order, req) {
       return null;
     }
 
+    // ✅ RECALCULATE grand total using correct formula (taxableValue + totalTaxAmt)
+    // This ensures email shows correct amount even if DB has old incorrect value
+    const recalculatedGrandTotal = Number((totals.taxableValue + totals.totalTaxAmt).toFixed(2));
+    
+    console.log('📊 Grand Total Calculation for Email:', {
+      orderId: order.orderId || order._id,
+      taxableValue: totals.taxableValue,
+      totalTaxAmt: totals.totalTaxAmt,
+      savedGrandTotal: totals.grandTotal,
+      recalculatedGrandTotal: recalculatedGrandTotal,
+      difference: (totals.grandTotal - recalculatedGrandTotal).toFixed(2)
+    });
+
     const invoiceData = {
       company: invoice.company,
       invoice: invoice.invoice,
@@ -737,7 +792,7 @@ async function buildInvoiceArtifacts(order, req) {
       charges: invoice.charges,
       tax: invoice.tax,
       subtotal: totals.subtotal,
-      total: totals.grandTotal,
+      total: recalculatedGrandTotal, // ✅ Use recalculated total instead of saved value
       // ✅ Include discount calculation fields for correct invoice display
       discountAmount: totals.discountAmount,
       discountPercent: totals.discountPercent,
@@ -772,16 +827,16 @@ async function buildInvoiceArtifacts(order, req) {
       billingCountry: invoice.billTo?.country
     });
 
-    // ✅ Generate PDF invoice
-    console.log('📄 Generating invoice PDF...');
     let pdfPath = null;
-    let invoiceUrl = null;
+    const invoiceUrl = null;
+
     try {
-      pdfPath = await invoicePDFService.generatePDF(invoiceData, order.orderId || order._id);
-      console.log('✅ Invoice PDF generated:', pdfPath);
-    } catch (pdfError) {
-      console.error('❌ Failed to generate invoice PDF:', pdfError.message);
-      // Continue without PDF - email will still send without attachment
+      pdfPath = await invoicePdfService.generatePDF(
+        invoiceData,
+        order.orderId || order._id
+      );
+    } catch (err) {
+      console.warn('⚠️ PDF generation failed (non-blocking):', err.message || err);
     }
 
     const customerName =
@@ -831,9 +886,15 @@ async function buildInvoiceArtifacts(order, req) {
       });
     }
 
+    // ✅ Return totals with recalculated grandTotal for email
+    const correctedTotals = {
+      ...totals,
+      grandTotal: recalculatedGrandTotal
+    };
+
     return {
       invoice,
-      totals,
+      totals: correctedTotals, // ✅ Use corrected totals
       pdfPath,
       invoiceUrl,
       customerName,
@@ -1574,24 +1635,27 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (store pickup)');
       }
 
-      // ✅ Build invoice artifacts and send email (synchronous)
+      // ✅ Build invoice artifacts and send email IMMEDIATELY (non-blocking)
       const artifacts = await buildInvoiceArtifacts(order, req);
       
-      // ✅ Send email before returning response
+      // ✅ Send email immediately without blocking the response
       let emailQueued = false;
       if (artifacts?.customerEmail) {
-        try {
-          console.log('📧 Sending order confirmation email (store pickup)...');
-          const emailResult = await sendOrderEmail(order, artifacts);
-          if (emailResult.success) {
-            console.log('✅ Email sent successfully');
-            emailQueued = true;
-          } else {
-            console.warn('⚠️ Email sending failed:', emailResult.error);
+        setImmediate(async () => {
+          try {
+            console.log('📧 Sending order confirmation email (store pickup)...');
+            const emailResult = await sendOrderEmail(order, artifacts);
+            if (emailResult.success) {
+              console.log('✅ Email sent successfully');
+            } else {
+              console.warn('⚠️ Email sending failed:', emailResult.error);
+            }
+          } catch (err) {
+            console.error('❌ Email sending error:', err.message);
           }
-        } catch (err) {
-          console.error('❌ Email sending error:', err.message);
-        }
+        });
+        emailQueued = true;
+        console.log('✅ Email queued for immediate delivery');
       }
       
       const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
@@ -1628,10 +1692,10 @@ const completeOrder = async (req, res) => {
         user,
         razorpayPaymentId: paymentId || null,
         status: 'Pending',
-        paymentStatus: 'Pending', // ✅ Netbanking starts as Pending until bank confirms
+        paymentStatus: 'Paid', // ✅ Netbanking treated as paid on order creation
         totalAmount: totalAmount,
-        advancePaidAmount: 0,
-        remainingAmount: totalAmount,
+        advancePaidAmount: totalAmount,
+        remainingAmount: 0,
         paymentmode: paymentmode, // ✅ Use enum value, not readableMode
         pf: finalPfCharge,
         printing: finalPrintingCharge,
@@ -1694,24 +1758,27 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (netbanking)');
       }
 
-      // ✅ Build invoice artifacts and send email (synchronous)
+      // ✅ Build invoice artifacts and send email IMMEDIATELY (non-blocking)
       const artifacts = await buildInvoiceArtifacts(order, req);
       
-      // ✅ Send email before returning response
+      // ✅ Send email immediately without blocking the response
       let emailQueued = false;
       if (artifacts?.customerEmail) {
-        try {
-          console.log('📧 Sending order confirmation email (netbanking)...');
-          const emailResult = await sendOrderEmail(order, artifacts);
-          if (emailResult.success) {
-            console.log('✅ Email sent successfully');
-            emailQueued = true;
-          } else {
-            console.warn('⚠️ Email sending failed:', emailResult.error);
+        setImmediate(async () => {
+          try {
+            console.log('📧 Sending order confirmation email (netbanking)...');
+            const emailResult = await sendOrderEmail(order, artifacts);
+            if (emailResult.success) {
+              console.log('✅ Email sent successfully');
+            } else {
+              console.warn('⚠️ Email sending failed:', emailResult.error);
+            }
+          } catch (err) {
+            console.error('❌ Email sending error:', err.message);
           }
-        } catch (err) {
-          console.error('❌ Email sending error:', err.message);
-        }
+        });
+        emailQueued = true;
+        console.log('✅ Email queued for immediate delivery');
       }
       
       const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
@@ -1861,24 +1928,27 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (online)');
       }
 
-      // ✅ Build invoice artifacts and send email (synchronous)
+      // ✅ Build invoice artifacts and send email IMMEDIATELY (non-blocking)
       const artifacts = await buildInvoiceArtifacts(order, req);
       
-      // ✅ Send email before returning response
+      // ✅ Send email immediately without blocking the response
       let emailQueued = false;
       if (artifacts?.customerEmail) {
-        try {
-          console.log('📧 Sending order confirmation email (online payment)...');
-          const emailResult = await sendOrderEmail(order, artifacts);
-          if (emailResult.success) {
-            console.log('✅ Email sent successfully');
-            emailQueued = true;
-          } else {
-            console.warn('⚠️ Email sending failed:', emailResult.error);
+        setImmediate(async () => {
+          try {
+            console.log('📧 Sending order confirmation email (online payment)...');
+            const emailResult = await sendOrderEmail(order, artifacts);
+            if (emailResult.success) {
+              console.log('✅ Email sent successfully');
+            } else {
+              console.warn('⚠️ Email sending failed:', emailResult.error);
+            }
+          } catch (err) {
+            console.error('❌ Email sending error:', err.message);
           }
-        } catch (err) {
-          console.error('❌ Email sending error:', err.message);
-        }
+        });
+        emailQueued = true;
+        console.log('✅ Email queued for immediate delivery');
       }
       
       const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);
@@ -2027,24 +2097,27 @@ const completeOrder = async (req, res) => {
         console.log('✅ Design images saved to order (50%)');
       }
 
-      // ✅ Build invoice artifacts and send email (synchronous)
+      // ✅ Build invoice artifacts and send email IMMEDIATELY (non-blocking)
       const artifacts = await buildInvoiceArtifacts(order, req);
       
-      // ✅ Send email before returning response
+      // ✅ Send email immediately without blocking the response
       let emailQueued = false;
       if (artifacts?.customerEmail) {
-        try {
-          console.log('📧 Sending order confirmation email (50% payment)...');
-          const emailResult = await sendOrderEmail(order, artifacts);
-          if (emailResult.success) {
-            console.log('✅ Email sent successfully');
-            emailQueued = true;
-          } else {
-            console.warn('⚠️ Email sending failed:', emailResult.error);
+        setImmediate(async () => {
+          try {
+            console.log('📧 Sending order confirmation email (50% payment)...');
+            const emailResult = await sendOrderEmail(order, artifacts);
+            if (emailResult.success) {
+              console.log('✅ Email sent successfully');
+            } else {
+              console.warn('⚠️ Email sending failed:', emailResult.error);
+            }
+          } catch (err) {
+            console.error('❌ Email sending error:', err.message);
           }
-        } catch (err) {
-          console.error('❌ Email sending error:', err.message);
-        }
+        });
+        emailQueued = true;
+        console.log('✅ Email queued for immediate delivery');
       }
       
       const whatsappResult = await sendAiSensyOrderMessage(order, artifacts);

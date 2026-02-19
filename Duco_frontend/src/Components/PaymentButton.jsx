@@ -106,25 +106,8 @@ const PaymentButton = ({ orderData }) => {
       // 1️⃣ Payment amount
       // ✅ IMPORTANT: If isHalfPayment is true, orderData.totalPay is ALREADY the 50% amount
       // The frontend (PaymentPage) calculates halfPayAmountINR and passes it as totalPay
-      // So we should use it directly, NOT divide by 2 again!
+      // So we should use it directly, without any additional rounding!
       let finalAmount = orderData.totalPay;
-      
-      // ✅ For 50% payments, ensure amount is properly rounded
-      if (orderData.isHalfPayment) {
-        finalAmount = Math.ceil(finalAmount);
-        console.log('💰 50% Payment - Rounded amount:', {
-          original: orderData.totalPay,
-          rounded: finalAmount,
-          difference: finalAmount - orderData.totalPay
-        });
-      }
-      
-      // ✅ Final validation: amount must be >= 1 paise minimum
-      if (finalAmount < 1) {
-        console.error('❌ Amount less than minimum (1 paise):', finalAmount);
-        alert("Payment amount is less than minimum (₹0.01). Please ensure order has items.");
-        return;
-      }
       
       console.log('💰 Payment calculation:', {
         original: orderData.totalPay,
