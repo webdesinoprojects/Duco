@@ -24,6 +24,7 @@ const locationToCountryCodeMap = {
   "Saudi Arabia": "SA",
 };
 
+// ✅ Helper to get cached location as fallback (only used when API fails)
 const getFallbackLocation = () => {
   let location = LOCATION_FALLBACK_DEFAULT;
   try {
@@ -34,46 +35,12 @@ const getFallbackLocation = () => {
   } catch (e) {
     console.warn("⚠️ Could not read cached location:", e);
   }
-
-  const countryCode = locationToCountryCodeMap[location] || "IN";
-  return { countryName: location, countryCode };
+  return location;
 };
 
-let ipapiInterceptorInitialized = false;
-const ensureIpapiInterceptor = () => {
-  if (ipapiInterceptorInitialized) return;
-  ipapiInterceptorInitialized = true;
-
-  axios.interceptors.request.use(
-    (config) => {
-      const url = config?.url || "";
-      if (typeof url === "string" && url.includes("ipapi.co/")) {
-        const { countryName, countryCode } = getFallbackLocation();
-
-        config.adapter = async () => ({
-          data: {
-            country: countryCode,
-            country_name: countryName,
-          },
-          status: 200,
-          statusText: "OK",
-          headers: {},
-          config,
-          request: {},
-        });
-
-        console.warn("⚠️ ipapi call intercepted; using local fallback.", {
-          countryCode,
-          countryName,
-        });
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
-  );
-};
-
-ensureIpapiInterceptor();
+// ❌ REMOVED: Axios interceptor that was preventing real-time location detection
+// The interceptor was returning cached data for ALL ipapi.co calls, 
+// which prevented VPN-based location changes from working.
 
 const PriceContext = createContext();
 
@@ -88,27 +55,20 @@ export const PriceProvider = ({ children }) => {
   useEffect(() => {
     const detectLocation = async () => {
       try {
-        // ✅ Check localStorage first for cached location
-        const cached = JSON.parse(localStorage.getItem("locationPricing"));
-        if (cached && cached.location) {
-          console.log("💾 Using cached location from localStorage:", cached.location);
-          setLocation(cached.location);
-          return;
-        }
-
-        // ✅ Use backend endpoint for geolocation (no CORS issues)
-        console.log("🌍 Detecting location via backend...");
+        // ✅ Use backend endpoint for REAL-TIME IP-based geolocation (works with VPN)
+        console.log("🌍 Detecting location via backend IP detection...");
         const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
         const response = await axios.get(`${API_BASE}/api/geolocation`, {
-          timeout: 5000
+          timeout: 8000
         });
         const data = response.data;
         
-        console.log("📍 Geolocation Data:", {
+        console.log("📍 Real-time Geolocation Data:", {
           country: data.country,
           countryCode: data.countryCode,
           city: data.city,
-          ip: data.ip
+          ip: data.ip,
+          success: data.success
         });
 
         // ✅ Map country codes to database location names
@@ -135,7 +95,7 @@ export const PriceProvider = ({ children }) => {
         const countryCode = data.countryCode || "IN";
         const mappedLocation = countryToLocationMap[countryCode] || data.country || "India";
         
-        console.log("🗺️ Mapped location:", {
+        console.log("✅ Location mapped:", {
           countryCode,
           country: data.country,
           mappedTo: mappedLocation
@@ -143,22 +103,18 @@ export const PriceProvider = ({ children }) => {
 
         setLocation(mappedLocation);
       } catch (err) {
-        console.error("❌ Location detection failed:", err.message);
+        console.error("❌ Real-time location detection failed:", err.message);
         
-        // ✅ Fallback: Check localStorage for cached location
-        try {
-          const cached = JSON.parse(localStorage.getItem("locationPricing"));
-          if (cached && cached.location) {
-            console.log("💾 Fallback: Using cached location from localStorage:", cached.location);
-            setLocation(cached.location);
-            return;
-          }
-        } catch (e) {
-          console.warn("⚠️ Could not read localStorage:", e);
+        // ✅ Fallback 1: Try cached location from localStorage
+        const cachedLocation = getFallbackLocation();
+        if (cachedLocation && cachedLocation !== LOCATION_FALLBACK_DEFAULT) {
+          console.log("💾 Using cached location:", cachedLocation);
+          setLocation(cachedLocation);
+          return;
         }
         
         console.log("🔄 Using default location: India");
-        // ✅ Default to India if detection fails
+        // ✅ Fallback 2: Default to India if all else fails
         setLocation("India");
       }
     };

@@ -6,30 +6,11 @@ import TrendingHome from '../Components/TrendingHome.jsx';
 import ShopNowHome from '../Components/ShopNowHome.jsx';
 import BannerHome from '../Components/BannerHome.jsx';
 import axios from 'axios';
-import { usePriceContext } from '../ContextAPI/PriceContext.jsx';
 
-const countryToLocationMap = {
-  "IN": "India",
-  "US": "United States",
-  "CA": "Canada",
-  "GB": "United Kingdom",
-  "DE": "Germany",
-  "FR": "France",
-  "NL": "Netherlands",
-  "ES": "Spain",
-  "IT": "Italy",
-  "AU": "Australia",
-  "NZ": "New Zealand",
-  "CN": "China",
-  "JP": "Japan",
-  "KR": "South Korea",
-  "SG": "Singapore",
-  "AE": "UAE",
-  "SA": "Saudi Arabia",
-};
+// ✅ Removed unused usePriceContext and countryToLocationMap (location detection now in PriceContext)
 
 const Home = () => {
-  const { setLocation } = usePriceContext();
+  // ✅ Removed setLocation - location detection centralized in PriceContext
   const [banner, setBanner] = useState("");
   const [heroData, setHeroData] = useState({
     text: "Color Of Summer Outfit",
@@ -86,22 +67,9 @@ const Home = () => {
   useEffect(() => {
     console.log('Home component mounted');
     
-    axios.get("https://ipapi.co/json/")
-      .then((response) => {
-        const data = response.data;
-        const mappedLocation = countryToLocationMap[data?.country] || data?.country_name || "India";
-        console.log("🌍 Home detected location:", {
-          countryCode: data?.country,
-          countryName: data?.country_name,
-          mappedTo: mappedLocation
-        });
-        setLocation(mappedLocation);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch location:", err);
-        setLocation("India");
-      });
-
+    // ✅ REMOVED: Duplicate location detection (now handled by PriceContext)
+    // Location detection is centralized in PriceContext.jsx for consistency
+    
     const fetchBanner = async () => {
       try {
         const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
@@ -154,7 +122,7 @@ const Home = () => {
       }
     };
     fetchBanner();
-  }, [setLocation]);
+  }, []); // ✅ Run only once on mount (location detection now in PriceContext)
 
   // Auto-rotate banners every 4-5 seconds with animation
   useEffect(() => {
