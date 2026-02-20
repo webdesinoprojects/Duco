@@ -38,7 +38,7 @@ async function getOrdersDueForReminder() {
       $lt: endExclusive,
     },
   })
-    .select('orderId _id products addresses address user deliveryExpectedDate status paymentmode advancePaidAmount totalAmount totalPay')
+    .select('orderId _id products addresses address user deliveryExpectedDate status paymentmode advancePaidAmount totalAmount totalPay orderType')
     .lean();
 
   return orders;
@@ -148,6 +148,7 @@ async function runDailyReminders() {
     const grandTotal = Number(order.totalAmount ?? order.totalPay ?? 0);
     const paidAmount = Number(order.advancePaidAmount ?? 0);
     const hasPendingBalance = order.paymentmode === '50%' && Number.isFinite(grandTotal) && Number.isFinite(paidAmount) && paidAmount < grandTotal;
+    const isB2B = order.orderType === 'B2B';
 
     try {
       const sent = await emailService.sendDeliveryReminder({
@@ -159,6 +160,7 @@ async function runDailyReminders() {
         trackOrderUrl,
         hasPendingBalance: hasPendingBalance || false,
         walletUrl: hasPendingBalance ? walletUrl : null,
+        isB2B: isB2B || false,
       });
 
       if (sent.success) {

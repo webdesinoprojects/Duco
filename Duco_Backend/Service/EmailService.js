@@ -552,6 +552,7 @@ For any queries, contact us at support@ducoart.com
         trackOrderUrl,
         hasPendingBalance = false,
         walletUrl = null,
+        isB2B = false,
       } = data;
 
       if (!to) {
@@ -614,8 +615,10 @@ For any queries, contact us at support@ducoart.com
                   <div class="meta-row"><span class="meta-label">Items</span><span class="meta-value">${productSummary}</span></div>
                 </div>
                 ${pendingBalanceBlock}
+                ${!isB2B ? `
                 <p>You can track your order and view full details using the button below.</p>
                 <a href="${trackOrderUrl}" class="cta">Track Your Order</a>
+                ` : ''}
                 <p style="margin-top: 24px;">Thank you for shopping with Duco! 🎨</p>
               </div>
               <div class="footer">
@@ -642,8 +645,8 @@ Your order is scheduled for delivery in the next 24–48 hours.
 Arriving on: ${deliveryDateFormatted}
 Order ID: #${orderId}
 Items: ${productSummary}
-${pendingBalanceText}
-Track your order: ${trackOrderUrl}
+${pendingBalanceText}${!isB2B ? `
+Track your order: ${trackOrderUrl}` : ''}
 
 Thank you for shopping with Duco!
       `.trim();
