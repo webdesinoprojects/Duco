@@ -7,6 +7,7 @@ const { createInvoice, getInvoiceByOrderId } = require('./invoiceService');
 const { getOrCreateSingleton } = require('../Router/DataRoutes');
 const { createTransaction } = require('./walletController');
 const { calculateOrderTotal } = require('../Service/TaxCalculationService');
+const fs = require('fs').promises;
 const LZString = require('lz-string'); // ✅ added for decompression
 const { uploadDesignPreviewImages } = require('../utils/cloudinaryUpload'); // ✅ Cloudinary upload
 const aiSensyService = require('../Service/AiSensyService'); // ✅ AiSensy WhatsApp notifications
@@ -897,6 +898,7 @@ async function buildInvoiceArtifacts(order, req) {
       totals: correctedTotals, // ✅ Use corrected totals
       pdfPath,
       invoiceUrl,
+      invoiceData,
       customerName,
       customerEmail,
       customerPhone: validPhone, // ✅ Return validated phone
@@ -926,6 +928,27 @@ async function sendOrderEmail(order, artifacts) {
       igstRate: artifacts.invoice?.tax?.igstRate
     });
     
+    let pdfPath = artifacts.pdfPath || null;
+    if (pdfPath) {
+      try {
+        await fs.access(pdfPath);
+      } catch (err) {
+        console.warn('⚠️ PDF path missing on disk, will try regenerate:', pdfPath);
+        pdfPath = null;
+      }
+    }
+
+    if (!pdfPath && artifacts.invoiceData) {
+      try {
+        pdfPath = await invoicePdfService.generatePDF(
+          artifacts.invoiceData,
+          order.orderId || order._id
+        );
+      } catch (err) {
+        console.warn('⚠️ PDF regeneration failed (non-blocking):', err.message || err);
+      }
+    }
+
     const result = await emailService.sendOrderConfirmation({
       customerEmail: artifacts.customerEmail,
       customerName: artifacts.customerName,
@@ -933,7 +956,7 @@ async function sendOrderEmail(order, artifacts) {
       totalAmount: artifacts.totals?.grandTotal?.toFixed(2) || '0.00',
       currency: artifacts.invoice?.currency || 'INR',
       paymentMode: artifacts.invoice?.paymentmode || 'Online',
-      invoicePdfPath: artifacts.pdfPath || null,
+      invoicePdfPath: pdfPath,
       items: artifacts.invoice?.items || [],
     });
 
@@ -1531,6 +1554,8 @@ const completeOrder = async (req, res) => {
           customerState: finalCustomerState,
           // ✅ Add discount if applied
           discount: discount || null,
+          // ✅ Add pickup details from orderData
+          pickupDetails: orderData?.pickupDetails || null,
         };
         
         // ✅ Add addresses (new format) or address (legacy format)
@@ -1541,6 +1566,17 @@ const completeOrder = async (req, res) => {
         }
         
         order = await Order.create(orderPayload);
+        
+        // ✅ [DB CHECK] Verify pickup details persisted
+        console.log('✅ STORE_PICKUP order created with details:', {
+          orderId: order.orderId || order._id,
+          paymentmode: order.paymentmode,
+          pickupDetails: order.pickupDetails,
+          pickupName: order.pickupDetails?.name,
+          pickupPhone: order.pickupDetails?.phone,
+          pickupAt: order.pickupDetails?.pickupAt,
+          pickupNotes: order.pickupDetails?.notes,
+        });
         
         // ✅ [DB CHECK] Verify phone persisted
         console.log('[DB CHECK - STORE_PICKUP] Saved addresses after Order.create():', {
@@ -1582,6 +1618,8 @@ const completeOrder = async (req, res) => {
             customerState: finalCustomerState,
             // ✅ Add discount if applied
             discount: discount || null,
+            // ✅ Add pickup details from orderData
+            pickupDetails: orderData?.pickupDetails || null,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId

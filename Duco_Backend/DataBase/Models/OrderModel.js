@@ -111,6 +111,17 @@ const OrderSchema = new Schema(
       default: 'online',
     },
 
+    // ✅ Pickup Details (for store_pickup orders)
+    pickupDetails: {
+      type: {
+        name: { type: String, default: '' }, // Pickup contact name
+        phone: { type: String, default: '' }, // Pickup contact phone
+        pickupAt: { type: Date, default: null }, // Scheduled pickup date & time
+        notes: { type: String, default: '' } // Special instructions/notes
+      },
+      default: null
+    },
+
     pf: { type: Number, default: 0 },
     gst: { type: Number, default: 0 }, // Keep for backward compatibility
     cgst: { type: Number, default: 0 },

@@ -15,6 +15,7 @@ const Navbar = ({ setIsOpenLog, user }) => {
   const [allProducts, setAllProducts] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const [menuItems, setMenuItems] = useState([{ name: "Home", link: "/" }]);
   const [menuItemss, setMenuItemss] = useState([{ name: "Home", link: "/" }]);
@@ -201,8 +202,79 @@ const Navbar = ({ setIsOpenLog, user }) => {
             <img src={logo} alt="DUCO" className="h-5" />
           </Link>
 
-          <FaShoppingBag onClick={() => navigate("/cart")} />
+          {/* MOBILE ICONS CONTAINER - Search, Profile, Cart */}
+          <div className="flex items-center gap-4">
+            {/* SEARCH ICON */}
+            <button
+              onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+              className="text-lg cursor-pointer hover:opacity-80 transition"
+            >
+              🔍
+            </button>
+
+            {/* PROFILE ICON */}
+            {!user ? (
+              <button
+                onClick={() => setIsOpenLog(true)}
+                className="text-lg cursor-pointer hover:opacity-80 transition"
+              >
+                👤
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate("/profile")}
+                className="text-lg cursor-pointer hover:opacity-80 transition"
+              >
+                👤
+              </button>
+            )}
+
+            {/* CART ICON */}
+            <FaShoppingBag
+              onClick={() => navigate("/cart")}
+              className="cursor-pointer hover:opacity-80 transition"
+            />
+          </div>
         </div>
+
+        {/* MOBILE SEARCH OVERLAY */}
+        {isMobileSearchOpen && (
+          <div className="md:hidden px-4 py-3 border-t border-gray-700">
+            <div className="flex items-center gap-2 border-b pb-2">
+              <FaSearch className="cursor-pointer" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products..."
+                className="bg-transparent outline-none w-full text-white placeholder-gray-500"
+                autoFocus
+              />
+            </div>
+
+            {/* MOBILE SEARCH DROPDOWN RESULTS */}
+            {showSearchDropdown && (
+              <div className="mt-2 bg-black border border-gray-700 rounded-md max-h-64 overflow-y-auto">
+                {searchResults.length === 0 ? (
+                  <div className="p-3 text-sm text-gray-400">No results</div>
+                ) : (
+                  searchResults.map((p) => (
+                    <Link
+                      key={p._id}
+                      to={`/products/${p._id}`}
+                      onClick={() => {
+                        setShowSearchDropdown(false);
+                        setIsMobileSearchOpen(false);
+                      }}
+                      className="block px-3 py-2 hover:bg-gray-800 text-sm border-b border-gray-700 last:border-b-0"
+                    >
+                      {p.products_name}
+                    </Link>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       {mobileMenuOpen && (

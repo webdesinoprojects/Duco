@@ -19,18 +19,28 @@ const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText 
   <div className="max-w-screen-xl mx-auto flex flex-col md:flex-row gap-3">
 
     {/* Left big image */}
-    <Link to={buttonLink} className={`relative w-full md:w-[70%] rounded-2xl overflow-hidden max-h-[600px] min-h-[400px] bg-gray-800 transition-opacity duration-500 ${isAnimating ? 'opacity-30' : 'opacity-100'}`}>
+    <Link to={buttonLink} className={`relative w-full md:w-[70%] rounded-2xl overflow-hidden max-h-[600px] min-h-[280px] sm:min-h-[350px] md:min-h-[400px] bg-gray-800 transition-opacity duration-500 ${isAnimating ? 'opacity-30' : 'opacity-100'}`}>
+      {/* Desktop Image */}
       <img
         src={imglink}
         alt="Main Visual"
-        className="w-full h-full object-cover rounded-2xl"
+        className="absolute inset-0 hidden md:block w-full h-full object-cover rounded-2xl"
+        onLoad={() => setImageLoaded(true)}
+        onError={() => setImageLoaded(true)}
+      />
+
+      {/* Mobile Image - optimized version */}
+      <img
+        src={imglink.includes('?') ? `${imglink}&mobile=true` : `${imglink}?mobile=true`}
+        alt="Main Visual"
+        className="absolute inset-0 block md:hidden w-full h-full object-cover rounded-2xl"
         onLoad={() => setImageLoaded(true)}
         onError={() => setImageLoaded(true)}
       />
       
       {/* Text Overlay */}
-      <div className={`absolute top-8 left-6 z-10 text-white transition-opacity duration-500 ${isAnimating ? 'opacity-30' : 'opacity-100'}`}>
-        <p className="text-4xl md:text-6xl font-semibold leading-tight md:leading-[3.2rem]">
+      <div className={`absolute top-3 left-3 sm:top-6 md:top-8 sm:left-4 md:left-6 z-20 text-white transition-opacity duration-500 ${isAnimating ? 'opacity-30' : 'opacity-100'}`}>
+        <p className="text-xl sm:text-3xl md:text-4xl lg:text-6xl font-semibold leading-tight md:leading-[3.2rem] max-w-[85%] sm:max-w-[90%]">
           {heroText.split('\n').map((line, idx) => (
             <React.Fragment key={idx}>
               {line}
@@ -38,13 +48,13 @@ const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText 
             </React.Fragment>
           ))}
         </p>
-        <button className="mt-4 px-6 py-2 bg-[#E5C870] text-black rounded-full shadow-lg text-sm md:text-base hover:bg-[#d4b860] transition-colors">
+        <button className="mt-2 sm:mt-3 md:mt-4 px-4 sm:px-6 py-1.5 sm:py-2 bg-[#E5C870] text-black rounded-full shadow-lg text-xs sm:text-sm md:text-base hover:bg-[#d4b860] transition-colors">
           {buttonText}
         </button>
       </div>
 
       {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/30 z-0 rounded-2xl" />
+      <div className="absolute inset-0 bg-black/30 z-10 rounded-2xl" />
     </Link>
 
     {/* Right stacked cards */}

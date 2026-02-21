@@ -369,8 +369,48 @@ const OrderDetailsCard = ({ orderId }) => {
             
             {/* ✅ Store Pickup Information */}
             {order.paymentmode === 'store_pickup' && (
-              <div className="bg-blue-50 border border-blue-200 rounded p-3 my-2">
+              <div className="bg-blue-50 border border-blue-200 rounded p-4 my-2 space-y-3">
                 <p className="text-sm font-semibold text-blue-800">🏬 Pickup from Store</p>
+                
+                {/* Pickup Details */}
+                {order.pickupDetails && (
+                  <div className="space-y-2 bg-white rounded p-3 border border-blue-100">
+                    <div className="flex justify-between">
+                      <span className="text-xs font-medium text-gray-600">Pickup Name:</span>
+                      <span className="text-sm text-gray-800 font-semibold">{order.pickupDetails.name || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between">
+                      <span className="text-xs font-medium text-gray-600">Pickup Phone:</span>
+                      <span className="text-sm text-gray-800">{order.pickupDetails.phone || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between">
+                      <span className="text-xs font-medium text-gray-600">Scheduled Pickup:</span>
+                      <span className="text-sm text-gray-800">
+                        {order.pickupDetails.pickupAt 
+                          ? new Date(order.pickupDetails.pickupAt).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            })
+                          : 'N/A'
+                        }
+                      </span>
+                    </div>
+                    
+                    {order.pickupDetails.notes && (
+                      <div className="flex justify-between">
+                        <span className="text-xs font-medium text-gray-600">Notes:</span>
+                        <span className="text-sm text-gray-800 italic">{order.pickupDetails.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 <p className="text-sm text-blue-700 mt-1">
                   Payment Due: {formatCurrency(
                     Number(order.totalPay || order.totalAmount || order.price || order.amount || 0), 

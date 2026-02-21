@@ -52,6 +52,19 @@ const validIFSC = (s = "") => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(String(s).toUpperCas
 const validUPI = (s = "") =>
   /^[\w.\-_]{2,}@[a-zA-Z]{2,}$/i.test(String(s).trim());
 const validPhone10 = (s = "") => /^\d{10}$/.test(onlyDigits(s));
+const toLocalInputValue = (date) => {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setSeconds(0, 0);
+  const tzOffset = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - tzOffset * 60000);
+  return local.toISOString().slice(0, 16);
+};
+const toLocalDisplay = (date) => {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString();
+};
 
 /* -------------------------------- Page -------------------------------- */
 const PaymentPage = () => {
@@ -423,6 +436,43 @@ const PaymentPage = () => {
     return Object.keys(e).length === 0;
   };
 
+  const pickupDateBounds = useMemo(() => {
+    const now = new Date();
+    const prepDays = Number(orderpayload?.minPreparationDays ?? 0);
+    const safePrepDays = Number.isFinite(prepDays) ? Math.max(0, prepDays) : 0;
+
+    const minDate = new Date(now);
+    minDate.setMinutes(minDate.getMinutes() + 5);
+    minDate.setDate(minDate.getDate() + safePrepDays);
+
+    let maxDate = null;
+    if (orderpayload?.deliveryExpectedDate) {
+      const expected = new Date(orderpayload.deliveryExpectedDate);
+      if (!Number.isNaN(expected.getTime())) {
+        expected.setHours(23, 59, 0, 0);
+        maxDate = expected;
+      }
+    }
+
+    if (!maxDate) {
+      maxDate = new Date(now);
+      maxDate.setDate(maxDate.getDate() + 7);
+      maxDate.setHours(23, 59, 0, 0);
+    }
+
+    if (minDate > maxDate) {
+      maxDate = new Date(minDate);
+      maxDate.setHours(23, 59, 0, 0);
+    }
+
+    return {
+      minDate,
+      maxDate,
+      minValue: toLocalInputValue(minDate),
+      maxValue: toLocalInputValue(maxDate),
+    };
+  }, [orderpayload?.deliveryExpectedDate, orderpayload?.minPreparationDays]);
+
   const placeOrder = async (mode, successMsg, extraMeta = {}) => {
     try {
       console.log("🚀 placeOrder called with mode:", mode);
@@ -641,6 +691,24 @@ const PaymentPage = () => {
 
       if (!validatePickup()) {
         toast.error("Please fix pickup details");
+        return;
+      }
+
+      const picked = new Date(pickupWhen);
+      if (Number.isNaN(picked.getTime())) {
+        setErrors((prev) => ({ ...prev, pickupWhen: "Enter a valid pickup date & time" }));
+        toast.error("Pickup date/time is invalid");
+        return;
+      }
+
+      const { minDate, maxDate } = pickupDateBounds;
+      if (picked < minDate || picked > maxDate) {
+        const rangeText = `${toLocalDisplay(minDate)} - ${toLocalDisplay(maxDate)}`;
+        setErrors((prev) => ({
+          ...prev,
+          pickupWhen: `Pickup must be between ${rangeText}`,
+        }));
+        toast.error("Pickup date/time must be within the allowed window");
         return;
       }
 
@@ -977,6 +1045,8 @@ const PaymentPage = () => {
                             type="datetime-local"
                             value={pickupWhen}
                             onChange={(e) => setPickupWhen(e.target.value)}
+                            min={pickupDateBounds.minValue}
+                            max={pickupDateBounds.maxValue}
                             className={`w-full rounded-lg border px-3 py-2 text-sm ${
                               errors.pickupWhen
                                 ? "border-red-500"
