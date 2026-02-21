@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { usePriceContext } from '../ContextAPI/PriceContext';
+import { formatPrice } from '../utils/currencyUtils';
 
 const currencySymbols = {
   INR: "₹",
@@ -62,7 +63,7 @@ const SearchResults = () => {
   const calculatePrice = (rate, basePrice, increase) => {
     if (!basePrice) return 0;
     const withMarkup = basePrice + (basePrice * (increase || 0)) / 100;
-    return Math.round((rate || 1) * withMarkup);
+    return formatPrice((rate || 1) * withMarkup, currency);
   };
 
   if (loading) {

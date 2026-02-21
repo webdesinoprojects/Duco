@@ -1,5 +1,6 @@
 import React from "react";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import { formatPriceDisplay } from "../utils/currencyUtils";
 
 const currencySymbols = {
   INR: "₹", // Indian Rupee
@@ -39,22 +40,23 @@ const PriceDisplay = ({ price, className, skipConversion = false }) => {
   const currencySymbol = currencySymbols[currency] || "₹";
   
   // Convert price to target currency only if not already converted
-  let displayPrice = Math.ceil(Number(price));
+  let displayPrice = Number(price);
   
   // ✅ FIXED: If skipConversion is true, NEVER re-apply conversion
   // The caller is responsible for ensuring the price is already in the correct currency
   if (skipConversion) {
     // Price is already converted, just display it
-    console.log(`💱 PriceDisplay (SKIP): ${price} → ${currencySymbol}${displayPrice}`);
+    console.log(`💱 PriceDisplay (SKIP): ${price} → ${currencySymbol}${formatPriceDisplay(displayPrice, currency)}`);
   } else if (toConvert && toConvert !== 1 && toConvert > 0) {
     // Apply conversion
-    displayPrice = Math.ceil(displayPrice * toConvert);
+    displayPrice = displayPrice * toConvert;
     console.log(`💱 PriceDisplay (CONVERTED): ${price} × ${toConvert} = ${displayPrice} ${currencySymbol}`);
   } else {
-    console.log(`💱 PriceDisplay: ${price} → ${currencySymbol}${displayPrice} (no conversion needed)`);
+    console.log(`💱 PriceDisplay: ${price} → ${currencySymbol}${formatPriceDisplay(displayPrice, currency)} (no conversion needed)`);
   }
 
-  return <p className={className}>{currencySymbol}{displayPrice}</p>;
+  // ✅ Use formatPriceDisplay: INR = whole numbers, others = 2 decimals
+  return <p className={className}>{currencySymbol}{formatPriceDisplay(displayPrice, currency)}</p>;
 };
 
 export default PriceDisplay;

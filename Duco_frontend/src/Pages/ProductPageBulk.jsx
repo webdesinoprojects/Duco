@@ -13,6 +13,7 @@ import { useOutletContext } from 'react-router-dom';
 import PriceTiers from '../Components/PriceTiers';
 import CropTanksTabs from '../Components/CropTanksTabs';
 import CropTankSizeChart from '../Components/CropTankSizeChart';
+import { formatPrice } from '../utils/currencyUtils';
 
 // Currency symbols map
 const currencySymbols = {
@@ -278,7 +279,7 @@ const ProductPageBulk = () => {
     const withMarkup = basePrice + (basePrice * (markup / 100));
     const finalPrice = withMarkup * rate;
     
-    return Math.round(finalPrice);
+    return formatPrice(finalPrice, currency);
   }
 
 const handleQty = (k, v) => {

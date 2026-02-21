@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { FaFilter } from "react-icons/fa";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import { formatPrice } from "../utils/currencyUtils";
 
 const currencySymbols = {
   INR: "₹",
@@ -30,7 +31,7 @@ const Products = ({ gender }) => {
     if (!basePrice) return 0;
     const markup = priceIncrease || 0;
     const rate = toConvert && toConvert > 0 ? toConvert : 1;
-    return Math.round((basePrice + (basePrice * markup) / 100) * rate);
+    return formatPrice((basePrice + (basePrice * markup) / 100) * rate, currency);
   };
 
   const normalizeGender = (g) => g?.toLowerCase().trim();

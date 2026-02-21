@@ -9,6 +9,7 @@ import {
 import DesignPreviewModal from "../Components/DesignPreview";
 import { CartContext } from "../ContextAPI/CartContext";
 import { usePriceContext } from "../ContextAPI/PriceContext";
+import { formatPrice } from "../utils/currencyUtils";
 import { API_BASE_URL } from "../config/api";
 import Zoom from "react-medium-image-zoom";
 import { toast } from "react-toastify";
@@ -187,14 +188,14 @@ const ProductPage = () => {
     // ✅ If conversion rate is not ready, use base price
     if (toConvert == null || priceIncrease == null) {
       console.log('⚠️ Conversion not ready, using base price:', basePrice);
-      setPrice(Math.round(basePrice));
+      setPrice(formatPrice(basePrice, currency));
       return;
     }
 
     // ✅ Ensure conversion rate is valid (> 0)
     if (toConvert <= 0) {
       console.warn('⚠️ Invalid conversion rate:', toConvert, '- using base price');
-      setPrice(Math.round(basePrice));
+      setPrice(formatPrice(basePrice, currency));
       return;
     }
 
@@ -210,11 +211,11 @@ const ProductPage = () => {
       priceIncrease,
       afterMarkup: increased,
       toConvert,
-      finalPrice: Math.round(converted),
+      finalPrice: formatPrice(converted, currency),
       currency
     });
     
-    setPrice(Math.round(converted));
+    setPrice(formatPrice(converted, currency));
   }, [product, toConvert, priceIncrease, currency]);
 
   // ✅ Default price tiers (used when product doesn't have multiple tiers)
@@ -253,7 +254,7 @@ const ProductPage = () => {
     return baseTiers.map(tier => {
       const basePrice = tier.price;
       const withMarkup = basePrice + (basePrice * (markup / 100));
-      const convertedPrice = Math.round(withMarkup * rate);
+      const convertedPrice = formatPrice(withMarkup * rate, currency);
       
       return {
         ...tier,
@@ -787,7 +788,7 @@ const ProductPage = () => {
                       color: colorCode,
                       quantity: nonZeroSizes, // All sizes for this color
                       colortext: colorName,
-                      price: Math.round(price),
+                      price: formatPrice(price, currency),
                       gender,
                       isCorporate: product?.isCorporate || false,
                       isBulkProduct: product?.isCorporate || false,
@@ -844,7 +845,7 @@ const ProductPage = () => {
         color={selectedColorCode}
         colortext={colortext}
         gender={gender}
-        price={Math.round(price)}
+        price={formatPrice(price, currency)}
       />
     </section>
   );

@@ -313,48 +313,40 @@ const CartItem = ({ item, removeFromCart, updateQuantity }) => {
   // ✅ Calculate total price with location pricing applied
   const totalPrice = Object.entries(item.quantity || {}).reduce(
     (acc, [size, qty]) => {
-      // Check if item is a loaded design (already has location pricing applied)
-      const isLoadedDesign = item.isLoadedDesign === true;
-      // Check if item is from TShirtDesigner (custom item with already applied pricing)
-      const isCustomItem = item.id && item.id.startsWith('custom-tshirt-');
-      
-      let basePrice = 0;
       let finalPrice = 0;
       
-      if (isLoadedDesign || isCustomItem) {
-        // Loaded designs and custom items: use item.price as it's already converted
-        basePrice = Number(item.price) || 0;
-        
-        // ✅ CRITICAL FIX: Re-apply conversion if toConvert is now available but wasn't when item was added
-        // This handles the case where user added item before conversion rate was fetched
-        if (toConvert && toConvert !== 1 && toConvert > 0) {
-          // Check if price looks like it hasn't been converted yet (too high for target currency)
-          // If item.price is > 100 and toConvert < 0.1, it's likely not converted
-          if (basePrice > 100 && toConvert < 0.1) {
-            // This price looks like it's in INR, not the target currency
-            // Re-apply conversion
-            finalPrice = applyLocationPricing(basePrice, 0, toConvert); // Don't re-apply markup
-            console.log(`💰 CartItem (${isLoadedDesign ? 'Loaded' : 'Custom'}) - RE-CONVERTING: ${basePrice} × ${toConvert} = ${finalPrice}`);
-          } else {
-            // Price looks already converted
-            finalPrice = basePrice;
-            console.log(`💰 CartItem (${isLoadedDesign ? 'Loaded' : 'Custom'}) - Already converted: ${finalPrice}`);
-          }
-        } else {
-          finalPrice = basePrice;
-          console.log(`💰 CartItem (${isLoadedDesign ? 'Loaded' : 'Custom'}) - No conversion needed: ${finalPrice}, toConvert: ${toConvert}`);
-        }
-      } else {
-        // Regular products: use pricing array for base INR price
+      console.log(`🔍 DEBUGGING CartItem for ${item.products_name || item.name}:`, {
+        'item.price': item.price,
+        'item.pricing': item.pricing,
+        'size': size,
+        'qty': qty,
+        'toConvert': toConvert,
+        'priceIncrease': priceIncrease
+      });
+      
+      // ✅ CRITICAL FIX: If item.price exists, it's already been converted and formatted
+      // This price was set by ProductPage using formatPrice(price, currency)
+      // We should use it directly instead of recalculating
+      if (item.price && item.price > 0) {
+        // ✅ Round to 2 decimals to avoid floating point errors (e.g., 1.2120239999 -> 1.21)
+        finalPrice = Math.round(Number(item.price) * 100) / 100;
+        console.log(`💰 CartItem: ${item.products_name || item.name} - Using stored converted price: ${item.price} -> ${finalPrice}`);
+      } 
+      // Fallback: calculate from base price (for old cart items without converted price)
+      else {
+        let basePrice = 0;
         if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
           basePrice = Number(item.pricing[0]?.price_per) || 0;
-        } else if (item.price) {
-          basePrice = Number(item.price) || 0;
         }
         
-        // Apply location pricing to base INR price
-        finalPrice = applyLocationPricing(basePrice, priceIncrease, toConvert);
-        console.log(`💰 CartItem (Regular): ${item.products_name || item.name} - Base: ${basePrice}, After pricing: ${finalPrice}, Qty: ${qty}, toConvert: ${toConvert}, priceIncrease: ${priceIncrease}`);
+        if (basePrice > 0) {
+          // Apply location pricing to base INR price
+          finalPrice = applyLocationPricing(basePrice, priceIncrease, toConvert);
+          console.log(`💰 CartItem (Fallback): ${item.products_name || item.name} - Base: ${basePrice}, After pricing: ${finalPrice}`);
+        } else {
+          console.error(`❌ No price found for ${item.products_name || item.name}`);
+          finalPrice = 0;
+        }
       }
       
       const itemTotal = qty * finalPrice;

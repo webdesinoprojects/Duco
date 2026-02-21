@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { FaFilter } from "react-icons/fa";
 import { getproductcategory } from "../Service/APIservice"
 import { usePriceContext } from '../ContextAPI/PriceContext';
+import { formatPrice } from '../utils/currencyUtils';
 
 // Currency symbols map
 const currencySymbols = {
@@ -30,14 +31,14 @@ const SaerchingPage = () => {
     window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   }, [id, catogory_name]);
 
-  function calculatePrice(currency, ac, high) {
+  function calculatePrice(conversionRate, ac, high) {
     // ✅ CORRECT FORMULA: (Base + Markup%) * Conversion Rate
-    if (!currency || !ac || high === null) {
+    if (!conversionRate || !ac || high === null) {
       return ac || 0; // Return base price if context not ready
     }
     const withMarkup = ac + (ac * (high / 100));
-    const finalPrice = currency && currency > 0 ? withMarkup * currency : withMarkup;
-    return Math.round(finalPrice);
+    const finalPrice = conversionRate && conversionRate > 0 ? withMarkup * conversionRate : withMarkup;
+    return formatPrice(finalPrice, currency);
   }
 
   useEffect(() => {

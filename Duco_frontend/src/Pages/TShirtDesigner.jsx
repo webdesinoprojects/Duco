@@ -18,6 +18,7 @@ import { FaUpload, FaFont, FaRegKeyboard, FaTimes } from "react-icons/fa";
 import { startFreshDesignSession } from "../utils/clearOrderCache";
 import { usePriceContext } from "../ContextAPI/PriceContext";
 import { toast } from "react-toastify";
+import { formatPrice } from "../utils/currencyUtils";
 
 // ======================== SIMPLE DRAGGABLE ITEM ========================
 const CustomDraggableItem = React.memo(({ id, children, position = { x: 0, y: 0 }, onPositionChange }) => {
@@ -188,7 +189,7 @@ const TshirtDesigner = () => {
       price = price * conversionRate;
     }
 
-    return Math.round(price);
+    return formatPrice(price, currency);
   };
 
   // Custom drag system - no sensors needed

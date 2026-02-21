@@ -60,7 +60,7 @@ export default function SizeChange() {
     
     return BASE_PRICE_TIERS.map(tier => ({
       ...tier,
-      price: Math.round((tier.price + tier.price * (markup / 100)) * rate)
+      price: Number(((tier.price + tier.price * (markup / 100)) * rate).toFixed(2))
     }));
   }, [toConvert, priceIncrease]);
      

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { CartContext } from "../ContextAPI/CartContext";
 import { usePriceContext } from "../ContextAPI/PriceContext";
 import { toast } from "react-toastify";
+import { formatPrice } from "../utils/currencyUtils";
 
 const currencySymbols = {
   INR: "₹",
@@ -59,8 +60,8 @@ const BoxOfProducts = ({ price, title, id, image, description, stock }) => {
       base *= Number(toConvert);
     }
 
-    return Math.round(base);
-  }, [price, toConvert, priceIncrease]);
+    return formatPrice(base, currency);
+  }, [price, toConvert, priceIncrease, currency]);
 
   return (
     <Link

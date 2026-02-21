@@ -771,38 +771,48 @@ const Cart = () => {
       // ✅ Get price - Priority: item.price (already has location pricing) > pricing array (base price)
       let basePrice = 0;
       let isLoadedDesign = item.isLoadedDesign === true;
+      let isAlreadyConverted = false;
       
+      console.log(`🔍 DEBUGGING Cart.jsx itemsSubtotal for ${item.products_name || item.name}:`, {
+        'item.price': item.price,
+        'item.pricing': item.pricing,
+        'qty': qty,
+        'toConvert': conversionRate,
+        'priceIncrease': priceIncrease,
+        'isLoadedDesign': isLoadedDesign
+      });
+      
+      // ✅ CRITICAL FIX: Prioritize item.price if it exists (already converted by ProductPage)
+      if (item.price && item.price > 0) {
+        // ✅ Round to 2 decimals to avoid floating point errors (e.g., 1.2120239999 -> 1.21)
+        basePrice = Math.round(safeNum(item.price, 0) * 100) / 100;
+        isAlreadyConverted = true;
+        console.log(`💰 Using stored converted item.price: ${item.price} -> ${basePrice}`);
+      }
       // For loaded designs, use item.price which already has location pricing applied
-      if (isLoadedDesign && item.price) {
+      else if (isLoadedDesign && item.price) {
         basePrice = safeNum(item.price, 0);
+        isAlreadyConverted = true;
         console.log(`💰 Loaded design - using item.price with location pricing: ${basePrice}`);
       }
-      // For new designs, try pricing array first (actual product price)
+      // If no item.price, try pricing array (base INR price - needs conversion)
       else if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
         basePrice = safeNum(item.pricing[0]?.price_per, 0);
-        console.log(`💰 Using pricing array price: ${basePrice}`);
-      }
-      // Fallback to item.price
-      else if (item.price) {
-        basePrice = safeNum(item.price, 0);
-        console.log(`💰 Using item.price: ${basePrice}`);
+        console.log(`💰 Using pricing array base price (needs conversion): ${basePrice}`);
       }
       
-      console.log(`💰 Item: ${item.products_name || item.name}, Price: ${basePrice}, Qty: ${qty}, Currency: ${currencySymbol}, IsLoaded: ${isLoadedDesign}`);
+      console.log(`💰 Item: ${item.products_name || item.name}, Price: ${basePrice}, Qty: ${qty}, Currency: ${currencySymbol}, IsLoaded: ${isLoadedDesign}, AlreadyConverted: ${isAlreadyConverted}`);
       
-      // ✅ For loaded designs, price is already converted - use as-is
-      // For new designs, apply location pricing if needed
+      // ✅ Apply conversion only if price is NOT already converted
       const isINR = currencySymbol === '₹' || !currencySymbol;
-      const isCustomItem = item.id && String(item.id).startsWith('custom-tshirt-');
       let finalPrice = basePrice;
       
-      // ✅ CRITICAL FIX: Apply conversion for ALL items that need it
-      // - Loaded designs: already converted, skip
-      // - Custom items WITHOUT isLoadedDesign flag: need conversion
-      // - Regular products: need conversion
-      if (!isLoadedDesign && !isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
+      // ✅ CRITICAL FIX: Only apply conversion if NOT already converted
+      if (!isAlreadyConverted && !isINR && (priceIncrease || (conversionRate && conversionRate !== 1))) {
         finalPrice = applyLocationPricing(basePrice, priceIncrease, conversionRate);
         console.log(`💰 Applied location pricing: ${basePrice} INR → ${finalPrice} ${currencySymbol}`);
+      } else {
+        console.log(`💰 Using price as-is (already converted or INR): ${finalPrice}`);
       }
       
       const lineTotal = finalPrice * qty;
