@@ -107,10 +107,24 @@ const PaymentButton = ({ orderData }) => {
       // ✅ IMPORTANT: If isHalfPayment is true, orderData.totalPay is ALREADY the 50% amount
       // The frontend (PaymentPage) calculates halfPayAmountINR and passes it as totalPay
       // So we should use it directly, without any additional rounding!
-      let finalAmount = orderData.totalPay;
+      const currencyCode = isRemainingPayment
+        ? "INR"
+        : (orderData?.paymentCurrency || orderData?.displayCurrency || orderData?.currency || "INR");
+      const displayAmount = Number(orderData?.totalPayDisplay ?? orderData?.displayAmount);
+      let finalAmount = Number(orderData?.totalPay);
+
+      // ✅ If we have a converted display amount + non-INR currency, use it directly (no re-conversion)
+      if (currencyCode !== "INR" && Number.isFinite(displayAmount) && displayAmount > 0) {
+        finalAmount = displayAmount;
+      }
+      if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
+        finalAmount = Number.isFinite(displayAmount) ? displayAmount : finalAmount;
+      }
       
       console.log('💰 Payment calculation:', {
         original: orderData.totalPay,
+        displayAmount,
+        currencyCode,
         isHalf: orderData.isHalfPayment,
         final: finalAmount,
         inPaise: Math.round(finalAmount * 100),
@@ -128,10 +142,10 @@ const PaymentButton = ({ orderData }) => {
             `${API_BASE}api/payment/create-order`,
             {
               amount: finalAmount,
-              currency: "INR",
+              currency: currencyCode,
               half: orderData.isHalfPayment || false,
-              displayCurrency: orderData?.displayCurrency,
-              displayAmount: orderData?.totalPayDisplay,
+              displayCurrency: orderData?.displayCurrency || currencyCode,
+              displayAmount: orderData?.totalPayDisplay ?? orderData?.displayAmount ?? finalAmount,
               customerCountry: orderData?.address?.country,
               customerCity: orderData?.address?.city,
               customerState: orderData?.address?.state,
@@ -168,18 +182,23 @@ const PaymentButton = ({ orderData }) => {
         return;
       }
 
+      // ✅ Ensure amount is in smallest unit (paise/cents)
+      const amountInSubunits = validAmount < 1 && finalAmount >= 1
+        ? Math.round(finalAmount * 100)
+        : validAmount;
+
       console.log('✅ Order created:', {
         orderId,
-        amount: validAmount,
-        amountType: typeof validAmount,
-        isValid: !isNaN(validAmount) && validAmount > 0
+        amount: amountInSubunits,
+        amountType: typeof amountInSubunits,
+        isValid: !isNaN(amountInSubunits) && amountInSubunits > 0
       });
 
       // 4️⃣ Razorpay checkout options
       const options = {
         key: razorpayKey,
-        amount: validAmount, // ✅ Must be in paise (₹1 = 100 paise)
-        currency: "INR",
+        amount: amountInSubunits, // ✅ Must be in paise (₹1 = 100 paise)
+        currency: data?.paymentCurrency || currencyCode,
         name: "Duco Art",
         description: "Order Payment",
         order_id: orderId,

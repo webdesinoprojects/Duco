@@ -141,6 +141,22 @@ export default function AnalyticsDashboard() {
   const [data, setData] = useState({ summary: null, breakdown: [], orders: [] });
   const [lastFetched, setLastFetched] = useState(null);
 
+  const summaryCurrency = useMemo(() => {
+    const currencies = new Set(
+      (data.orders || [])
+        .map((o) => o?.paymentCurrency || o?.currency || "INR")
+        .filter(Boolean)
+    );
+    return currencies.size === 1 ? Array.from(currencies)[0] : "MIXED";
+  }, [data.orders]);
+
+  const formatSummaryAmount = (value) => {
+    if (summaryCurrency === "MIXED") {
+      return formatPrice(value, "INR");
+    }
+    return formatPrice(value, summaryCurrency || "INR");
+  };
+
   // === Query management ===
   const canQuery = useMemo(() => Boolean(from && to), [from, to]);
   const queryString = useMemo(
@@ -651,7 +667,7 @@ export default function AnalyticsDashboard() {
             <div className="p-4">
               <p className="text-sm text-gray-400">Total Amount</p>
               <p className="text-2xl font-bold">
-                {formatINR(data.summary?.totalAmount || 0)}
+                {formatSummaryAmount(data.summary?.totalAmount || 0)}
               </p>
             </div>
           </div>
@@ -659,7 +675,7 @@ export default function AnalyticsDashboard() {
             <div className="p-4">
               <p className="text-sm text-gray-400">Avg Order Value</p>
               <p className="text-2xl font-bold">
-                {formatINR(data.summary?.avgOrderValue || 0)}
+                {formatSummaryAmount(data.summary?.avgOrderValue || 0)}
               </p>
             </div>
           </div>
@@ -692,7 +708,7 @@ export default function AnalyticsDashboard() {
                     <YAxis tick={{ fill: "#d1d5db" }} />
                     <Tooltip
                       formatter={(v, n) =>
-                        n === "totalAmount" ? [formatINR(v), "Amount"] : [v, n]
+                        n === "totalAmount" ? [formatSummaryAmount(v), "Amount"] : [v, n]
                       }
                       labelFormatter={(val) => `Group: ${xTickFormatter(val)}`}
                       contentStyle={{
