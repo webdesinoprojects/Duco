@@ -21,7 +21,7 @@ const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText 
     {/* Left big image */}
     <Link to={buttonLink} className={`relative w-full md:w-[70%] rounded-2xl overflow-hidden max-h-[600px] min-h-[400px] bg-gray-800 transition-opacity duration-500 ${isAnimating ? 'opacity-30' : 'opacity-100'}`}>
       <img
-        src={imglink || heroImg}
+        src={imglink}
         alt="Main Visual"
         className="w-full h-full object-cover rounded-2xl"
         onLoad={() => setImageLoaded(true)}
@@ -60,7 +60,7 @@ const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText 
           )) : <>Naturally<br />Styled</>}
         </p>
         <img
-          src={sideCards?.card1?.image || secondImg}
+          src={sideCards?.card1?.image}
           alt="Styled Model"
           className="object-contain absolute bottom-0 right-4 sm:w-[140px] w-[100px]"
         />
@@ -77,7 +77,7 @@ const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText 
           )) : <>Casual <br /> Comfort</>}
         </h2>
         <img
-          src={sideCards?.card2?.image || firstImg}
+          src={sideCards?.card2?.image}
           alt="Casual Comfort"
           className="absolute bottom-0 right-4 sm:w-[140px] w-[100px]  object-contain"
         />

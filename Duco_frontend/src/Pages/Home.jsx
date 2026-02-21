@@ -149,7 +149,7 @@ const Home = () => {
       />
       <ShopNowHome />
       <SectionHome2 />
-      <BannerHome link={landingPageData?.middleBanner?.image || "https://ik.imagekit.io/vuavxn05l/5213288.jpg?updatedAt=1757162698605"} />
+      <BannerHome link={landingPageData?.middleBanner?.image} />
       <TrendingHome />
       <SectionHome3 promoCards={landingPageData?.promoCards} />
 
