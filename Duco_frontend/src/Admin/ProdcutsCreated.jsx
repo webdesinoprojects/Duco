@@ -163,6 +163,28 @@ const ProductsCreated = () => {
     });
   };
 
+  const removeImageField = (imgIndex) => {
+    const updated = formData.image_url.filter((_, i) => i !== imgIndex);
+    setFormData({ ...formData, image_url: updated });
+  };
+
+  const removeImageUrl = (imgIndex, urlIndex) => {
+    const updated = [...formData.image_url];
+    updated[imgIndex].url = updated[imgIndex].url.filter((_, i) => i !== urlIndex);
+    setFormData({ ...formData, image_url: updated });
+  };
+
+  const removeContentField = (imgIndex, contentIndex) => {
+    const updated = [...formData.image_url];
+    updated[imgIndex].content = updated[imgIndex].content.filter((_, i) => i !== contentIndex);
+    setFormData({ ...formData, image_url: updated });
+  };
+
+  const removeDescriptionField = (index) => {
+    const updated = formData.Desciptions.filter((_, i) => i !== index);
+    setFormData({ ...formData, Desciptions: updated });
+  };
+
   // 🔹 Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -245,8 +267,16 @@ const ProductsCreated = () => {
             {formData.image_url.map((img, imgIndex) => (
               <div
                 key={imgIndex}
-                className="border border-slate-200 p-5 bg-white mb-6 rounded-lg shadow"
+                className="border border-slate-200 p-5 bg-white mb-6 rounded-lg shadow relative"
               >
+                <button
+                  type="button"
+                  onClick={() => removeImageField(imgIndex)}
+                  className="absolute top-2 right-2 text-red-600 hover:text-red-800 font-bold text-xl z-10"
+                  title="Remove this image block"
+                >
+                  ×
+                </button>
                 <h4 className="text-sm font-semibold mb-3 text-blue-700">
                   Image Block #{imgIndex + 1}
                 </h4>
@@ -303,6 +333,14 @@ const ProductsCreated = () => {
                           buttonClassName="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
                           showPreview={false}
                         />
+                        <button
+                          type="button"
+                          onClick={() => removeImageUrl(imgIndex, urlIndex)}
+                          className="text-red-600 hover:text-red-800 font-bold text-lg px-2"
+                          title="Remove this image URL"
+                        >
+                          🗑️
+                        </button>
                       </div>
                       {url && (
                         <img
@@ -397,6 +435,14 @@ const ProductsCreated = () => {
                         }
                         className="w-1/2 border p-2 rounded"
                       />
+                      <button
+                        type="button"
+                        onClick={() => removeContentField(imgIndex, contentIndex)}
+                        className="text-red-600 hover:text-red-800 font-bold text-lg"
+                        title="Remove this size"
+                      >
+                        🗑️
+                      </button>
                     </div>
                   ))}
                   <button
@@ -466,13 +512,22 @@ const ProductsCreated = () => {
               Product Descriptions
             </h3>
             {formData.Desciptions.map((desc, i) => (
-              <textarea
-                key={i}
-                placeholder={`Description #${i + 1}`}
-                value={desc}
-                onChange={(e) => handleDescriptionChange(e, i)}
-                className="w-full border p-2 rounded mb-2"
-              />
+              <div key={i} className="relative mb-2">
+                <textarea
+                  placeholder={`Description #${i + 1}`}
+                  value={desc}
+                  onChange={(e) => handleDescriptionChange(e, i)}
+                  className="w-full border p-2 rounded pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeDescriptionField(i)}
+                  className="absolute top-2 right-2 text-red-600 hover:text-red-800 font-bold text-lg"
+                  title="Remove this description"
+                >
+                  🗑️
+                </button>
+              </div>
             ))}
             <button
               type="button"

@@ -123,6 +123,28 @@ const ProductsUpdate = () => {
     setFormData({ ...formData, Desciptions: [...formData.Desciptions, ''] });
   };
 
+  const removeImageField = (imgIndex) => {
+    const updated = formData.image_url.filter((_, i) => i !== imgIndex);
+    setFormData({ ...formData, image_url: updated });
+  };
+
+  const removeImageUrl = (imgIndex, urlIndex) => {
+    const updated = [...formData.image_url];
+    updated[imgIndex].url = updated[imgIndex].url.filter((_, i) => i !== urlIndex);
+    setFormData({ ...formData, image_url: updated });
+  };
+
+  const removeContentField = (imgIndex, contentIndex) => {
+    const updated = [...formData.image_url];
+    updated[imgIndex].content = updated[imgIndex].content.filter((_, i) => i !== contentIndex);
+    setFormData({ ...formData, image_url: updated });
+  };
+
+  const removeDescriptionField = (index) => {
+    const updated = formData.Desciptions.filter((_, i) => i !== index);
+    setFormData({ ...formData, Desciptions: updated });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -180,7 +202,15 @@ const ProductsUpdate = () => {
           <>
             <h3 className="font-semibold text-lg text-gray-700">Images, Color & Sizes</h3>
             {formData.image_url.map((img, imgIndex) => (
-              <div key={imgIndex} className="border border-slate-200 p-5 bg-white mb-6 rounded-lg shadow">
+              <div key={imgIndex} className="border border-slate-200 p-5 bg-white mb-6 rounded-lg shadow relative">
+                <button
+                  type="button"
+                  onClick={() => removeImageField(imgIndex)}
+                  className="absolute top-2 right-2 text-red-600 hover:text-red-800 font-bold text-xl z-10"
+                  title="Remove this image block"
+                >
+                  ×
+                </button>
                 <h4 className="text-sm font-semibold mb-3 text-blue-700">Image Block #{imgIndex + 1}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <input type="text" placeholder="Color" value={img.color} onChange={(e) => handleNestedChange(e, 'image_url', imgIndex, 'color')} className="border p-2 rounded" />
@@ -192,7 +222,15 @@ const ProductsUpdate = () => {
                   {img.url.map((url, urlIndex) => (
                     <div key={urlIndex} className="flex gap-3 items-center">
                       <input type="text" placeholder={`Image URL #${urlIndex + 1}`} value={url} onChange={(e) => handleImageUrlChange(e, imgIndex, urlIndex)} className="w-full border p-2 rounded" />
-                      {url && <img src={url} alt="preview" className="w-16 h-16 object-cover border rounded" />}
+                      {url && <img src={url} alt="preview" className="w-16 h-16 object-cover border rounded flex-shrink-0" />}
+                      <button
+                        type="button"
+                        onClick={() => removeImageUrl(imgIndex, urlIndex)}
+                        className="text-red-600 hover:text-red-800 font-bold text-lg flex-shrink-0"
+                        title="Remove this image URL"
+                      >
+                        🗑️
+                      </button>
                     </div>
                   ))}
                   <button type="button" onClick={() => addImageUrl(imgIndex)} className="text-blue-500 text-sm">+ Add Image URL</button>
@@ -204,6 +242,14 @@ const ProductsUpdate = () => {
                     <div key={contentIndex} className="flex gap-4 mt-2">
                       <input type="text" placeholder={`Size #${contentIndex + 1}`} value={contentItem.size} onChange={(e) => handleContentChange(e, imgIndex, contentIndex, 'size')} className="w-1/2 border p-2 rounded" />
                       <input type="number" placeholder="Min Stock" value={contentItem.minstock} onChange={(e) => handleContentChange(e, imgIndex, contentIndex, 'minstock')} className="w-1/2 border p-2 rounded" />
+                      <button
+                        type="button"
+                        onClick={() => removeContentField(imgIndex, contentIndex)}
+                        className="text-red-600 hover:text-red-800 font-bold text-lg"
+                        title="Remove this size"
+                      >
+                        🗑️
+                      </button>
                     </div>
                   ))}
                   <button type="button" onClick={() => addContentField(imgIndex)} className="text-blue-500 text-sm mt-2">+ Add Size</button>
@@ -255,7 +301,17 @@ const ProductsUpdate = () => {
           <>
             <h3 className="font-semibold text-lg text-gray-700">Product Descriptions</h3>
             {formData.Desciptions.map((desc, i) => (
-              <textarea key={i} placeholder={`Description #${i + 1}`} value={desc} onChange={(e) => handleDescriptionChange(e, i)} className="w-full border p-2 rounded mb-2" />
+              <div key={i} className="relative mb-2">
+                <textarea placeholder={`Description #${i + 1}`} value={desc} onChange={(e) => handleDescriptionChange(e, i)} className="w-full border p-2 rounded pr-10" />
+                <button
+                  type="button"
+                  onClick={() => removeDescriptionField(i)}
+                  className="absolute top-2 right-2 text-red-600 hover:text-red-800 font-bold text-lg"
+                  title="Remove this description"
+                >
+                  🗑️
+                </button>
+              </div>
             ))}
             <button type="button" onClick={addDescriptionField} className="text-sm text-blue-600 font-medium">+ Add Description</button>
           </>

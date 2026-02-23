@@ -109,6 +109,29 @@ export const CartProvider = ({ children }) => {
   const addToCart = (product) => {
     if (!product) return console.error("❌ Invalid product to add:", product);
 
+    // ✅ B2B/B2C CONFLICT CHECK
+    if (cart.length > 0) {
+      const cartItemIsB2B = cart[0]?.isCorporate === true;
+      const newProductIsB2B = product.isCorporate === true;
+      
+      if (cartItemIsB2B !== newProductIsB2B) {
+        // Conflict detected - show confirmation
+        const cartType = cartItemIsB2B ? 'Wholesale (B2B)' : 'Retail (B2C)';
+        const productType = newProductIsB2B ? 'Wholesale (B2B)' : 'Retail (B2C)';
+        
+        const confirmed = window.confirm(
+          `Your cart contains a different product type (${cartType}). You cannot mix Wholesale (B2B) and Retail (B2C). Do you want to clear your current cart and add this ${productType} item?`
+        );
+        
+        if (!confirmed) {
+          return; // User clicked Cancel - do nothing
+        }
+        
+        // User clicked OK - clear cart and continue adding
+        clearCart();
+      }
+    }
+
     // ✅ Store preview images in memory before adding to cart
     if (product.previewImages) {
       previewImagesRef.current[product.id] = product.previewImages;
