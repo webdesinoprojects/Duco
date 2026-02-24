@@ -216,8 +216,8 @@ export async function createBanner(link, heroText, buttonText, buttonLink, type)
   try {
     const { data } = await axios.post(`${API_BASE}api/banners`, { 
       link,
-      heroText: heroText || "Color Of Summer Outfit",
-      buttonText: buttonText || "Shop the Look →",
+      heroText: heroText ?? "",
+      buttonText: buttonText ?? "",
       buttonLink: buttonLink || "/women",
       type: type || 'hero'
     });
@@ -244,8 +244,8 @@ export async function updateBanner(id, link, heroText, buttonText, buttonLink, t
   try {
     const { data } = await axios.put(`${API_BASE}api/banners/${id}`, { 
       link,
-      heroText: heroText || "Color Of Summer Outfit",
-      buttonText: buttonText || "Shop the Look →",
+      heroText: heroText ?? "",
+      buttonText: buttonText ?? "",
       buttonLink: buttonLink || "/women",
       type: type || 'hero'
     });

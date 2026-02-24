@@ -36,7 +36,7 @@ const currencySymbols = {
   KRW: "₩",
 };
 
-const BoxOfProducts = ({ price, title, id, image, description, stock }) => {
+const BoxOfProducts = ({ price, title, id, image, description, stock, hideAddToCart = false }) => {
   const colors = ["#FF0000", "#FF8A00", "#4A4AFF", "#FFFFFF", "#000000"];
   const { addToCart } = useContext(CartContext);
   const { toConvert, priceIncrease, resolvedLocation, currency } =
@@ -125,7 +125,7 @@ const BoxOfProducts = ({ price, title, id, image, description, stock }) => {
             )}
           </span>
 
-          <button
+          {!hideAddToCart && <button
             type="button"
             onClick={(e) => {
               e.preventDefault();
@@ -175,7 +175,7 @@ const BoxOfProducts = ({ price, title, id, image, description, stock }) => {
             }`}
           >
             {isOutOfStock ? "Out of Stock" : "Add to Bag"}
-          </button>
+          </button>}
         </div>
       </div>
     </Link>

@@ -1028,9 +1028,6 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
     name: billingAddr?.fullName
   });
   
-  // ✅ Extract GST/Tax number from orderData if provided
-  const gstNumber = orderData?.gstNumber?.trim() || billingAddr?.gstNumber?.trim() || '';
-  
   // ✅ Calculate amount paid based on payment mode
   // For 50% payments, totalAmount is already the 50% amount (from frontend)
   // So we use it directly as amountPaid
@@ -1052,7 +1049,7 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
     billTo: {
       name: billingAddr?.fullName || orderData.user?.name || '',
       address: addressToLine(billingAddr),
-      gstin: gstNumber, // ✅ Use customer's GST number if provided
+      gstin: billingAddr?.gstin || '',
       state: billingAddr?.state || '',
       country: billingAddr?.country || 'India',
     },
@@ -1105,13 +1102,28 @@ function buildInvoicePayload(order, orderData, addresses, legacyAddress, items, 
   return payload;
 }
 
-async function verifyRazorpayPayment(paymentId, expectedAmountINR) {
+async function verifyRazorpayPayment(paymentId, expectedAmountINR, paymentCurrency = 'INR', foreignAmount = null) {
   if (!paymentId) throw new Error('Missing paymentId');
   const payment = await razorpay.payments.fetch(paymentId);
   if (!payment) throw new Error('Payment not found');
   if (payment.status !== 'captured') {
     throw new Error(`Payment not captured (status: ${payment.status})`);
   }
+
+  // ✅ FIX: For international payments, compare in foreign currency sub-units
+  // DO NOT touch this block for INR — INR flow is unchanged below
+  if (paymentCurrency !== 'INR' && foreignAmount != null) {
+    // e.g. SGD 19.60 → 1960 SGD cents (Razorpay stores amount in smallest currency unit)
+    const expectedForeignSubunits = Math.round(safeNum(foreignAmount, 0) * 100);
+    if (safeNum(payment.amount, -1) !== expectedForeignSubunits) {
+      throw new Error(
+        `Payment amount mismatch. Expected ${paymentCurrency} ${foreignAmount}, got ${paymentCurrency} ${safeNum(payment.amount, 0) / 100}`
+      );
+    }
+    return payment;
+  }
+
+  // ✅ INR flow — unchanged
   const expectedPaise = Math.round(safeNum(expectedAmountINR, 0) * 100);
   if (safeNum(payment.amount, -1) !== expectedPaise) {
     throw new Error(
@@ -1319,7 +1331,7 @@ const completeOrder = async (req, res) => {
       addresses = {
         billing: {
           ...orderData.addresses.billing,
-          email: orderData.addresses.billing?.email || orderData.user?.email || 'not_provided@duco.com'
+          email: orderData.addresses.billing?.email || orderData.user?.email || 'not_provided@duco.com',
         },
         shipping: {
           ...orderData.addresses.shipping,
@@ -1336,7 +1348,7 @@ const completeOrder = async (req, res) => {
       // Legacy format: single address (use for both billing and shipping)
       legacyAddress = {
         ...orderData.address,
-        email: orderData.address?.email || orderData.user?.email || 'not_provided@duco.com'
+        email: orderData.address?.email || orderData.user?.email || 'not_provided@duco.com',
       };
       console.log('⚠️ Using legacy address format:', legacyAddress.fullName);
     }

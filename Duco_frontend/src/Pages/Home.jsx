@@ -13,8 +13,8 @@ const Home = () => {
   // ✅ Removed setLocation - location detection centralized in PriceContext
   const [banner, setBanner] = useState("");
   const [heroData, setHeroData] = useState({
-    text: "Color Of Summer Outfit",
-    buttonText: "Shop the Look →",
+    text: "",
+    buttonText: "",
     buttonLink: "/women"
   });
   const [loading, setLoading] = useState(true);
@@ -50,10 +50,10 @@ const Home = () => {
         console.log('🎨 Hero banner set:', bannerToDisplay.link);
       }
       
-      if (bannerToDisplay?.heroText) {
+      if (bannerToDisplay) {
         setHeroData({
-          text: bannerToDisplay.heroText,
-          buttonText: bannerToDisplay.buttonText || "Shop the Look →",
+          text: bannerToDisplay.heroText ?? "",
+          buttonText: bannerToDisplay.buttonText ?? "",
           buttonLink: bannerToDisplay.buttonLink || "/women"
         });
         console.log('🎨 Hero data updated:', bannerToDisplay);
@@ -88,8 +88,8 @@ const Home = () => {
               setBanner(heroSection.mainImage);
             }
             setHeroData({
-              text: heroSection.heroText || "Color Of Summer Outfit",
-              buttonText: heroSection.buttonText || "Shop the Look →",
+              text: heroSection.heroText ?? "",
+              buttonText: heroSection.buttonText ?? "",
               buttonLink: heroSection.buttonLink || "/women"
             });
           }

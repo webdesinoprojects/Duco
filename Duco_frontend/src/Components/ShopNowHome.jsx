@@ -45,6 +45,7 @@ const ShopNowHome = () => {
             description={item.Desciptions?.[0]}
             image={item.image_url?.[0]?.url?.[0]}
             stock={item.Stock || 0}
+            hideAddToCart={true}
           />
         ))}
       </div>

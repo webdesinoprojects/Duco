@@ -286,6 +286,7 @@ export default function AnalyticsDashboard() {
         "Billing - Address Type",
         "Billing - Email",
         "Billing - Mobile",
+        "Billing - GST Number",
         
         // Shipping Address
         "Shipping - Full Name",
@@ -379,6 +380,7 @@ export default function AnalyticsDashboard() {
           billingAddr?.addressType || "",
           billingAddr?.email || "",
           billingAddr?.mobileNumber || "",
+          billingAddr?.gstNumber || "",
           
           // Shipping Address
           shippingAddr?.fullName || "",
@@ -850,6 +852,9 @@ export default function AnalyticsDashboard() {
                             )}
                             {addrPhone && (
                               <div className="text-xs text-gray-500">📞 {addrPhone}</div>
+                            )}
+                            {(billingAddr?.gstNumber) && (
+                              <div className="text-xs text-blue-400">GST: {billingAddr.gstNumber}</div>
                             )}
                           </div>
                         </td>

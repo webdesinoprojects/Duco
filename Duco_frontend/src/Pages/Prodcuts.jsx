@@ -19,7 +19,6 @@ const Products = ({ gender }) => {
   const [loading, setLoading] = useState(true);
   const { id: subcategoryId, name: subcategoryName } = useParams();
 
-  const [selectedGenders, setSelectedGenders] = useState([]);
   const [sortOption, setSortOption] = useState("");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
@@ -82,23 +81,7 @@ const Products = ({ gender }) => {
 
   // Apply filters and sorting
   const filteredProducts = products
-    .filter((product) => {
-      // Gender filter
-      if (selectedGenders.length > 0) {
-        const productGender = normalizeGender(product.gender);
-        const matchesGender = selectedGenders.some((selectedGender) => {
-          // Map UI gender options to genderMap keys
-          const genderKey = selectedGender === "Men" ? "male" : selectedGender === "Women" ? "female" : "kids";
-          const allowed = genderMap[genderKey] || [];
-          return allowed.includes(productGender);
-        });
-        if (!matchesGender) {
-          return false;
-        }
-      }
-
-      return true;
-    })
+    .filter(() => true)
     .sort((a, b) => {
       if (sortOption === "lowToHigh") {
         return (
@@ -113,18 +96,7 @@ const Products = ({ gender }) => {
       return 0;
     });
 
-  const genderOptions = ["Men", "Women", "Kids"];
-
-  const toggleGender = (genderOption) => {
-    setSelectedGenders((prev) =>
-      prev.includes(genderOption)
-        ? prev.filter((g) => g !== genderOption)
-        : [...prev, genderOption]
-    );
-  };
-
   const clearFilters = () => {
-    setSelectedGenders([]);
     setSortOption("");
   };
 
@@ -164,7 +136,7 @@ const Products = ({ gender }) => {
         <div className="hidden md:block w-64 bg-[#1a1a1a] rounded-lg p-4 h-fit sticky top-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold">Filters</h2>
-            {(selectedGenders.length > 0 || sortOption) && (
+            {sortOption && (
               <button
                 onClick={clearFilters}
                 className="text-xs text-[#E5C870] hover:underline"
@@ -188,26 +160,6 @@ const Products = ({ gender }) => {
             </select>
           </div>
 
-          {/* Gender Filter */}
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold mb-2">Gender</h3>
-            <div className="space-y-2">
-              {genderOptions.map((genderOption) => (
-                <label
-                  key={genderOption}
-                  className="flex items-center gap-2 cursor-pointer hover:text-[#E5C870]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedGenders.includes(genderOption)}
-                    onChange={() => toggleGender(genderOption)}
-                    className="w-4 h-4 rounded accent-[#E5C870]"
-                  />
-                  <span className="text-sm">{genderOption}</span>
-                </label>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Mobile Filters Overlay */}
@@ -224,7 +176,7 @@ const Products = ({ gender }) => {
                 </button>
               </div>
 
-              {(selectedGenders.length > 0 || sortOption) && (
+              {sortOption && (
                 <button
                   onClick={clearFilters}
                   className="w-full mb-4 text-sm text-[#E5C870] hover:underline"
@@ -245,27 +197,6 @@ const Products = ({ gender }) => {
                   <option value="lowToHigh">Price: Low to High</option>
                   <option value="highToLow">Price: High to Low</option>
                 </select>
-              </div>
-
-              {/* Gender Filter */}
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold mb-2">Gender</h3>
-                <div className="space-y-2">
-                  {genderOptions.map((genderOption) => (
-                    <label
-                      key={genderOption}
-                      className="flex items-center gap-2 cursor-pointer hover:text-[#E5C870]"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedGenders.includes(genderOption)}
-                        onChange={() => toggleGender(genderOption)}
-                        className="w-4 h-4 rounded accent-[#E5C870]"
-                      />
-                      <span className="text-sm">{genderOption}</span>
-                    </label>
-                  ))}
-                </div>
               </div>
 
               <button

@@ -5,7 +5,7 @@ import secondImg from "../assets/pleased-young-handsome-guy-wearing-black-t-shir
 import { Link } from 'react-router-dom';
 
 
-const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText = "Shop the Look →", buttonLink = "/women", isAnimating = false, sideCards = null}) => {
+const SectionHome1 = ({imglink, heroText = "", buttonText = "", buttonLink = "/women", isAnimating = false, sideCards = null}) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
@@ -40,17 +40,21 @@ const SectionHome1 = ({imglink, heroText = "Color Of Summer Outfit", buttonText 
       
       {/* Text Overlay */}
       <div className={`absolute top-3 left-3 sm:top-6 md:top-8 sm:left-4 md:left-6 z-20 text-white transition-opacity duration-500 ${isAnimating ? 'opacity-30' : 'opacity-100'}`}>
-        <p className="text-xl sm:text-3xl md:text-4xl lg:text-6xl font-semibold leading-tight md:leading-[3.2rem] max-w-[85%] sm:max-w-[90%]">
-          {heroText.split('\n').map((line, idx) => (
-            <React.Fragment key={idx}>
-              {line}
-              {idx < heroText.split('\n').length - 1 && <br />}
-            </React.Fragment>
-          ))}
-        </p>
-        <button className="mt-2 sm:mt-3 md:mt-4 px-4 sm:px-6 py-1.5 sm:py-2 bg-[#E5C870] text-black rounded-full shadow-lg text-xs sm:text-sm md:text-base hover:bg-[#d4b860] transition-colors">
-          {buttonText}
-        </button>
+        {heroText && (
+          <p className="text-xl sm:text-3xl md:text-4xl lg:text-6xl font-semibold leading-tight md:leading-[3.2rem] max-w-[85%] sm:max-w-[90%]">
+            {heroText.split('\n').map((line, idx) => (
+              <React.Fragment key={idx}>
+                {line}
+                {idx < heroText.split('\n').length - 1 && <br />}
+              </React.Fragment>
+            ))}
+          </p>
+        )}
+        {buttonText ? (
+          <button className="mt-2 sm:mt-3 md:mt-4 px-4 sm:px-6 py-1.5 sm:py-2 bg-[#E5C870] text-black rounded-full shadow-lg text-xs sm:text-sm md:text-base hover:bg-[#d4b860] transition-colors">
+            {buttonText}
+          </button>
+        ) : null}
       </div>
 
       {/* Dark Overlay */}

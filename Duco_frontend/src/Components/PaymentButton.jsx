@@ -253,6 +253,7 @@ const PaymentButton = ({ orderData }) => {
                 compressed: true,
                 paymentmode: orderData.isHalfPayment ? "50%" : "online",
                 isHalfPayment: orderData.isHalfPayment || false,
+                paymentCurrency: currencyCode, // ✅ FIX: pass actual currency (e.g. SGD, USD) so backend stores it correctly
               },
             });
           } catch (err) {

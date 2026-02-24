@@ -15,6 +15,7 @@ const AddressSchema = new Schema(
     pincode: { type: String, required: true },
     country: { type: String, default: 'India' },
     landmark: { type: String, default: '' },
+    gstNumber: { type: String, default: '' },
     addressType: {
       type: String,
       enum: ['Home', 'Office', 'Other'],
