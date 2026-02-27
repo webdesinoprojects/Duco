@@ -124,11 +124,21 @@ const OrderSchema = new Schema(
     },
 
     pf: { type: Number, default: 0 },
-    gst: { type: Number, default: 0 }, // Keep for backward compatibility
+    gst: { type: Number, default: 0 }, // Keep for backward compatibility (total tax)
     cgst: { type: Number, default: 0 },
     sgst: { type: Number, default: 0 },
     igst: { type: Number, default: 0 },
     printing: { type: Number, default: 0 },
+    
+    // ✅ Tax type for proper display (INTERNATIONAL, INTRASTATE_CGST_SGST, INTERSTATE, B2C_NO_TAX)
+    taxType: { type: String, default: null },
+    
+    // ✅ CRITICAL: Breakdown values (cart-calculated, stored for display)
+    // These are calculated ONCE in cart, then stored and displayed everywhere
+    // NEVER recalculate these values - just read and display them
+    subtotal: { type: Number, default: 0 }, // Items subtotal (before discount)
+    subtotalAfterDiscount: { type: Number, default: 0 }, // Subtotal after discount
+    taxableAmount: { type: Number, default: 0 }, // Subtotal after discount + charges (P&F + Printing)
 
     // ✅ Email notification tracking (prevent duplicate sends)
     emailSent: { type: Boolean, default: false },

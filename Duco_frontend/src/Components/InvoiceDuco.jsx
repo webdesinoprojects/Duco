@@ -343,11 +343,11 @@ export default function InvoiceDucoTailwind({ data, editable = false }) {
               {/* ✅ Tax display for B2B orders */}
               {calc.isB2B && (
                 calc.isInternational ? (
-                  // International: 1% Service Charge (NOT GST)
+                  // International: 1% Tax (NOT GST)
                   calc.tax > 0 && (
                     <tr>
                       <td className="border p-1">
-                        Add: Service Charge
+                        Add: Tax
                       </td>
                       <td className="border p-1 text-center">
                         {fmtINR(calc.tax)}

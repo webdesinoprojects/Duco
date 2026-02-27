@@ -182,13 +182,9 @@ const buildInvoiceItems = (products, { hsn = "7307", unit = "Pcs." } = {}) => {
     const qty = sumQuantity(p.quantity);
     if (!qty) return;
 
-    let itemPrice = 0;
-    if (p.pricing && Array.isArray(p.pricing) && p.pricing.length > 0) {
-      itemPrice = safeNum(p.pricing[0]?.price_per, 0);
-    }
-    if (itemPrice === 0) {
-      itemPrice = safeNum(p.price, 0);
-    }
+    // ✅ CRITICAL FIX: Use p.price (cart-calculated price in customer currency)
+    // DO NOT use pricing array - that's the base INR price from product catalog
+    const itemPrice = safeNum(p.price, 0);
 
     items.push({
       description: p.products_name || p.name || "Item",

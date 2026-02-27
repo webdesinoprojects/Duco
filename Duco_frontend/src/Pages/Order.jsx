@@ -18,6 +18,7 @@ const Order = () => {
   const { user } = useContext(UserContext);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [totalCount, setTotalCount] = useState(0); // ✅ Total count of all orders
 
   useEffect(() => {
     let isComponentMounted = true;
@@ -42,13 +43,16 @@ const Order = () => {
         const trackingOrders = await getUserOrdersWithTracking(user._id);
         const orderData = trackingOrders?.orders || trackingOrders?.data || [];
         const validOrders = filterValidOrders(orderData);
+        const total = trackingOrders?.total || validOrders.length; // ✅ Use total from API
 
         if (isComponentMounted) {
           setOrder(validOrders);
+          setTotalCount(total); // ✅ Set total count
         }
       } catch (error) {
         if (isComponentMounted) {
           setOrder([]);
+          setTotalCount(0);
         }
       } finally {
         if (isComponentMounted) {
@@ -78,7 +82,9 @@ const Order = () => {
               (item) => Array.isArray(item?.products) && item.products.length > 0
             )
           : [];
+        const total = trackingOrders?.total || validOrders.length; // ✅ Use total from API
         setOrder(validOrders);
+        setTotalCount(total); // ✅ Update total count
       }
     } catch (error) {
     } finally {
@@ -109,7 +115,16 @@ const Order = () => {
           />
           <div>
             <h1 className="text-white text-2xl font-bold">My Orders</h1>
-            <p className="text-gray-400 text-sm">{order.length} orders found</p>
+            <p className="text-gray-400 text-sm">
+              {totalCount > 0 ? (
+                <>
+                  {totalCount} order{totalCount !== 1 ? 's' : ''} found
+                  {totalCount > 100 && <span className="text-yellow-400"> (showing latest 100)</span>}
+                </>
+              ) : (
+                '0 orders found'
+              )}
+            </p>
           </div>
         </div>
         

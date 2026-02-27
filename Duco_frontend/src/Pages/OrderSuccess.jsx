@@ -100,31 +100,33 @@ export default function OrderSuccess() {
   }, [invoiceData]);
 
 
-  // ✅ Determine B2B from invoice data (more reliable than paymentMeta)
-  // Check if invoice has B2B indicators: tax type, GST number, bulk quantity, etc.
+  // ✅ Determine B2B from order data (more reliable than paymentMeta)
+  // Check if order has B2B indicators: GST number, bulk quantity, order type, etc.
   const isB2B = useMemo(() => {
     if (!invoiceData) return paymentMeta?.isCorporate || false;
     
     // ✅ Check multiple indicators for B2B
-    const hasGST = !!invoiceData.billTo?.gstin;
+    const hasGST = !!(invoiceData.billTo?.gstin || invoiceData.order?.addresses?.billing?.gstNumber);
     const isBulkQuantity = invoiceData.items?.some(item => {
       const qty = safeNum(item.qty, 0);
       return qty >= 50; // Bulk threshold
     });
+    const isB2BOrderType = invoiceData.order?.orderType === 'B2B';
     const isInternationalTax = invoiceData.tax?.type === 'INTERNATIONAL';
     const hasInterstateTax = invoiceData.tax?.type === 'INTERSTATE' || invoiceData.tax?.type === 'INTRASTATE_CGST_SGST';
     
     console.log('🔍 B2B Detection:', {
       hasGST,
       isBulkQuantity,
+      isB2BOrderType,
       isInternationalTax,
       hasInterstateTax,
       paymentMetaIsCorporate: paymentMeta?.isCorporate,
-      invoiceTaxType: invoiceData.tax?.type,
+      orderType: invoiceData.order?.orderType,
     });
     
-    // B2B if: has GST OR bulk quantity OR has tax (not B2C_NO_TAX)
-    return hasGST || isBulkQuantity || hasInterstateTax || isInternationalTax || paymentMeta?.isCorporate;
+    // B2B if: has GST OR bulk quantity OR B2B order type OR has tax (not B2C_NO_TAX)
+    return hasGST || isBulkQuantity || isB2BOrderType || hasInterstateTax || isInternationalTax || paymentMeta?.isCorporate;
   }, [invoiceData, paymentMeta]);
 
   // ✅ Get currency and conversion info from state or stored meta
@@ -143,201 +145,194 @@ export default function OrderSuccess() {
   console.log("💱 Currency:", paymentCurrency, "Symbol:", currencySymbol, "IsINR:", isINR, "ConversionRate:", conversionRate);
   console.log("🌍 Payment Location:", { paymentCurrency, customerCountry, customerCity, customerState });
 
-  /* ✅ FIXED INVOICE LOGIC: accurate charges + gst like cart + side printing info */
+  /* ✅ SIMPLIFIED INVOICE LOGIC: Keep INR working, simplify non-INR */
   useEffect(() => {
     let isMounted = true;
     
-    async function fetchInvoice() {
-      try {
-        if (!orderId) throw new Error("No Order ID found");
+    async function fetchOrderData() {
+          try {
+            if (!orderId) throw new Error("No Order ID found");
 
-        const res = await getInvoiceByOrder(orderId);
-        
-        if (!isMounted) return; // Prevent state update if unmounted
+            // ✅ Fetch ORDER (not invoice) to get stored values
+            console.log('📦 Fetching order data for:', orderId);
+            const orderRes = await getOrderById(orderId);
+            const order = orderRes?.order || orderRes;
 
-        const inv = res?.invoice;
-        if (!inv) throw new Error("No invoice found");
+            if (!isMounted) return;
+            if (!order) throw new Error("No order found");
 
-        const items = inv.items?.map((it, i) => ({
-          ...it,
-          sno: i + 1,
-          printSides: it.printSides || it.sides || 0,
-        })) || [];
+            console.log('📦 Order data received:', {
+              orderId: order._id,
+              currency: order.currency,
+              displayPrice: order.displayPrice,
+              price: order.price,
+              conversionRate: order.conversionRate,
+              // ✅ Log breakdown values
+              subtotal: order.subtotal,
+              subtotalAfterDiscount: order.subtotalAfterDiscount,
+              taxableAmount: order.taxableAmount,
+              pf: order.pf,
+              printing: order.printing,
+              gst: order.gst,
+              discount: order.discount
+            });
 
-        // ✅ Calculate subtotal from items (convert if needed)
-        const subtotal = items.reduce(
-          (sum, item) => sum + safeNum(item.qty, 0) * safeNum(item.price, 0),
-          0
-        );
+            // ✅ Use stored values from order (NO RECALCULATION - JUST DISPLAY)
+            const displayCurrency = order.currency || order.paymentCurrency || paymentCurrency || 'INR';
+            const displayTotal = order.displayPrice || order.price || 0;
+            const symbol = currencySymbols[displayCurrency] || '₹';
 
-        // ✅ Extract charges from invoice with proper fallbacks
-        let pf = safeNum(inv.charges?.pf ?? inv.pfCharges ?? inv.order?.pf ?? 0);
-        let printing = safeNum(inv.charges?.printing ?? inv.printingCharges ?? inv.order?.printing ?? 0);
-        
-        console.log('💰 Invoice Charges Debug (INR):', {
-          invCharges: inv.charges,
-          pf,
-          printing,
-          orderPf: inv.order?.pf,
-          orderPrinting: inv.order?.printing,
-        });
+            // ✅ Extract stored values from order (NO MATH - JUST READ)
+            const subtotal = order.subtotal || 0;
+            const discount = order.discount || null;
+            const discountAmount = discount?.amount || 0;
+            const pf = order.pf || 0;
+            const printing = order.printing || 0;
+            const gst = order.gst || 0;
+            
+            // ✅ Use stored calculated values (NO RECALCULATION - BACKEND DID THE MATH)
+            // If not stored (old orders), calculate as fallback
+            let subtotalAfterDiscount = order.subtotalAfterDiscount;
+            let taxableAmount = order.taxableAmount;
+            let calculatedSubtotal = subtotal;
+            
+            // ✅ FALLBACK for old orders: Calculate from items if subtotal is 0
+            if (subtotal === 0 && order.products && order.products.length > 0) {
+              calculatedSubtotal = order.products.reduce((sum, product) => {
+                const qty = typeof product.quantity === 'object' 
+                  ? Object.values(product.quantity).reduce((s, q) => s + Number(q || 0), 0)
+                  : Number(product.quantity || 0);
+                const price = Number(product.price || 0);
+                return sum + (qty * price);
+              }, 0);
+              console.log('⚠️ Using fallback subtotal calculation for old order:', calculatedSubtotal);
+            }
+            
+            // Calculate derived values if not stored
+            if (!subtotalAfterDiscount) {
+              subtotalAfterDiscount = calculatedSubtotal - discountAmount;
+            }
+            if (!taxableAmount) {
+              taxableAmount = subtotalAfterDiscount + pf + printing;
+            }
 
-        // ✅ CRITICAL FIX: Use backend total directly instead of recalculating
-        // The backend has already calculated the correct total with proper tax logic
-        const total = safeNum(inv.total ?? inv.totalPay ?? 0);
-        
-        // ✅ Extract tax information from backend (already calculated correctly)
-        const taxInfo = inv.tax || {};
-        const cgstAmount = safeNum(taxInfo.cgstAmount ?? 0);
-        const sgstAmount = safeNum(taxInfo.sgstAmount ?? 0);
-        const igstAmount = safeNum(taxInfo.igstAmount ?? 0);
-        const taxAmount = safeNum(taxInfo.taxAmount ?? 0);
-        
-        // ✅ Calculate total tax based on type
-        let totalTax = 0;
-        if (taxInfo.type === 'INTERNATIONAL') {
-          totalTax = taxAmount;
-        } else if (taxInfo.type === 'INTRASTATE_CGST_SGST') {
-          totalTax = cgstAmount + sgstAmount;
-        } else if (taxInfo.type === 'INTERSTATE') {
-          totalTax = igstAmount;
-        } else if (taxInfo.type === 'B2C_NO_TAX') {
-          totalTax = 0;
-        } else {
-          totalTax = cgstAmount + sgstAmount + igstAmount + taxAmount;
-        }
+            // ✅ Format order data for display (NO CONVERSION, NO MATH)
+            const formatted = {
+              order: order,
+              // ✅ Transform products into invoice items format
+              items: (order.products || []).map(product => {
+                // Calculate total quantity from quantity object
+                const qty = typeof product.quantity === 'object' 
+                  ? Object.values(product.quantity).reduce((sum, q) => sum + Number(q || 0), 0)
+                  : Number(product.quantity || 0);
+                
+                return {
+                  description: product.products_name || product.name || 'Product',
+                  barcode: product._id || '',
+                  hsn: '7307',
+                  qty: qty,
+                  unit: 'Pcs.',
+                  price: Number(product.price || 0),
+                };
+              }),
+              charges: { 
+                pf: pf, 
+                printing: printing 
+              },
+              discount: discount,
+              subtotal: calculatedSubtotal,
+              subtotalAfterDiscount: subtotalAfterDiscount,
+              taxableAmount: taxableAmount,
+              totalTax: gst,
+              total: displayTotal,
+              currency: displayCurrency,
+              currencySymbol: symbol,
+              conversionRate: order.conversionRate || 1,
+              paymentmode: order.paymentmode || paymentMeta.mode || 'online',
+              amountPaid: order.advancePaidAmount || 0,
+              paymentCurrency: displayCurrency,
+              customerCountry: order.customerCountry || customerCountry,
+              customerCity: order.customerCity || customerCity,
+              customerState: order.customerState || customerState,
+              // Tax info (simplified - just show total)
+              tax: {
+                type: order.taxType || (order.orderType === 'B2B' ? 'B2B' : 'B2C'),
+                taxAmount: order.taxType === 'INTERNATIONAL' ? gst : 0,
+                cgstAmount: order.cgst || 0,
+                sgstAmount: order.sgst || 0,
+                igstAmount: order.igst || 0,
+              },
+              // Billing/shipping addresses
+              billTo: order.addresses?.billing || order.address,
+              shipTo: order.addresses?.shipping || order.address,
+              // Company info for invoice template
+              company: {
+                name: "DUCO ART PRIVATE LIMITED",
+                gstin: "22AAHCD0277E1ZN",
+                cin: "U52601CT2020PTC010997",
+                address: "SADIJA COMPOUND AVANTI VIHAR LIG 64",
+                city: "RAIPUR",
+                state: "CHHATTISGARH",
+                pincode: "492001",
+                phone: "+91 9876543210",
+                email: "info@ducoart.com"
+              },
+              // Invoice info
+              invoice: {
+                number: order._id || order.orderId,
+                date: new Date(order.createdAt).toLocaleDateString('en-IN'),
+                placeOfSupply: order.addresses?.billing?.state || order.address?.state || 'Chhattisgarh',
+              },
+            };
 
-        // ✅ Calculate discount and taxable amount (subtotal - discount + charges)
-        const discountAmount = safeNum(inv.discount?.amount ?? 0);
-        const discountPercent = safeNum(inv.discount?.discountPercentage ?? inv.discount?.percent ?? 0);
-        const subtotalAfterDiscount = subtotal - discountAmount;
-        const taxableAmount = subtotalAfterDiscount + pf + printing;
+            console.log("🧾 Order Data for Success Page (NO RECALCULATION):", {
+              subtotal: formatted.subtotal,
+              discount: formatted.discount?.amount,
+              subtotalAfterDiscount: formatted.subtotalAfterDiscount,
+              pf: formatted.charges.pf,
+              printing: formatted.charges.printing,
+              taxableAmount: formatted.taxableAmount,
+              totalTax: formatted.totalTax,
+              total: formatted.total,
+              currency: formatted.currency,
+              source: 'ORDER (not invoice)',
+              // ✅ Log items to verify they have qty and price
+              itemsCount: formatted.items.length,
+              firstItem: formatted.items[0],
+            });
 
-        // ✅ CONVERT ALL AMOUNTS TO TARGET CURRENCY
-        const convertAmount = (inrAmount) => {
-          if (conversionRate === 1 || !conversionRate) return inrAmount;
-          return inrAmount * conversionRate;
-        };
+            // ✅ Add formatCurrency function for PDF rendering
+            const formatCurrencyForPDF = (num) => {
+              const n = Number(num) || 0;
+              return `${symbol}${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+            };
 
-        // ✅ Recalculate tax amounts based on converted taxable amount
-        const convertedTaxableAmount = convertAmount(taxableAmount);
-        const taxRate = taxInfo.type === 'INTERNATIONAL' ? 0.01 : 
-                       taxInfo.type === 'INTRASTATE_CGST_SGST' ? 0.05 :
-                       taxInfo.type === 'INTERSTATE' ? 0.05 : 0;
-        
-        let convertedCgstAmount = 0;
-        let convertedSgstAmount = 0;
-        let convertedIgstAmount = 0;
-        let convertedTaxAmount = 0;
-        
-        if (taxInfo.type === 'INTRASTATE_CGST_SGST') {
-          // 2.5% CGST + 2.5% SGST = 5% total
-          convertedCgstAmount = (convertedTaxableAmount * 0.025);
-          convertedSgstAmount = (convertedTaxableAmount * 0.025);
-        } else if (taxInfo.type === 'INTERSTATE') {
-          // 5% IGST
-          convertedIgstAmount = (convertedTaxableAmount * 0.05);
-        } else if (taxInfo.type === 'INTERNATIONAL') {
-          // 1% TAX
-          convertedTaxAmount = (convertedTaxableAmount * 0.01);
-        }
-
-        // ✅ RECALCULATE TOTAL: Taxable Amount + Total Tax (correct formula)
-        const totalTaxSum = convertedCgstAmount + convertedSgstAmount + convertedIgstAmount + convertedTaxAmount;
-        const recalculatedTotal = convertedTaxableAmount + totalTaxSum;
-
-        const formatted = {
-          ...inv,
-          items: items.map(item => ({
-            ...item,
-            price: convertAmount(safeNum(item.price)),
-            qty: safeNum(item.qty),
-          })),
-          charges: { 
-            pf: convertAmount(pf), 
-            printing: convertAmount(printing) 
-          },
-          discount: inv.discount ? {
-            ...inv.discount,
-            amount: convertAmount(discountAmount),
-            discountPercentage: discountPercent,
-            percent: discountPercent,
-          } : null,
-          tax: {
-            ...taxInfo,
-            cgstAmount: convertedCgstAmount,
-            sgstAmount: convertedSgstAmount,
-            igstAmount: convertedIgstAmount,
-            taxAmount: convertedTaxAmount,
-          },
-          subtotal: convertAmount(subtotal),
-          subtotalAfterDiscount: convertAmount(subtotalAfterDiscount),
-          taxableAmount: convertedTaxableAmount,
-          totalTax: totalTaxSum,
-          total: recalculatedTotal, // ✅ Use recalculated total (taxable + tax)
-          currency: paymentCurrency,
-          currencySymbol: currencySymbol,
-          conversionRate: conversionRate,
-          paymentmode: inv.paymentmode || paymentMeta.mode || 'online',
-          amountPaid: convertAmount(safeNum(inv.amountPaid ?? 0)),
-          paymentCurrency: paymentCurrency,
-          customerCountry: customerCountry,
-          customerCity: customerCity,
-          customerState: customerState,
-        };
-
-        console.log("🧾 Normalized Invoice for Success Page (Converted):", {
-          subtotal: formatted.subtotal,
-          discount: formatted.discount,
-          subtotalAfterDiscount: formatted.subtotalAfterDiscount,
-          pf: formatted.charges.pf,
-          printing: formatted.charges.printing,
-          pfCost: formatted.charges.pf,
-          printingCost: formatted.charges.printing,
-          gstPercent: taxInfo.gstRate || (taxInfo.type === 'INTERNATIONAL' ? 1 : 5),
-          taxableAmount: formatted.taxableAmount,
-          totalTax: formatted.totalTax,
-          total: formatted.total,
-          recalculated: true, // ✅ Flag to show total was recalculated
-          taxType: formatted.tax?.type,
-          conversionRate: conversionRate,
-          currency: paymentCurrency,
-        });
-        
-        // ✅ Add formatCurrency function to invoice data for PDF rendering
-        const formatCurrency = (num) => {
-          const n = Number(num) || 0;
-          const isINR = paymentCurrency === 'INR' || !paymentCurrency;
-          
-          if (isINR) {
-            return `₹${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-          } else {
-            const symbol = currencySymbol || '$';
-            return `${symbol}${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+            if (isMounted) {
+              setInvoiceData({
+                ...formatted,
+                formatCurrency: formatCurrencyForPDF,
+              });
+              // ✅ Clear cart only once when invoice data is set
+              if (!invoiceData) {
+                clearCart();
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching order:", err);
+            if (isMounted) {
+              navigate("/");
+            }
           }
-        };
-        
-        if (isMounted) {
-          setInvoiceData({
-            ...formatted,
-            formatCurrency,
-          });
-          clearCart();
         }
-      } catch (err) {
-        console.error("Error fetching invoice:", err);
-        if (isMounted) {
-          navigate("/");
-        }
-      }
-    }
+
     
-    fetchInvoice();
+    fetchOrderData();
     
     return () => {
       isMounted = false;
     };
-  }, [orderId, conversionRate, paymentCurrency]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, paymentCurrency, currencySymbol, customerCountry, customerCity, customerState]);
 
   useEffect(() => {
     if (!orderId) return;
@@ -574,7 +569,7 @@ export default function OrderSuccess() {
                 </span>
               </div>
               <div className="border-t pt-3 flex justify-between">
-                <span className="text-gray-600">Taxable Amount:</span>
+                <span className="text-gray-600">{isB2B ? 'Taxable Amount:' : 'Subtotal:'}</span>
                 <span className="font-semibold text-gray-800">
                   {formatCurrency(invoiceData.taxableAmount, currencySymbol, isINR)}
                 </span>

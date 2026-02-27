@@ -607,7 +607,7 @@ export default function LogisticsManager() {
           <div><strong>Taxable Value:</strong> ${currencySymbol}${(totals?.taxableValue || 0).toFixed(2)}</div>
           
           ${invoice.tax?.type === 'INTERNATIONAL' ? `
-            ${invoice.tax?.taxRate && totals?.taxAmt > 0 ? `<div><strong>Service Charge (${invoice.tax.taxRate}%):</strong> ${currencySymbol}${(totals?.taxAmt || 0).toFixed(2)}</div>` : ''}
+            ${invoice.tax?.taxRate && totals?.taxAmt > 0 ? `<div><strong>Tax (${invoice.tax.taxRate}%):</strong> ${currencySymbol}${(totals?.taxAmt || 0).toFixed(2)}</div>` : ''}
           ` : invoice.tax?.type === 'B2C_NO_TAX' ? `
             <div style="font-style: italic;"><em>Including taxes</em></div>
           ` : `

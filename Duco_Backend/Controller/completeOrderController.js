@@ -301,17 +301,15 @@ function buildInvoiceItems(products, { hsn = '7307', unit = 'Pcs.' } = {}) {
     const qty = sumQuantity(p.quantity);
     if (!qty) return;
     
-    // ✅ Priority: pricing array (actual product price) > p.price (cart price)
-    let itemPrice = 0;
-    if (p.pricing && Array.isArray(p.pricing) && p.pricing.length > 0) {
-      itemPrice = safeNum(p.pricing[0]?.price_per, 0);
-    }
-    // Fallback to p.price if pricing array doesn't have valid price
-    if (itemPrice === 0) {
-      itemPrice = safeNum(p.price, 0);
-    }
+    // ✅ CRITICAL FIX: Use p.price (cart-calculated price in customer currency)
+    // DO NOT use pricing array - that's the base INR price from product catalog
+    // Cart already calculated the correct price considering:
+    // - Location-based pricing
+    // - Currency conversion
+    // - Bulk discounts
+    const itemPrice = safeNum(p.price, 0);
     
-    console.log(`📦 Invoice item: ${p.products_name || p.name || 'Item'} - Price: ${itemPrice} (from ${p.pricing ? 'pricing array' : 'p.price'})`);
+    console.log(`📦 Invoice item: ${p.products_name || p.name || 'Item'} - Price: ${itemPrice} (from cart calculation)`);
     
     items.push({
       description: p.products_name || p.name || 'Item',
@@ -953,8 +951,8 @@ async function sendOrderEmail(order, artifacts) {
       customerEmail: artifacts.customerEmail,
       customerName: artifacts.customerName,
       orderId: order.orderId || order._id,
-      totalAmount: artifacts.totals?.grandTotal?.toFixed(2) || '0.00',
-      currency: artifacts.invoice?.currency || 'INR',
+      totalAmount: order.displayPrice?.toFixed(2) || artifacts.totals?.grandTotal?.toFixed(2) || '0.00',
+      currency: order.paymentCurrency || order.currency || artifacts.invoice?.currency || 'INR',
       paymentMode: artifacts.invoice?.paymentmode || 'Online',
       invoicePdfPath: pdfPath,
       items: artifacts.invoice?.items || [],
@@ -1358,23 +1356,31 @@ const completeOrder = async (req, res) => {
         ? orderData.user._id
         : orderData.user?.toString?.() || orderData.user;
 
-    // ✅ Detect currency from billing address country
+    // ✅ Extract billing country from addresses
     const billingCountry = addresses?.billing?.country || legacyAddress?.country || 'India';
-    const currency = getCurrencyFromCountry(billingCountry);
+    const customerCountry = orderData.customerCountry || billingCountry;
+    const customerCity = orderData.customerCity || addresses?.billing?.city || legacyAddress?.city || '';
+    const customerState = orderData.customerState || addresses?.billing?.state || legacyAddress?.state || '';
+
+    // ✅ Use currency from frontend (displayCurrency), fallback to detecting from country
+    const detectedCurrency = getCurrencyFromCountry(billingCountry);
+    const currency = orderData.displayCurrency || paymentCurrency || detectedCurrency;
     
-    // ✅ Use payment currency from frontend if provided, otherwise detect from country
-    const finalPaymentCurrency = paymentCurrency || currency;
+    // ✅ Use payment currency from frontend if provided, otherwise use detected currency
+    const finalPaymentCurrency = orderData.displayCurrency || paymentCurrency || currency;
     const finalCustomerCountry = customerCountry || billingCountry;
     const finalCustomerCity = customerCity || '';
     const finalCustomerState = customerState || '';
     
     console.log('💱 Payment Currency & Location:', {
-      paymentCurrency: finalPaymentCurrency,
+      frontendCurrency: orderData.displayCurrency,
+      paymentCurrency: paymentCurrency,
+      detectedCurrency: detectedCurrency,
+      finalCurrency: currency,
       customerCountry: finalCustomerCountry,
       customerCity: finalCustomerCity,
       customerState: finalCustomerState,
       billingCountry,
-      detectedCurrency: currency,
     });
     
     // ✅ Get conversion rate and display price from orderData (try multiple locations)
@@ -1539,6 +1545,67 @@ const completeOrder = async (req, res) => {
       try {
         // ✅ Get estimated delivery date from settings
         const deliveryExpectedDate = await getEstimatedDeliveryDate();
+        // ✅ Extract ALL breakdown values from cart (CART CALCULATED THESE - NEVER RECALCULATE)
+        const cartTotals = orderData.totals || {};
+        const displaySubtotal = safeNum(cartTotals.itemsSubtotal || cartTotals.subtotal || 0);
+        const displayDiscountAmount = safeNum(cartTotals.discountAmount || orderData.discount?.amount || 0);
+        const displayPfCost = safeNum(cartTotals.pfCost || orderData.pf || finalPfCharge);
+        const displayPrintingCost = safeNum(cartTotals.printingCost || orderData.printing || finalPrintingCharge);
+        const displayTaxAmount = safeNum(cartTotals.gstTotal || orderData.gst || 0);
+        const displayGrandTotal = safeNum(displayPrice);
+        
+        // ✅ Calculate base (INR) values for these breakdowns
+        const baseSubtotal = conversionRate && conversionRate !== 1 
+          ? safeNum(displaySubtotal / conversionRate)
+          : displaySubtotal;
+        const baseDiscountAmount = conversionRate && conversionRate !== 1
+          ? safeNum(displayDiscountAmount / conversionRate)
+          : displayDiscountAmount;
+        const basePfCost = conversionRate && conversionRate !== 1
+          ? safeNum(displayPfCost / conversionRate)
+          : displayPfCost;
+        const basePrintingCost = conversionRate && conversionRate !== 1
+          ? safeNum(displayPrintingCost / conversionRate)
+          : displayPrintingCost;
+        const baseTaxAmount = conversionRate && conversionRate !== 1
+          ? safeNum(displayTaxAmount / conversionRate)
+          : displayTaxAmount;
+        const baseGrandTotal = safeNum(totalPay);
+        
+        console.log('💰 Storing Complete Breakdown (Display & Base):', {
+          display: {
+            currency: currency,
+            subtotal: displaySubtotal,
+            discount: displayDiscountAmount,
+            pf: displayPfCost,
+            printing: displayPrintingCost,
+            tax: displayTaxAmount,
+            grandTotal: displayGrandTotal
+          },
+          base: {
+            currency: 'INR',
+            subtotal: baseSubtotal,
+            discount: baseDiscountAmount,
+            pf: basePfCost,
+            printing: basePrintingCost,
+            tax: baseTaxAmount,
+            grandTotal: baseGrandTotal
+          }
+        });
+        
+        // ✅ Calculate tax type for proper display
+        const { calculateTax } = require('../Service/TaxCalculationService');
+        const taxableForType = (displaySubtotal - displayDiscountAmount) + displayPfCost + displayPrintingCost;
+        const taxInfo = calculateTax(taxableForType, finalCustomerState, finalCustomerCountry, orderType === 'B2B');
+        
+        console.log('💰 STORE_PICKUP - Tax Info:', {
+          taxType: taxInfo.type,
+          cgst: taxInfo.cgstAmount,
+          sgst: taxInfo.sgstAmount,
+          igst: taxInfo.igstAmount,
+          taxAmount: taxInfo.taxAmount,
+          totalTax: taxInfo.totalTax
+        });
         
         const orderPayload = {
           products: cleanedItems,
@@ -1553,6 +1620,10 @@ const completeOrder = async (req, res) => {
           paymentmode: paymentmode, // ✅ Use enum value, not readableMode
           pf: finalPfCharge,
           gst: safeNum(orderData.gst, 0),
+          cgst: taxInfo.cgstAmount || 0,
+          sgst: taxInfo.sgstAmount || 0,
+          igst: taxInfo.igstAmount || 0,
+          taxType: taxInfo.type || null,
           printing: finalPrintingCharge,
           orderType,
           currency, // ✅ Customer's currency
@@ -1568,6 +1639,27 @@ const completeOrder = async (req, res) => {
           discount: discount || null,
           // ✅ Add pickup details from orderData
           pickupDetails: orderData?.pickupDetails || null,
+          // ✅ CRITICAL: Store COMPLETE breakdown (CART CALCULATED - NEVER RECALCULATE)
+          // Display values (what customer sees)
+          displaySubtotal: displaySubtotal,
+          displayDiscount: displayDiscountAmount,
+          displayPf: displayPfCost,
+          displayPrinting: displayPrintingCost,
+          displayTax: displayTaxAmount,
+          displayGrandTotal: displayGrandTotal,
+          displayCurrency: currency,
+          // Base values (INR for records)
+          baseSubtotal: baseSubtotal,
+          baseDiscount: baseDiscountAmount,
+          basePf: basePfCost,
+          basePrinting: basePrintingCost,
+          baseTax: baseTaxAmount,
+          baseGrandTotal: baseGrandTotal,
+          baseCurrency: 'INR',
+          // Calculated values (for backward compatibility)
+          subtotal: displaySubtotal,
+          subtotalAfterDiscount: displaySubtotal - displayDiscountAmount,
+          taxableAmount: (displaySubtotal - displayDiscountAmount) + displayPfCost + displayPrintingCost,
         };
         
         // ✅ Add addresses (new format) or address (legacy format)
@@ -1603,6 +1695,20 @@ const completeOrder = async (req, res) => {
           // Duplicate key error - retry with a new orderId
           console.warn('⚠️ Duplicate orderId detected, retrying...');
           const deliveryExpectedDate = await getEstimatedDeliveryDate();
+          
+          // ✅ Calculate complete breakdown for storage (NO RECALCULATION LATER)
+          const itemsSubtotal = items.reduce((sum, item) => {
+            const qty = Object.values(item.quantity || {}).reduce((a, b) => a + safeNum(b), 0);
+            return sum + (qty * safeNum(item.price));
+          }, 0);
+          const discountAmount = discount?.amount || 0;
+          const subtotalAfterDiscount = itemsSubtotal - discountAmount;
+          const taxableAmount = subtotalAfterDiscount + finalPfCharge + finalPrintingCharge;
+          
+          // ✅ Calculate tax type for proper display
+          const { calculateTax } = require('../Service/TaxCalculationService');
+          const taxInfo = calculateTax(taxableAmount, finalCustomerState, finalCustomerCountry, orderType === 'B2B');
+          
           order = await Order.create({
             products: cleanedItems,
             price: totalPay,
@@ -1617,6 +1723,10 @@ const completeOrder = async (req, res) => {
             paymentmode: paymentmode, // ✅ Use enum value, not readableMode
             pf: finalPfCharge,
             gst: safeNum(orderData.gst, 0),
+            cgst: taxInfo.cgstAmount || 0,
+            sgst: taxInfo.sgstAmount || 0,
+            igst: taxInfo.igstAmount || 0,
+            taxType: taxInfo.type || null,
             printing: finalPrintingCharge,
             orderType,
             currency, // ✅ Customer's currency
@@ -1632,6 +1742,10 @@ const completeOrder = async (req, res) => {
             discount: discount || null,
             // ✅ Add pickup details from orderData
             pickupDetails: orderData?.pickupDetails || null,
+            // ✅ CRITICAL: Store complete breakdown (CART CALCULATES ONCE, BACKEND STORES, PAGES DISPLAY)
+            subtotal: itemsSubtotal,
+            subtotalAfterDiscount: subtotalAfterDiscount,
+            taxableAmount: taxableAmount,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -1734,6 +1848,52 @@ const completeOrder = async (req, res) => {
       // ✅ Get estimated delivery date from settings
       const deliveryExpectedDate = await getEstimatedDeliveryDate();
       
+      // ✅ Extract ALL breakdown values from cart (CART CALCULATED THESE - NEVER RECALCULATE)
+      const cartTotals = orderData.totals || {};
+      const displaySubtotal = safeNum(cartTotals.itemsSubtotal || cartTotals.subtotal || 0);
+      const displayDiscountAmount = safeNum(cartTotals.discountAmount || orderData.discount?.amount || 0);
+      const displayPfCost = safeNum(cartTotals.pfCost || orderData.pf || finalPfCharge);
+      const displayPrintingCost = safeNum(cartTotals.printingCost || orderData.printing || finalPrintingCharge);
+      const displayTaxAmount = safeNum(cartTotals.gstTotal || orderData.gst || 0);
+      const displayGrandTotal = safeNum(displayPrice);
+      
+      // ✅ Calculate base (INR) values for these breakdowns
+      const baseSubtotal = conversionRate && conversionRate !== 1 
+        ? safeNum(displaySubtotal / conversionRate)
+        : displaySubtotal;
+      const baseDiscountAmount = conversionRate && conversionRate !== 1
+        ? safeNum(displayDiscountAmount / conversionRate)
+        : displayDiscountAmount;
+      const basePfCost = conversionRate && conversionRate !== 1
+        ? safeNum(displayPfCost / conversionRate)
+        : displayPfCost;
+      const basePrintingCost = conversionRate && conversionRate !== 1
+        ? safeNum(displayPrintingCost / conversionRate)
+        : displayPrintingCost;
+      const baseTaxAmount = conversionRate && conversionRate !== 1
+        ? safeNum(displayTaxAmount / conversionRate)
+        : displayTaxAmount;
+      const baseGrandTotal = safeNum(totalPay);
+      
+      console.log('💰 NETBANKING - Storing Complete Breakdown:', {
+        display: { currency, subtotal: displaySubtotal, discount: displayDiscountAmount, pf: displayPfCost, printing: displayPrintingCost, tax: displayTaxAmount, grandTotal: displayGrandTotal },
+        base: { currency: 'INR', subtotal: baseSubtotal, discount: baseDiscountAmount, pf: basePfCost, printing: basePrintingCost, tax: baseTaxAmount, grandTotal: baseGrandTotal }
+      });
+      
+      // ✅ Calculate tax type for proper display
+      const { calculateTax } = require('../Service/TaxCalculationService');
+      const taxableForType = (displaySubtotal - displayDiscountAmount) + displayPfCost + displayPrintingCost;
+      const taxInfo = calculateTax(taxableForType, finalCustomerState, finalCustomerCountry, orderType === 'B2B');
+      
+      console.log('💰 NETBANKING - Tax Info:', {
+        taxType: taxInfo.type,
+        cgst: taxInfo.cgstAmount,
+        sgst: taxInfo.sgstAmount,
+        igst: taxInfo.igstAmount,
+        taxAmount: taxInfo.taxAmount,
+        totalTax: taxInfo.totalTax
+      });
+      
       order = await Order.create({
         products: cleanedItems,
         price: totalPay,
@@ -1750,6 +1910,10 @@ const completeOrder = async (req, res) => {
         pf: finalPfCharge,
         printing: finalPrintingCharge,
         gst: safeNum(orderData.gst, 0),
+        cgst: taxInfo.cgstAmount || 0,
+        sgst: taxInfo.sgstAmount || 0,
+        igst: taxInfo.igstAmount || 0,
+        taxType: taxInfo.type || null,
         orderType,
         currency, // ✅ Customer's currency
         displayPrice, // ✅ Price in customer's currency
@@ -1762,6 +1926,10 @@ const completeOrder = async (req, res) => {
         customerState: finalCustomerState,
         // ✅ Add discount if applied
         discount: discount || null,
+        // ✅ CRITICAL: Store COMPLETE breakdown (CART CALCULATED - NEVER RECALCULATE)
+        subtotal: displaySubtotal,
+        subtotalAfterDiscount: displaySubtotal - displayDiscountAmount,
+        taxableAmount: (displaySubtotal - displayDiscountAmount) + displayPfCost + displayPrintingCost,
       });
       
       // ✅ [DB CHECK] Verify phone persisted
@@ -1854,6 +2022,52 @@ const completeOrder = async (req, res) => {
         // ✅ Get estimated delivery date from settings
         const deliveryExpectedDate = await getEstimatedDeliveryDate();
         
+        // ✅ Extract ALL breakdown values from cart (CART CALCULATED THESE - NEVER RECALCULATE)
+        const cartTotals = orderData.totals || {};
+        const displaySubtotal = safeNum(cartTotals.itemsSubtotal || cartTotals.subtotal || 0);
+        const displayDiscountAmount = safeNum(cartTotals.discountAmount || orderData.discount?.amount || 0);
+        const displayPfCost = safeNum(cartTotals.pfCost || orderData.pf || finalPfCharge);
+        const displayPrintingCost = safeNum(cartTotals.printingCost || orderData.printing || finalPrintingCharge);
+        const displayTaxAmount = safeNum(cartTotals.gstTotal || orderData.gst || 0);
+        const displayGrandTotal = safeNum(displayPrice);
+        
+        // ✅ Calculate base (INR) values for these breakdowns
+        const baseSubtotal = conversionRate && conversionRate !== 1 
+          ? safeNum(displaySubtotal / conversionRate)
+          : displaySubtotal;
+        const baseDiscountAmount = conversionRate && conversionRate !== 1
+          ? safeNum(displayDiscountAmount / conversionRate)
+          : displayDiscountAmount;
+        const basePfCost = conversionRate && conversionRate !== 1
+          ? safeNum(displayPfCost / conversionRate)
+          : displayPfCost;
+        const basePrintingCost = conversionRate && conversionRate !== 1
+          ? safeNum(displayPrintingCost / conversionRate)
+          : displayPrintingCost;
+        const baseTaxAmount = conversionRate && conversionRate !== 1
+          ? safeNum(displayTaxAmount / conversionRate)
+          : displayTaxAmount;
+        const baseGrandTotal = safeNum(totalPay);
+        
+        console.log('💰 ONLINE - Storing Complete Breakdown:', {
+          display: { currency, subtotal: displaySubtotal, discount: displayDiscountAmount, pf: displayPfCost, printing: displayPrintingCost, tax: displayTaxAmount, grandTotal: displayGrandTotal },
+          base: { currency: 'INR', subtotal: baseSubtotal, discount: baseDiscountAmount, pf: basePfCost, printing: basePrintingCost, tax: baseTaxAmount, grandTotal: baseGrandTotal }
+        });
+        
+        // ✅ Calculate tax type for proper display
+        const { calculateTax } = require('../Service/TaxCalculationService');
+        const taxableForType = (displaySubtotal - displayDiscountAmount) + displayPfCost + displayPrintingCost;
+        const taxInfo = calculateTax(taxableForType, finalCustomerState, finalCustomerCountry, orderType === 'B2B');
+        
+        console.log('💰 ONLINE - Tax Info:', {
+          taxType: taxInfo.type,
+          cgst: taxInfo.cgstAmount,
+          sgst: taxInfo.sgstAmount,
+          igst: taxInfo.igstAmount,
+          taxAmount: taxInfo.taxAmount,
+          totalTax: taxInfo.totalTax
+        });
+        
         order = await Order.create({
           products: cleanedItems,
           price: totalPay,
@@ -1870,6 +2084,10 @@ const completeOrder = async (req, res) => {
           pf: finalPfCharge,
           printing: finalPrintingCharge,
           gst: safeNum(orderData.gst, 0),
+          cgst: taxInfo.cgstAmount || 0,
+          sgst: taxInfo.sgstAmount || 0,
+          igst: taxInfo.igstAmount || 0,
+          taxType: taxInfo.type || null,
           orderType,
           currency, // ✅ Customer's currency
           displayPrice, // ✅ Price in customer's currency
@@ -1882,6 +2100,10 @@ const completeOrder = async (req, res) => {
           customerState: finalCustomerState,
           // ✅ Add discount if applied
           discount: finalDiscount || null,
+          // ✅ CRITICAL: Store COMPLETE breakdown (CART CALCULATED - NEVER RECALCULATE)
+          subtotal: displaySubtotal,
+          subtotalAfterDiscount: displaySubtotal - displayDiscountAmount,
+          taxableAmount: (displaySubtotal - displayDiscountAmount) + displayPfCost + displayPrintingCost,
         });
         
         // ✅ [DB CHECK] Verify phone persisted
@@ -1897,6 +2119,16 @@ const completeOrder = async (req, res) => {
           // Duplicate key error - retry with a new orderId
           console.warn('⚠️ Duplicate orderId detected, retrying...');
           const deliveryExpectedDate = await getEstimatedDeliveryDate();
+          
+          // ✅ Calculate complete breakdown for storage (NO RECALCULATION LATER)
+          const itemsSubtotal = items.reduce((sum, item) => {
+            const qty = Object.values(item.quantity || {}).reduce((a, b) => a + safeNum(b), 0);
+            return sum + (qty * safeNum(item.price));
+          }, 0);
+          const discountAmount = finalDiscount?.amount || 0;
+          const subtotalAfterDiscount = itemsSubtotal - discountAmount;
+          const taxableAmount = subtotalAfterDiscount + finalPfCharge + finalPrintingCharge;
+          
           order = await Order.create({
             products: cleanedItems,
             price: totalPay,
@@ -1925,6 +2157,10 @@ const completeOrder = async (req, res) => {
             customerState: finalCustomerState,
             // ✅ Add discount if applied
             discount: finalDiscount || null,
+            // ✅ CRITICAL: Store complete breakdown (CART CALCULATES ONCE, BACKEND STORES, PAGES DISPLAY)
+            subtotal: itemsSubtotal,
+            subtotalAfterDiscount: subtotalAfterDiscount,
+            taxableAmount: taxableAmount,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId
@@ -2024,6 +2260,38 @@ const completeOrder = async (req, res) => {
         // ✅ Get estimated delivery date from settings
         const deliveryExpectedDate = await getEstimatedDeliveryDate();
         
+        // ✅ Extract ALL breakdown values from cart (CART CALCULATED THESE - NEVER RECALCULATE)
+        const cartTotals = orderData.totals || {};
+        const displaySubtotal = safeNum(cartTotals.itemsSubtotal || cartTotals.subtotal || 0);
+        const displayDiscountAmount = safeNum(cartTotals.discountAmount || orderData.discount?.amount || 0);
+        const displayPfCost = safeNum(cartTotals.pfCost || orderData.pf || finalPfCharge);
+        const displayPrintingCost = safeNum(cartTotals.printingCost || orderData.printing || finalPrintingCharge);
+        const displayTaxAmount = safeNum(cartTotals.gstTotal || orderData.gst || 0);
+        const displayGrandTotal = safeNum(displayPrice);
+        
+        // ✅ Calculate base (INR) values for these breakdowns
+        const baseSubtotal = conversionRate && conversionRate !== 1 
+          ? safeNum(displaySubtotal / conversionRate)
+          : displaySubtotal;
+        const baseDiscountAmount = conversionRate && conversionRate !== 1
+          ? safeNum(displayDiscountAmount / conversionRate)
+          : displayDiscountAmount;
+        const basePfCost = conversionRate && conversionRate !== 1
+          ? safeNum(displayPfCost / conversionRate)
+          : displayPfCost;
+        const basePrintingCost = conversionRate && conversionRate !== 1
+          ? safeNum(displayPrintingCost / conversionRate)
+          : displayPrintingCost;
+        const baseTaxAmount = conversionRate && conversionRate !== 1
+          ? safeNum(displayTaxAmount / conversionRate)
+          : displayTaxAmount;
+        const baseGrandTotal = safeNum(totalPay);
+        
+        console.log('💰 50% - Storing Complete Breakdown:', {
+          display: { currency, subtotal: displaySubtotal, discount: displayDiscountAmount, pf: displayPfCost, printing: displayPrintingCost, tax: displayTaxAmount, grandTotal: displayGrandTotal },
+          base: { currency: 'INR', subtotal: baseSubtotal, discount: baseDiscountAmount, pf: basePfCost, printing: basePrintingCost, tax: baseTaxAmount, grandTotal: baseGrandTotal }
+        });
+        
         order = await Order.create({
           products: cleanedItems,
           price: totalPay,
@@ -2052,6 +2320,10 @@ const completeOrder = async (req, res) => {
           customerState: finalCustomerState,
           // ✅ Add discount if applied
           discount: finalDiscount || null,
+          // ✅ CRITICAL: Store COMPLETE breakdown (CART CALCULATED - NEVER RECALCULATE)
+          subtotal: displaySubtotal,
+          subtotalAfterDiscount: displaySubtotal - displayDiscountAmount,
+          taxableAmount: (displaySubtotal - displayDiscountAmount) + displayPfCost + displayPrintingCost,
         });
         
         // ✅ [DB CHECK] Verify phone persisted
@@ -2067,6 +2339,16 @@ const completeOrder = async (req, res) => {
           // Duplicate key error - retry with a new orderId
           console.warn('⚠️ Duplicate orderId detected, retrying...');
           const deliveryExpectedDate = await getEstimatedDeliveryDate();
+          
+          // ✅ Calculate complete breakdown for storage (NO RECALCULATION LATER)
+          const itemsSubtotal = items.reduce((sum, item) => {
+            const qty = Object.values(item.quantity || {}).reduce((a, b) => a + safeNum(b), 0);
+            return sum + (qty * safeNum(item.price));
+          }, 0);
+          const discountAmount = finalDiscount?.amount || 0;
+          const subtotalAfterDiscount = itemsSubtotal - discountAmount;
+          const taxableAmount = subtotalAfterDiscount + finalPfCharge + finalPrintingCharge;
+          
           order = await Order.create({
             products: cleanedItems,
             price: totalPay,
@@ -2095,6 +2377,10 @@ const completeOrder = async (req, res) => {
             customerState: finalCustomerState,
             // ✅ Add discount if applied
             discount: finalDiscount || null,
+            // ✅ CRITICAL: Store complete breakdown (CART CALCULATES ONCE, BACKEND STORES, PAGES DISPLAY)
+            subtotal: itemsSubtotal,
+            subtotalAfterDiscount: subtotalAfterDiscount,
+            taxableAmount: taxableAmount,
             orderId: `ORD-${Date.now()}-${Math.random()
               .toString(36)
               .substr(2, 9)}`, // Force new orderId

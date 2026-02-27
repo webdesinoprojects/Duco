@@ -146,8 +146,13 @@ const getUserOrdersWithTracking = async (req, res) => {
     // This reduces data transfer and JSON parsing time
     const dbStart = Date.now();
     let orders = [];
+    let totalCount = 0;
     
     try {
+      // ✅ Get total count first (fast query)
+      totalCount = await Order.countDocuments({ user: new mongoose.Types.ObjectId(userId) });
+      console.log(`[${new Date().toISOString()}] 📊 Total orders for user: ${totalCount}`);
+      
       orders = await Order.aggregate([
         // Stage 1: Match user's orders
         { $match: { user: new mongoose.Types.ObjectId(userId) } },
@@ -230,7 +235,9 @@ const getUserOrdersWithTracking = async (req, res) => {
     res.status(200).json({
       success: true,
       orders: orders || [],
-      _debug: { totalMs: totalTime, count: orders.length }
+      total: totalCount, // ✅ Total count of all orders
+      showing: orders.length, // ✅ Count of orders returned (limited to 100)
+      _debug: { totalMs: totalTime, count: orders.length, total: totalCount }
     });
 
   } catch (error) {

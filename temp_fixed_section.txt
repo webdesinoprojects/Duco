@@ -1,0 +1,246 @@
+      {/* Customer / Payment */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Customer Information</h3>
+          <div className="space-y-1">
+            {(() => {
+              const billingAddr = order.addresses?.billing || order.address || {};
+              const userObj = customerInfo || order.user || order.userId || {};
+              const addressLine = [
+                billingAddr.houseNumber,
+                billingAddr.street,
+                billingAddr.city,
+                billingAddr.state,
+                billingAddr.pincode ? `- ${billingAddr.pincode}` : "",
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+              
+              return (
+                <>
+                  <p>{
+                    userObj?.name ||
+                    userObj?.fullName ||
+                    billingAddr.fullName ||
+                    'N/A'
+                  }</p>
+                  <p className="text-blue-600">{
+                    billingAddr.phone ||
+                    billingAddr.mobileNumber ||
+                    userObj?.number ||
+                    userObj?.phone ||
+                    userObj?.email ||
+                    'N/A'
+                  }</p>
+                  <p className="text-gray-600">{
+                    userObj?.email ||
+                    billingAddr.email ||
+                    'N/A'
+                  }</p>
+                  {addressLine && (
+                    <p className="text-gray-600 mt-2">{addressLine}</p>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Payment & Delivery</h3>
+          <div className="space-y-2">
+            <p>
+              Total Amount: {(() => {
+                // ✅ CRITICAL: Prioritize displayPrice, then calculate from conversionRate, then fallback
+                let finalAmount;
+                if (order.displayPrice) {
+                  finalAmount = Number(order.displayPrice);
+                } else if (order.conversionRate && order.conversionRate !== 1) {
+                  const basePrice = order.totalPay || order.totalAmount || order.price || order.amount || 0;
+                  finalAmount = Number(basePrice * order.conversionRate);
+                } else {
+                  finalAmount = Number(order.totalPay || order.totalAmount || order.price || order.amount || 0);
+                }
+                return formatCurrency(finalAmount, order.currency);
+              })()}
+            </p>
+            
+            {/* ✅ 50% Payment Information */}
+            {order.paymentmode === '50%' && (() => {
+              // ✅ Calculate total amount with same logic as above
+              let totalAmount;
+              if (order.displayPrice) {
+                totalAmount = Number(order.displayPrice);
+              } else if (order.conversionRate && order.conversionRate !== 1) {
+                const basePrice = order.totalPay || order.totalAmount || order.price || order.amount || 0;
+                totalAmount = Number(basePrice * order.conversionRate);
+              } else {
+                totalAmount = Number(order.totalPay || order.totalAmount || order.price || order.amount || 0);
+              }
+              
+              const paidAmount = Number(order.advancePaidAmount || order.price || order.amount || 0);
+              const dueAmount = Number(order.remainingAmount || (totalAmount - paidAmount) || 0);
+              const isFullyPaid = order.remainingPaymentId || (order.remainingAmount !== undefined && order.remainingAmount === 0);
+              
+              return (
+                <div className={`border rounded p-3 my-2 ${
+                  isFullyPaid 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-orange-50 border-orange-200'
+                }`}>
+                  <p className={`text-sm font-semibold ${
+                    isFullyPaid ? 'text-green-800' : 'text-orange-800'
+                  }`}>
+                    {isFullyPaid ? '✅ Payment Complete (50% + Remaining)' : '💰 50% Advance Payment'}
+                  </p>
+                  <p className={`text-sm mt-1 ${
+                    isFullyPaid ? 'text-green-700' : 'text-orange-700'
+                  }`}>
+                    Amount Paid: {formatCurrency(isFullyPaid ? totalAmount : paidAmount, order.currency)}
+                  </p>
+                  {!isFullyPaid && (
+                    <>
+                      <p className="text-sm text-orange-700">
+                        Amount Due: {formatCurrency(dueAmount, order.currency)}
+                      </p>
+                      <p className="text-xs text-orange-600 mt-1">
+                        ⚠️ Remaining payment due before delivery
+                      </p>
+                    </>
+                  )}
+                  {order.remainingPaymentId && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      Remaining Payment ID: {order.remainingPaymentId}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+            
+            {/* ✅ Store Pickup Information */}
+            {order.paymentmode === 'store_pickup' && (
+              <div className="bg-blue-50 border border-blue-200 rounded p-4 my-2 space-y-3">
+                <p className="text-sm font-semibold text-blue-800">🏬 Pickup from Store</p>
+                
+                {/* Pickup Details */}
+                {order.pickupDetails && (
+                  <div className="space-y-2 bg-white rounded p-3 border border-blue-100">
+                    <div className="flex justify-between">
+                      <span className="text-xs font-medium text-gray-600">Pickup Name:</span>
+                      <span className="text-sm text-gray-800 font-semibold">{order.pickupDetails.name || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between">
+                      <span className="text-xs font-medium text-gray-600">Pickup Phone:</span>
+                      <span className="text-sm text-gray-800">{order.pickupDetails.phone || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between">
+                      <span className="text-xs font-medium text-gray-600">Scheduled Pickup:</span>
+                      <span className="text-sm text-gray-800">
+                        {order.pickupDetails.pickupAt 
+                          ? new Date(order.pickupDetails.pickupAt).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            })
+                          : 'N/A'
+                        }
+                      </span>
+                    </div>
+                    
+                    {order.pickupDetails.notes && (
+                      <div className="flex justify-between">
+                        <span className="text-xs font-medium text-gray-600">Notes:</span>
+                        <span className="text-sm text-gray-800 italic">{order.pickupDetails.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <p className="text-sm text-blue-700 mt-1">
+                  Payment Due: {(() => {
+                    // ✅ Same calculation logic as Total Amount
+                    let finalAmount;
+                    if (order.displayPrice) {
+                      finalAmount = Number(order.displayPrice);
+                    } else if (order.conversionRate && order.conversionRate !== 1) {
+                      const basePrice = order.totalPay || order.totalAmount || order.price || order.amount || 0;
+                      finalAmount = Number(basePrice * order.conversionRate);
+                    } else {
+                      finalAmount = Number(order.totalPay || order.totalAmount || order.price || order.amount || 0);
+                    }
+                    return formatCurrency(finalAmount, order.currency);
+                  })()}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  ℹ️ Payment to be collected at pickup
+                </p>
+              </div>
+            )}
+            
+            <p
+              className={`font-medium ${
+                (order.paymentStatus === 'Paid' || order.paymentStatus === 'paid' || order.razorpayPaymentId) ? "text-green-600" : "text-yellow-600"
+              }`}
+            >
+              Payment Status: {(order.paymentStatus === 'Paid' || order.paymentStatus === 'paid' || order.razorpayPaymentId) ? "Paid" : "Unpaid"}
+            </p>
+            
+            {/* ✅ Payment Mode Display */}
+            <p className="text-sm text-gray-600">
+              Payment Mode: <span className="font-medium text-gray-800">{(() => {
+                if (order.paymentmode === '50%') {
+                  const isFullyPaid = order.remainingPaymentId || (order.remainingAmount !== undefined && order.remainingAmount === 0);
+                  return `50% Razorpay${isFullyPaid ? ' (Fully Paid)' : ''}`;
+                }
+                return order.paymentmode || 'N/A';
+              })()}</span>
+            </p>
+            
+            <div className="pt-2 border-t border-gray-200">
+              <p className="text-sm text-gray-600 mb-2">Expected Delivery:</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={
+                    order.deliveryExpectedDate
+                      ? new Date(order.deliveryExpectedDate).toISOString().split('T')[0]
+                      : ''
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleDeliveryDateChange(new Date(e.target.value).toISOString());
+                    }
+                  }}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium cursor-pointer hover:border-blue-500 focus:outline-none focus:border-blue-500"
+                />
+                <span className="text-sm text-gray-600">
+                  {(() => {
+                    const deliveryDate = order.deliveryExpectedDate;
+                    return deliveryDate ? new Date(deliveryDate).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric"
+                    }) : 'Select date';
+                  })()}
+                </span>
+                {order.printroveEstimatedDelivery && (
+                  <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
+                    Printrove
+                  </span>
+                )}
+              </div>
+              {order.printroveOrderId && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Printrove Order: {order.printroveOrderId}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>

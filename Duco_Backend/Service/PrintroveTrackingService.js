@@ -299,6 +299,11 @@ class PrintroveTrackingService {
         shiprocket: 1,
         designImages: 1,
         createdAt: 1,
+        // ✅ CRITICAL: Include multi-currency fields
+        currency: 1,
+        displayPrice: 1,
+        conversionRate: 1,
+        paymentCurrency: 1,
         // ... all other fields you need
       })
         .populate('user') // ✅ Populate ALL user fields including address array

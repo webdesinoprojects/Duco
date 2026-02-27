@@ -96,8 +96,9 @@ const InvoiceTemplate = ({ data }) => {
   const taxAmount = Number(tax?.taxAmount || 0);
   const totalTax = cgstAmount + sgstAmount + igstAmount + taxAmount;
   
-  // ✅ FIXED: Grand Total = Taxable Amount + Total Tax (exact formula)
-  const displayGrandTotal = actualTaxableValue + totalTax;
+  // ✅ CRITICAL FIX: Use the passed 'total' value (cart calculated, backend stored)
+  // DO NOT recalculate - that defeats the entire purpose of storing values
+  const displayGrandTotal = Number(total || 0);
 
   const finalAmountAfterDiscount = displayGrandTotal;
 
@@ -338,9 +339,9 @@ const InvoiceTemplate = ({ data }) => {
                 </tr>
               )}
               
-              {/* ? TAXABLE AMOUNT (for reference) */}
+              {/* ? SUBTOTAL/TAXABLE AMOUNT (for reference) */}
               <tr style={{ backgroundColor: "#f9f9f9", fontStyle: "italic" }}>
-                <td style={{ padding: "3px 8px", textAlign: "left", fontSize: "11px" }}>Taxable Amount</td>
+                <td style={{ padding: "3px 8px", textAlign: "left", fontSize: "11px" }}>{isB2C ? 'Subtotal' : 'Taxable Amount'}</td>
                 <td style={{ padding: "3px 8px", textAlign: "right" }}>-</td>
                 <td style={{ padding: "3px 8px", textAlign: "right", fontSize: "11px" }}>{actualTaxableValue.toFixed(2)}</td>
               </tr>
@@ -370,7 +371,7 @@ const InvoiceTemplate = ({ data }) => {
               
               {(tax?.type === 'INTERNATIONAL' || tax?.type === 'INTERNATIONAL_TAX') && taxAmount > 0 && (
                 <tr>
-                  <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : Service Charge</td>
+                  <td style={{ padding: "3px 8px", textAlign: "left" }}>Add : Tax</td>
                   <td style={{ padding: "3px 8px", textAlign: "right" }}>@ {(tax?.taxRate || 1).toFixed(2)} %</td>
                   <td style={{ padding: "3px 8px", textAlign: "right" }}>{taxAmount.toFixed(2)}</td>
                 </tr>

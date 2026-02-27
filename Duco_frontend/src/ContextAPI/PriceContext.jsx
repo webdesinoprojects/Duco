@@ -45,11 +45,12 @@ const getFallbackLocation = () => {
 const PriceContext = createContext();
 
 export const PriceProvider = ({ children }) => {
-  const [toConvert, setToConvert] = useState(null); // conversion rate
-  const [priceIncrease, setPriceIncrease] = useState(null); // % increase
-  const [currency, setCurrency] = useState(null); // currency code (USD, INR, etc.)
-  const [resolvedLocation, setResolvedLocation] = useState(null); // e.g. India
-  const [location, setLocation] = useState(null); // detected country
+  // ✅ Initialize with null - will be set after geolocation detection
+  const [toConvert, setToConvert] = useState(null);
+  const [priceIncrease, setPriceIncrease] = useState(null);
+  const [currency, setCurrency] = useState(null);
+  const [resolvedLocation, setResolvedLocation] = useState(null);
+  const [location, setLocation] = useState(null);
 
   /* 🌍 Auto-detect location on mount using backend endpoint */
   useEffect(() => {

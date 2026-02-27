@@ -251,9 +251,20 @@ const OrderBulk = () => {
                       <p className="font-semibold text-lg">
                         {(() => {
                           const currency = order.currency || 'INR';
-                          // ✅ Use totalPay/totalAmount from backend for accurate total
-                          const baseAmount = Number(order.totalPay || order.totalAmount || order.price || 0);
-                          return formatPrice(baseAmount, currency);
+                          // ✅ CRITICAL FIX: Calculate from conversionRate for old orders
+                          let amount;
+                          if (order.displayPrice) {
+                            // NEW orders: Use stored displayPrice
+                            amount = order.displayPrice;
+                          } else if (order.conversionRate && order.conversionRate !== 1) {
+                            // OLD orders: Calculate from base price and conversion rate
+                            const basePrice = order.totalPay || order.totalAmount || order.price || 0;
+                            amount = basePrice * order.conversionRate;
+                          } else {
+                            // INR orders: Use base price directly
+                            amount = order.totalPay || order.totalAmount || order.price || 0;
+                          }
+                          return formatPrice(amount, currency);
                         })()}
                       </p>
                     </div>
@@ -284,7 +295,17 @@ const OrderBulk = () => {
                       {order.paymentmode === '50%' ? (
                         <div className="space-y-1">
                           {(() => {
-                            const totalAmount = Number(order.totalPay || order.totalAmount || order.price || 0);
+                            // ✅ CRITICAL FIX: Calculate from conversionRate for old orders
+                            let totalAmount;
+                            if (order.displayPrice) {
+                              totalAmount = Number(order.displayPrice);
+                            } else if (order.conversionRate && order.conversionRate !== 1) {
+                              const basePrice = order.totalPay || order.totalAmount || order.price || 0;
+                              totalAmount = Number(basePrice * order.conversionRate);
+                            } else {
+                              totalAmount = Number(order.totalPay || order.totalAmount || order.price || 0);
+                            }
+                            
                             const paidAmount = Number(order.advancePaidAmount || order.price || 0);
                             const dueAmount = Number(order.remainingAmount || (totalAmount - paidAmount) || 0);
                             const isFullyPaid = order.remainingPaymentId || (order.remainingAmount !== undefined && order.remainingAmount === 0);
@@ -326,7 +347,19 @@ const OrderBulk = () => {
                             </span>
                           </div>
                           <div className="text-xs text-gray-700">
-                            <p>Payment Due: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
+                            <p>Payment Due: {(() => {
+                              // ✅ CRITICAL FIX: Calculate from conversionRate for old orders
+                              let amount;
+                              if (order.displayPrice) {
+                                amount = Number(order.displayPrice);
+                              } else if (order.conversionRate && order.conversionRate !== 1) {
+                                const basePrice = order.price || 0;
+                                amount = Number(basePrice * order.conversionRate);
+                              } else {
+                                amount = Number(order.price || 0);
+                              }
+                              return formatPrice(amount, order.currency || 'INR');
+                            })()}</p>
                             <p className="text-blue-600 text-xs">At pickup</p>
                           </div>
                         </div>

@@ -972,24 +972,32 @@ const Cart = () => {
       const qty = Object.values(item.quantity || {}).reduce((a, q) => a + safeNum(q), 0);
       const isPlainTshirt = item.isPlainTshirt === true; // ✅ Check plain t-shirt flag
       
+      // ✅ CRITICAL: Check if item has no design (works for both B2B and B2C)
+      const hasNoDesign = countDesignSides(item) === 0 && (!item.additionalFilesMeta || item.additionalFilesMeta.length === 0);
+      
       console.log(`📊 Processing item: "${item.products_name || item.name}"`, {
         isBulkOrder,
         isPlainTshirt,
+        hasNoDesign,
         qty,
         hasDesign: !!item.design,
         hasAdditionalFiles: !!item.additionalFilesMeta,
-        additionalFilesCount: item.additionalFilesMeta?.length || 0
+        additionalFilesCount: item.additionalFilesMeta?.length || 0,
+        designSides: countDesignSides(item)
       });
       
+      // ✅ UNIVERSAL RULE: If plain t-shirt or no design, NO printing charge (B2B or B2C)
+      if (isPlainTshirt || hasNoDesign) {
+        console.log(`🖨️ Plain T-Shirt (No Design) - \"${item.products_name || item.name}\" - Printing Charge: 0`, {
+          isPlainTshirt,
+          hasNoDesign,
+          designSides: countDesignSides(item),
+          hasAdditionalFiles: item.additionalFilesMeta?.length || 0
+        });
+        return total;
+      }
+      
       if (isBulkOrder) {
-        // ✅ B2B: Simple logic - Apply UNLESS it's explicitly a plain t-shirt
-        if (isPlainTshirt) {
-          // ✅ Plain t-shirt in B2B: 0 printing charge
-          console.log(`🖨️ B2B Plain T-Shirt - \"${item.products_name || item.name}\" - Printing Charge: 0`);
-          return total;
-        }
-        
-        // ✅ B2B: User designed their t-shirt (anything not explicitly plain) - Apply charge
         const itemCost = qty * chargePerUnit;
         console.log(`🖨️ B2B Designed T-Shirt - \"${item.products_name || item.name}\"`, {
           qty, chargePerUnit, itemCost, reason: 'User designed their t-shirt'
@@ -1096,9 +1104,17 @@ const Cart = () => {
       
       const normalizedState = normalizeState(customerState);
       const countryLower = customerCountry.toLowerCase().trim();
+        // ✅ CRITICAL: Check currency FIRST to determine if international
+        // If currency is not INR, it's an international order regardless of billing address
+        const isInternationalCurrency = currency && currency !== 'INR';
+      
       
       let isIndia = false;
-      if (customerCountry) {
+      if (isInternationalCurrency) {
+        // Force international if non-INR currency
+        isIndia = false;
+        console.log(`🌍 Non-INR currency detected (${currency}) → treating as international order`);
+      } else if (customerCountry) {
         isIndia = countryLower === 'india' || 
                  countryLower === 'bharat' || 
                  countryLower === 'in' ||
@@ -1136,7 +1152,7 @@ const Cart = () => {
       taxAmount,
       totalTax: cgstAmount + sgstAmount + igstAmount + taxAmount,
     };
-  }, [taxableAmount, billingAddress, actualData]);
+  }, [taxableAmount, billingAddress, actualData, currency]);
 
   const gstTotal = useMemo(() => {
     return (safeNum(taxableAmount) * safeNum(gstPercent)) / 100;
@@ -1199,124 +1215,26 @@ const Cart = () => {
   }, [actualData, itemsSubtotal]);
 
   const grandTotal = useMemo(() => {
-    // ✅ TAX ON NET: Calculate discount first, then apply tax on discounted amount
-    // Calculate discount amount (exact, no rounding)
-    const calcDiscountAmount = autoDiscount && autoDiscount.discountPercent > 0
-      ? (safeNum(itemsSubtotal) * safeNum(autoDiscount.discountPercent)) / 100
-      : 0;
+    // ✅ Use the already-calculated taxInfo to avoid duplicate tax calculations
+    // This ensures consistency between displayed tax and grand total
+    const total = safeNum(taxableAmount) + safeNum(taxInfo.totalTax);
     
-    // Subtotal after discount
-    const calcSubtotalAfterDiscount = safeNum(itemsSubtotal) - calcDiscountAmount;
-    
-    // ✅ TAXABLE = Subtotal after discount + P&F + Printing
-    const baseForTax = calcSubtotalAfterDiscount + safeNum(printingCost) + safeNum(pfCost);
-    
-    // ✅ Check if this is a B2B order
-    const isBulkOrder = actualData.some(item => item.isCorporate === true);
-    
-    let gstRate = 0;
-    let adjustedGst = 0;
-    let cgstAmount = 0;
-    let sgstAmount = 0;
-    let igstAmount = 0;
-    let taxType = 'NO_TAX';
-    
-    // ✅ Only apply tax for B2B orders
-    if (isBulkOrder) {
-      // Determine GST rate based on location (use billing address)
-      const customerState = billingAddress?.state || '';
-      const customerCountry = billingAddress?.country || '';
-      
-      // Normalize state name
-      const normalizeState = (state) => {
-        if (!state) return '';
-        const s = state.toLowerCase().trim();
-        // Handle variations of Chhattisgarh
-        if (s.includes('chhattisgarh') || s.includes('chattisgarh') || s === 'cg' || s === 'c.g' || s === '(22)') {
-          return 'CHHATTISGARH';
-        }
-        return s.toUpperCase();
-      };
-      
-      const normalizedState = normalizeState(customerState);
-      const countryLower = customerCountry.toLowerCase().trim();
-      
-      // Determine if India based on address country field
-      // ✅ CRITICAL: Check country field FIRST, don't fall back to resolvedLocation
-      let isIndia = false;
-      if (customerCountry) {
-        // If country is explicitly set, use it
-        isIndia = countryLower === 'india' || 
-                 countryLower === 'bharat' || 
-                 countryLower === 'in' ||
-                 countryLower.includes('india') || 
-                 countryLower.includes('bharat');
-        console.log(`🌍 Country field set to: "${customerCountry}" → isIndia: ${isIndia}`);
-      } else {
-        // If no country set, default to India (backward compatibility)
-        isIndia = true;
-        console.log(`🌍 No country field set, defaulting to India`);
-      }
-      
-      // ✅ B2B Tax Rates (CORRECTED - REVERSED):
-      // - Chhattisgarh (home state): 2.5% CGST + 2.5% SGST = 5% total
-      // - Outside Chhattisgarh (outside home state): 5% IGST only
-      // - Outside India: 1% TAX
-      if (!isIndia) {
-        // Outside India: 1% TAX
-        gstRate = 1;
-        adjustedGst = (baseForTax * 1) / 100;
-        taxType = 'INTERNATIONAL';
-        console.log("🌍 International order: 1% TAX applied");
-      } else if (normalizedState === 'CHHATTISGARH') {
-        // Home state (Chhattisgarh): 2.5% CGST + 2.5% SGST = 5% total
-        cgstAmount = (baseForTax * 2.5) / 100;
-        sgstAmount = (baseForTax * 2.5) / 100;
-        adjustedGst = cgstAmount + sgstAmount;
-        gstRate = 5;
-        taxType = 'INTRASTATE_CGST_SGST';
-        console.log("🏠 Chhattisgarh (home state) order: 2.5% CGST + 2.5% SGST applied");
-      } else {
-        // Outside home state (other Indian states): 5% IGST only
-        igstAmount = (baseForTax * 5) / 100;
-        adjustedGst = igstAmount;
-        gstRate = 5;
-        taxType = 'INTERSTATE';
-        console.log("🚚 Outside Chhattisgarh (outside home state) order: 5% IGST applied");
-      }
-    }
-    // ✅ B2C: No tax (gstRate = 0, adjustedGst = 0)
-
-    // ✅ TAX ON NET: (Subtotal after discount + P&F) + Tax
-    const total = baseForTax + adjustedGst;
-    
-    const isINR = currencySymbol === '₹' || !currencySymbol;
-    console.log(`💰 Grand Total Calculation (Tax on Net):`, {
-      itemsSubtotal: safeNum(itemsSubtotal),
-      discountAmount: calcDiscountAmount,
-      subtotalAfterDiscount: calcSubtotalAfterDiscount,
-      printingCost: safeNum(printingCost),
-      pfCost: safeNum(pfCost),
-      taxableAmount: baseForTax,
-      isBulkOrder,
-      taxType,
-      cgstAmount,
-      sgstAmount,
-      igstAmount,
-      totalTax: adjustedGst,
-      baseForTax,
-      gstRate,
-      totalBeforeRoundOff: total,
-      totalAfterRoundOff: Math.ceil(total),
+    console.log(`💰 Grand Total Calculation (using taxInfo):`, {
+      taxableAmount: safeNum(taxableAmount),
+      taxType: taxInfo.taxType,
+      cgstAmount: taxInfo.cgstAmount,
+      sgstAmount: taxInfo.sgstAmount,
+      igstAmount: taxInfo.igstAmount,
+      taxAmount: taxInfo.taxAmount,
+      totalTax: taxInfo.totalTax,
+      grandTotal: total,
       currency: currencySymbol,
-      isINR,
       conversionRate,
-      priceIncrease,
-      orderType: isBulkOrder ? 'B2B' : 'B2C'
+      priceIncrease
     });
     
-    return total; // Return before round off, we'll round in display
-  }, [itemsSubtotal, discountAmount, subtotalAfterDiscount, printingCost, pfCost, currencySymbol, billingAddress, actualData, resolvedLocation, conversionRate, priceIncrease, autoDiscount]);
+    return total;
+  }, [taxableAmount, taxInfo, currencySymbol, conversionRate, priceIncrease]);
 
   if (loadingProducts) return <Loading />;
   if (!cart.length)
@@ -1390,13 +1308,20 @@ const Cart = () => {
                 <span>{formatCurrency(pfCost)}</span>
               </div>
               
-              {/* Subtotal (Taxable) = Subtotal after discount + P&F + Printing */}
-              <div className="flex justify-between border-t pt-2 mt-2">
-                <span className="font-medium">Subtotal (Taxable)</span>
-                <span className="font-medium">
-                  {formatCurrency(taxableAmount)}
-                </span>
-              </div>
+              {/* Subtotal = Subtotal after discount + P&F + Printing */}
+              {(() => {
+                const isBulkOrder = actualData.some(item => item.isCorporate === true);
+                return (
+                  <div className="flex justify-between border-t pt-2 mt-2">
+                    <span className="font-medium">
+                      {isBulkOrder ? 'Subtotal (Taxable)' : 'Subtotal'}
+                    </span>
+                    <span className="font-medium">
+                      {formatCurrency(taxableAmount)}
+                    </span>
+                  </div>
+                );
+              })()}
               
               {/* Tax Breakdown - Only for B2B orders */}
               {(() => {
@@ -1562,24 +1487,39 @@ const Cart = () => {
               </div>
             )}
 
-            {/* GST/Tax Code Input (Optional) */}
-            <div className="mb-6">
-              <label htmlFor="gstNumber" className="block text-sm font-medium text-white mb-2">
-                GST/Tax Number (Optional)
-              </label>
-              <input
-                type="text"
-                id="gstNumber"
-                value={gstNumber}
-                onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
-                placeholder="Enter GST/Tax Number (e.g., 22AAAAA0000A1Z5)"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                maxLength={15}
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                💡 Add your GST/Tax number to include it on your invoice
-              </p>
-            </div>
+            {/* GST/Tax Code Input (Optional) - Only for Indian customers or B2B orders */}
+            {(() => {
+              const isIndianCustomer = billingAddress?.country?.toLowerCase().includes('india') || 
+                                      resolvedLocation?.country?.toLowerCase().includes('india') ||
+                                      !billingAddress?.country; // Default to India if no country selected
+
+              // Show GST field only for Indian customers OR B2B orders (who may need tax IDs)
+              if (!isIndianCustomer && !isB2BOrder) {
+                return null;
+              }
+
+              return (
+                <div className="mb-6">
+                  <label htmlFor="gstNumber" className="block text-sm font-medium text-white mb-2">
+                    {isIndianCustomer ? 'GST Number (Optional)' : 'Tax ID Number (Optional)'}
+                  </label>
+                  <input
+                    type="text"
+                    id="gstNumber"
+                    value={gstNumber}
+                    onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                    placeholder={isIndianCustomer ? "Enter GST Number (e.g., 22AAAAA0000A1Z5)" : "Enter Tax ID/VAT Number"}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                    maxLength={isIndianCustomer ? 15 : 50}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    💡 {isIndianCustomer 
+                      ? 'Add your GST number to include it on your invoice' 
+                      : 'Add your tax ID to include it on your invoice (for business customers)'}
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* ✅ Auto-Discount Display (No manual coupon input) */}
             {autoDiscount && autoDiscount.discountPercent > 0 && (
@@ -1933,24 +1873,19 @@ const Cart = () => {
                   calculation: conversionRate !== 1 ? `${displayTotal} / ${conversionRate} = ${totalPayINR}` : 'No conversion needed'
                 });
 
-                // ✅ Fix item prices before sending to backend
-                // Use actual product price from pricing array, not cart price
+                // ✅ CRITICAL FIX: Use cart-calculated prices (item.price)
+                // DO NOT replace with pricing array - cart already calculated correct prices
+                // considering location, currency conversion, and discounts
                 const itemsWithCorrectPrices = actualData.map(item => {
-                  let correctPrice = 0;
+                  // ✅ Use the price that cart calculated (already in customer currency)
+                  const correctPrice = Number(item.price) || 0;
                   
-                  // Priority: pricing array (actual product price) > item.price (cart price)
-                  if (item.pricing && Array.isArray(item.pricing) && item.pricing.length > 0) {
-                    correctPrice = Number(item.pricing[0]?.price_per) || 0;
-                  } else {
-                    correctPrice = Number(item.price) || 0;
-                  }
-                  
-                  console.log(`📦 Item price fix: ${item.products_name || item.name} - Cart: ${item.price}, Actual: ${correctPrice}`);
+                  console.log(`📦 Item for checkout: ${item.products_name || item.name} - Price: ${correctPrice} ${currency}`);
                   
                   // ✅ CRITICAL: Ensure previewImages and design are included
                   const itemWithPrice = {
                     ...item,
-                    price: correctPrice, // ✅ Use correct product price
+                    price: correctPrice, // ✅ Use cart-calculated price
                   };
                   
                   console.log(`🖼️ Item being sent to checkout:`, {
@@ -2003,20 +1938,37 @@ const Cart = () => {
                         discountPercent: autoDiscount.discountPercent
                       } : null,
                     },
-                    totalPay: Number((grandTotal * conversionRate).toFixed(2)),
-                    // ✅ Always use grandTotal for payment (includes tax)
-                    totalPayDisplay: grandTotal,
-                    // ✅ Always use grandTotal for display (includes tax)
-                    displayCurrency: currency, // ✅ Keep currency for reference
-                    conversionRate: conversionRate, // ✅ ADD: Include at root level for easy access
+                    // ✅ CRITICAL FIX: totalPay must be in INR for Razorpay
+                    // grandTotal is already in customer currency (SGD), so divide to get back to INR
+                    // Example: 428.24 SGD ÷ 0.016 = 26,765 INR
+                    totalPay: conversionRate && conversionRate !== 1 
+                      ? Number((grandTotal / conversionRate).toFixed(2))  // SGD → INR
+                      : Number(grandTotal.toFixed(2)),  // Already INR
+                    // ✅ Display values (what customer sees)
+                    totalPayDisplay: grandTotal,  // Customer currency
+                    displayCurrency: currency,  // Currency code
+                    conversionRate: conversionRate,  // Conversion rate
                     addresses: {
                       billing: billingAddress,
                       shipping: shippingAddress,
                       sameAsBilling: billingAddress === shippingAddress
                     },
                     user,
-                    gstNumber: gstNumber.trim() || null, // ✅ Include GST number if provided
+                    gstNumber: gstNumber.trim() || null,
                   },
+                });
+                
+                // ✅ Debug log
+                console.log('💳 Payment Data:', {
+                  grandTotal,
+                  currency,
+                  conversionRate,
+                  totalPayINR: conversionRate && conversionRate !== 1 
+                    ? (grandTotal / conversionRate).toFixed(2)
+                    : grandTotal.toFixed(2),
+                  calculation: conversionRate && conversionRate !== 1
+                    ? `${grandTotal} ${currency} ÷ ${conversionRate} = ${(grandTotal / conversionRate).toFixed(2)} INR`
+                    : `${grandTotal} INR`
                 });
               }}
             >

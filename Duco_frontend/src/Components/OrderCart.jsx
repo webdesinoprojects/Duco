@@ -2,6 +2,22 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaShippingFast } from "react-icons/fa";
 
+// ✅ Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+  NZD: "NZ$",
+  CHF: "CHF",
+  JPY: "¥",
+  CNY: "¥",
+};
+
 const OrderCart = ({ order }) => {
   const [image, setImage] = useState("");
 
@@ -10,6 +26,13 @@ const OrderCart = ({ order }) => {
   }
 
   const product = order.products[0];
+  
+  // ✅ Get currency symbol from order, fallback to INR
+  const orderCurrency = order.currency || order.paymentCurrency || 'INR';
+  const currencySymbol = currencySymbols[orderCurrency] || "₹";
+  
+  // ✅ Use displayPrice if available, otherwise use totalPay/price
+  const displayAmount = order.displayPrice || order.totalAmount || order.totalPay || order.price || 0;
 
   const isUrl = (value) =>
     typeof value === "string" && /^https?:\/\//i.test(value);
@@ -97,7 +120,7 @@ const OrderCart = ({ order }) => {
         </p>
 
         <p className="mt-2 font-semibold text-sm">
-          ₹{Number(order.totalAmount ?? order.totalPay ?? order.price ?? 0).toFixed(2)}
+          {currencySymbol}{Number(displayAmount).toFixed(2)}
         </p>
 
         {(order.printroveOrderId || order.hasLogistics) && (

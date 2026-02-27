@@ -258,9 +258,9 @@ const OderSection = () => {
                   <div className="text-right">
                     <p className="font-semibold text-lg">
                       {(() => {
-                        const currency = order.currency || 'INR';
-                        // ✅ Use totalPay/totalAmount from backend for accurate total
-                        const baseAmount = Number(order.totalPay || order.totalAmount || order.price || 0);
+                        const currency = order.displayCurrency || order.currency || 'INR';
+                        // ✅ Use displayPrice for customer-facing amount (handles international orders)
+                        const baseAmount = Number(order.displayPrice || order.totalPay || order.totalAmount || order.price || 0);
                         return formatPrice(baseAmount, currency);
                       })()}
                     </p>
@@ -309,14 +309,14 @@ const OderSection = () => {
                                 </span>
                               </div>
                               <div className="text-xs text-gray-700">
-                                <p>Total: {formatPrice(totalAmount, order.currency || 'INR')}</p>
+                                <p>Total: {formatPrice(totalAmount, order.displayCurrency || order.currency || 'INR')}</p>
                                 <p className={`font-medium ${
                                   isFullyPaid ? 'text-green-600' : 'text-orange-600'
                                 }`}>
-                                  Paid: {formatPrice(isFullyPaid ? totalAmount : paidAmount, order.currency || 'INR')}
+                                  Paid: {formatPrice(isFullyPaid ? totalAmount : paidAmount, order.displayCurrency || order.currency || 'INR')}
                                 </p>
                                 {!isFullyPaid && (
-                                  <p className="text-orange-600 font-medium">Due: {formatPrice(dueAmount, order.currency || 'INR')}</p>
+                                  <p className="text-orange-600 font-medium">Due: {formatPrice(dueAmount, order.displayCurrency || order.currency || 'INR')}</p>
                                 )}
                                 {isFullyPaid && (
                                   <p className="text-xs text-green-600 mt-1">✅ Payment Complete</p>
@@ -334,7 +334,7 @@ const OderSection = () => {
                           </span>
                         </div>
                         <div className="text-xs text-gray-700">
-                          <p>Payment Due: {formatPrice(Number(order.price || 0), order.currency || 'INR')}</p>
+                          <p>Payment Due: {formatPrice(Number(order.displayPrice || order.price || 0), order.displayCurrency || order.currency || 'INR')}</p>
                           <p className="text-blue-600 text-xs">At pickup</p>
                         </div>
                       </div>

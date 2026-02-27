@@ -214,7 +214,7 @@ class InvoicePDFService {
         if (displayTaxAmount > 0) {
           rows += `
             <tr>
-              <td style="padding: 3px 8px; text-align: left;">Add : Service Charge</td>
+              <td style="padding: 3px 8px; text-align: left;">Add : Tax</td>
               <td style="padding: 3px 8px; text-align: right;">@ ${(tax?.taxRate ?? 1).toFixed(2)} %</td>
               <td style="padding: 3px 8px; text-align: right;">${displayTaxAmount.toFixed(2)}</td>
             </tr>

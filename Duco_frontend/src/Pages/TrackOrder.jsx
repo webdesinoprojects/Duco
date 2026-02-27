@@ -8,6 +8,18 @@ import { FaWallet, FaSync, FaExternalLinkAlt, FaShippingFast, FaBox, FaCheckCirc
 const ACCENT = "#E5C870";
 const BG = "#0A0A0A";
 
+// Currency symbols map
+const currencySymbols = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  AED: "د.إ",
+  GBP: "£",
+  AUD: "A$",
+  CAD: "C$",
+  SGD: "S$",
+};
+
 const Badge = ({ children }) => (
   <span
     className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] md:text-xs font-semibold"
@@ -99,6 +111,59 @@ export default function TrackOrder() {
   const isB2BOrder =
     trackingData?.order?.orderType === "B2B" ||
     trackingData?.order?.paymentmode === "store_pickup";
+
+  // ✅ Get currency symbol and display price from order
+  const { currencySymbol, displayPrice, displayTotal } = useMemo(() => {
+    if (!trackingData?.order) {
+      return { currencySymbol: "₹", displayPrice: 0, displayTotal: 0 };
+    }
+    
+    const order = trackingData.order;
+    const currency = order.currency || order.paymentCurrency || 'INR';
+    const symbol = currencySymbols[currency] || "₹";
+    
+    // ✅ DEBUG: Log currency extraction
+    console.log('💱 TrackOrder Currency Extraction:', {
+      orderId: order._id,
+      currency: order.currency,
+      paymentCurrency: order.paymentCurrency,
+      finalCurrency: currency,
+      symbol: symbol,
+      currencySymbolsMap: currencySymbols,
+      hasCurrencyInMap: !!currencySymbols[currency]
+    });
+    
+    // ✅ CRITICAL FIX: Calculate from conversionRate for old orders
+    let price;
+    if (order.displayPrice) {
+      // NEW orders: Use stored displayPrice
+      price = order.displayPrice;
+      console.log('✅ Using displayPrice:', price);
+    } else if (order.conversionRate && order.conversionRate !== 1) {
+      // OLD orders: Calculate from base price and conversion rate
+      const basePrice = order.totalAmount || order.totalPay || order.price || 0;
+      price = basePrice * order.conversionRate;
+      console.log('🔄 Calculated from conversionRate:', { basePrice, conversionRate: order.conversionRate, price });
+    } else {
+      // INR orders: Use base price directly
+      price = order.totalAmount || order.totalPay || order.price || 0;
+      console.log('💵 Using base price (INR):', price);
+    }
+    
+    const total = Number(price);
+    
+    console.log('💰 Final TrackOrder Display:', {
+      currencySymbol: symbol,
+      displayPrice: total,
+      displayTotal: total
+    });
+    
+    return {
+      currencySymbol: symbol,
+      displayPrice: total,
+      displayTotal: total
+    };
+  }, [trackingData]);
 
   const fetchData = async () => {
     if (!orderId) return;
@@ -292,11 +357,11 @@ export default function TrackOrder() {
                 )}
                 {typeof orderSummary.total !== "undefined" && (
                   <span className="text-xs md:text-sm text-gray-300">
-                    Total: ₹{Number(orderSummary.total).toFixed(2)}
+                    Total: {currencySymbol}{Number(orderSummary.total).toFixed(2)}
                   </span>
                 )}
                 {orderSummary?.pendingAmount > 0 && (
-                  <Badge>Wallet: ₹{orderSummary.pendingAmount.toFixed(2)}</Badge>
+                  <Badge>Wallet: {currencySymbol}{orderSummary.pendingAmount.toFixed(2)}</Badge>
                 )}
               </div>
             )}
@@ -313,7 +378,7 @@ export default function TrackOrder() {
               <FaWallet className="text-lg md:text-xl" />
               <span className="text-sm md:text-base">
                 {orderSummary?.pendingAmount > 0
-                  ? `₹${orderSummary.pendingAmount.toFixed(2)}`
+                  ? `${currencySymbol}${orderSummary.pendingAmount.toFixed(2)}`
                   : "Wallet"}
               </span>
             </button>
@@ -410,7 +475,7 @@ export default function TrackOrder() {
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Order Value</div>
               <div className="text-xl font-bold text-white mt-1">
-                ₹{(trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0).toLocaleString()}
+                {currencySymbol}{displayTotal.toLocaleString()}
               </div>
             </div>
 
@@ -625,7 +690,7 @@ export default function TrackOrder() {
                 <h3 className="text-base font-semibold text-white mb-3">Products Ordered</h3>
                 <div className="space-y-4">
                   {trackingData.order.products?.map((product, index) => (
-                    <ProductCard key={index} product={product} />
+                    <ProductCard key={index} product={product} currencySymbol={currencySymbol} />
                   ))}
                 </div>
               </div>
@@ -634,8 +699,8 @@ export default function TrackOrder() {
               <div className="border-t border-gray-700 pt-4">
                 <h3 className="text-base font-semibold text-white mb-3">Order Summary</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InfoRow label="Grand Total" value={`₹${Number(trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0).toFixed(2)}`} />
-                  <InfoRow label="Paid Amount" value={`₹${Number((trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0) - (trackingData.order.remainingAmount || 0)).toFixed(2)}`} />
+                  <InfoRow label="Grand Total" value={`${currencySymbol}${Number(trackingData.order.displayPrice || trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0).toFixed(2)}`} />
+                  <InfoRow label="Paid Amount" value={`${currencySymbol}${Number((trackingData.order.displayPrice || trackingData.order.totalAmount || trackingData.order.totalPay || trackingData.order.price || 0) - (trackingData.order.remainingAmount || 0)).toFixed(2)}`} />
                   <InfoRow label="Payment Status" value={trackingData.order.paymentStatus || 'N/A'} />
                   <InfoRow label="Payment Method" value={trackingData.order.paymentmode || 'N/A'} />
                 </div>
@@ -643,7 +708,7 @@ export default function TrackOrder() {
                 {String(trackingData.order.paymentStatus || "").toLowerCase() === "partial" && Number(trackingData.order.remainingAmount || 0) > 0 && (
                   <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-yellow-600/40 bg-yellow-500/10 p-4">
                     <div className="text-sm text-yellow-200">
-                      Remaining Payment Due: ₹{Number(trackingData.order.remainingAmount).toFixed(2)}
+                      Remaining Payment Due: {currencySymbol}{Number(trackingData.order.remainingAmount).toFixed(2)}
                     </div>
                     <button
                       onClick={() => navigate(`/payment?orderId=${trackingData.order._id}&type=remaining`)}
@@ -922,6 +987,7 @@ export default function TrackOrder() {
           walletBalance={walletBalance}
           syncing={syncing}
           hasPrintroveId={!!trackingData?.order?.printroveOrderId}
+          currencySymbol={currencySymbol}
         />
       </div>
     </div>
@@ -945,7 +1011,7 @@ function InfoRow({ label, value }) {
   );
 }
 
-function ProductCard({ product }) {
+function ProductCard({ product, currencySymbol = "₹" }) {
   // ✅ PERFORMANCE FIX: Use CDN URLs or designImages, avoid base64
   const getFirstImageByColor = (product) => {
     if (!product?.image_url || !product.color) return null;
@@ -1001,7 +1067,7 @@ function ProductCard({ product }) {
           {product.price && (
             <div>
               <span className="text-gray-400">Price: </span>
-              <span className="text-white">₹{product.price}</span>
+              <span className="text-white">{currencySymbol}{product.price}</span>
             </div>
           )}
 
@@ -1126,7 +1192,7 @@ function TimelineIcon({ type, isCompleted }) {
   }
 }
 
-function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, walletLoading, walletBalance, syncing, hasPrintroveId }) {
+function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, walletLoading, walletBalance, syncing, hasPrintroveId, currencySymbol = "₹" }) {
   const hasTrack = !!onTrack;
   const hasSync = !!hasPrintroveId; // Only show sync if Printrove ID exists
   
@@ -1195,7 +1261,7 @@ function MobileActionBar({ onRefresh, onSync, onInvoice, onWallet, onTrack, wall
               ? "Wallet…"
               : walletBalance === null
                 ? "Wallet"
-                : `₹${walletBalance.toLocaleString()}`}
+                : `${currencySymbol}${walletBalance.toLocaleString()}`}
           </span>
         </button>
       </div>
