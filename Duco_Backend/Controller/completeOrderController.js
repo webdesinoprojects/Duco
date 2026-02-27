@@ -2400,7 +2400,7 @@ const completeOrder = async (req, res) => {
       }
 
       try {
-        await createTransaction(user, order._id, totalPay, '50%');
+        await createTransaction(user, order._id, totalPay, '50%', order.currency || order.paymentCurrency || 'INR');
       } catch (error) {
         console.error('Wallet creation failed (halfpay):', error);
       }

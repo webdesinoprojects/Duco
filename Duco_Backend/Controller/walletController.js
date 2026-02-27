@@ -55,7 +55,7 @@ const getWallet = async (req, res) => {
 
 // 🔹 Create transaction (handles both credit & debit and updates balance)
 
-async function createTransaction(userId, orderId, amount, type) {
+async function createTransaction(userId, orderId, amount, type, currency = 'INR') {
   // For 50% payment, the remaining balance due is 50% of total (preserve 2 decimal places)
   const remainingDue = type === "50%" ? Number((amount / 2).toFixed(2)) : 0;
 
@@ -63,6 +63,21 @@ async function createTransaction(userId, orderId, amount, type) {
   if (!allowedTypes.has(String(type))) {
     throw new Error(`Invalid transaction type: ${type}`);
   }
+
+  // ✅ Map currency to symbol
+  const currencySymbols = {
+    'INR': '₹',
+    'USD': '$',
+    'EUR': '€',
+    'AED': 'د.إ',
+    'GBP': '£',
+    'AUD': 'A$',
+    'CAD': 'C$',
+    'SGD': 'S$',
+    'JPY': '¥',
+  };
+  
+  const currencySymbol = currencySymbols[String(currency || 'INR').toUpperCase()] || '₹';
 
   let wallet = await Wallet.findOne({ user: userId });
   if (!wallet) {
@@ -82,13 +97,13 @@ async function createTransaction(userId, orderId, amount, type) {
     type,
     status: type === "50%" ? "Pending" : "Completed",
     note: type === "50%" 
-      ? `50% advance paid (₹${Number((amount / 2).toFixed(2)).toLocaleString()}). Remaining ₹${remainingDue.toLocaleString()} due before delivery.`
-      : `Full payment of ₹${amount.toLocaleString()} completed.`,
+      ? `50% advance paid (${currencySymbol}${Number((amount / 2).toFixed(2)).toLocaleString()}). Remaining ${currencySymbol}${remainingDue.toLocaleString()} due before delivery.`
+      : `Full payment of ${currencySymbol}${amount.toLocaleString()} completed.`,
     createdAt: new Date(),
   });
 
   await wallet.save();
-  console.log(`💰 Wallet updated for user ${userId}: Balance = ₹${wallet.balance}, Type = ${type}`);
+  console.log(`💰 Wallet updated for user ${userId}: Balance = ${currencySymbol}${wallet.balance}, Type = ${type}, Currency = ${currency}`);
   return true;
 }
 
