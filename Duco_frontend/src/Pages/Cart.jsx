@@ -583,7 +583,7 @@ const Cart = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
         const response = await fetch(`${API_BASE}/api/corporate-settings`);
         
         if (response.ok) {
@@ -836,7 +836,7 @@ const Cart = () => {
   useEffect(() => {
     const loadB2cCharges = async () => {
       try {
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
         const response = await fetch(`${API_BASE}/api/corporate-settings`);
         if (response.ok) {
           const result = await response.json();
@@ -1173,7 +1173,7 @@ const Cart = () => {
       }, 0);
 
       // Fetch corporate settings to find matching discount tier
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
       const response = await fetch(`${API_BASE}/api/corporate-settings/discount-tiers`);
       
       if (!response.ok) {
@@ -1666,7 +1666,7 @@ const Cart = () => {
                     qty: Object.values(item.quantity || {}).reduce((sum, q) => sum + safeNum(q), 0)
                   }));
 
-                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
                   const stockResponse = await fetch(`${API_BASE}/api/stock/bulk-check`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

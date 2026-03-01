@@ -29,7 +29,7 @@ const Navbar = ({ setIsOpenLog, user }) => {
     const fetchProducts = async () => {
       try {
         const res = await axios.get(
-          "https://duco-67o5.onrender.com/products/get"
+          "https://api.ducoart.com/products/get"
         );
         setAllProducts(res.data || []);
       } catch (err) {

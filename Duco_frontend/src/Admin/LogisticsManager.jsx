@@ -437,7 +437,7 @@ export default function LogisticsManager() {
   // ------- Label Generation -------
   const generateLabel = async (logisticId, format = 'pdf') => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
       const response = await fetch(`${API_BASE}/api/logistics/${logisticId}/label?format=${format}`, {
         method: 'GET',
         headers: {
@@ -469,7 +469,7 @@ export default function LogisticsManager() {
   // ------- View Bill/Invoice -------
   const viewBill = async (orderId) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
       const response = await fetch(`${API_BASE}/api/invoice/${orderId}`, {
         method: 'GET',
         headers: {
@@ -647,7 +647,7 @@ export default function LogisticsManager() {
   // ------- Speed Logistics Toggle -------
   const toggleSpeedLogistics = async (logisticId, currentStatus) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
       const response = await fetch(`${API_BASE}/api/logistics/${logisticId}/speed`, {
         method: 'PATCH',
         headers: {

@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const API_BASE = import.meta?.env?.VITE_API_BASE_URL
   ? `${import.meta.env.VITE_API_BASE_URL}/api`
-  : "https://duco-67o5.onrender.com/api";
+  : "https://api.ducoart.com/api";
 
 /** Build querystring for GET /employeesacc?url=&employeeid= */
 const getEmployeesAcc = async (params = {}) => {

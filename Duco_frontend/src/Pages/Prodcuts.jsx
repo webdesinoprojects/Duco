@@ -47,7 +47,7 @@ const Products = ({ gender }) => {
     const fetchProducts = async () => {
       try {
         const res = await axios.get(
-          "https://duco-67o5.onrender.com/products/get"
+          "https://api.ducoart.com/products/get"
         );
         const fetchedProducts = res.data || [];
         setAllProducts(fetchedProducts);

@@ -52,7 +52,7 @@ const OrderBulk = () => {
   const fetchOrders = async (page = 1) => {
     try {
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
       // ✅ Add cache-busting parameter to force fresh data
       const timestamp = Date.now();
       const res = await fetch(`${API_BASE}/api/order?page=${page}&limit=${itemsPerPage}&orderType=B2B&t=${timestamp}`, {
@@ -128,7 +128,7 @@ const OrderBulk = () => {
 
   const viewInvoice = async (orderId) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
       const normalized = await fetchAndNormalizeInvoice(orderId, API_BASE);
       setInvoiceData(normalized);
       setShowInvoiceModal(true);

@@ -58,7 +58,7 @@ export const PriceProvider = ({ children }) => {
       try {
         // ✅ Use backend endpoint for REAL-TIME IP-based geolocation (works with VPN)
         console.log("🌍 Detecting location via backend IP detection...");
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
         const response = await axios.get(`${API_BASE}/api/geolocation`, {
           timeout: 8000
         });

@@ -29,7 +29,7 @@ const CorporateSettings = () => {
 
   const loadSettings = async () => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
       const response = await fetch(`${API_BASE}/api/corporate-settings`);
       if (response.ok) {
         const result = await response.json();
@@ -68,7 +68,7 @@ const CorporateSettings = () => {
     setMessage('');
     
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
       console.log('💾 Saving corporate settings:', settings);
       
       const response = await fetch(`${API_BASE}/api/corporate-settings`, {

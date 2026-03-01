@@ -4,7 +4,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta?.env?.VITE_API_BASE_URL
   ? `${import.meta.env.VITE_API_BASE_URL}/api`
-  : (import.meta.env.DEV ? "https://duco-67o5.onrender.com/api" : "https://duco-67o5.onrender.com/api");
+  : (import.meta.env.DEV ? "https://api.ducoart.com/api" : "https://api.ducoart.com/api");
 
 const EmployeeSection = () => {
   const { username } = useParams();

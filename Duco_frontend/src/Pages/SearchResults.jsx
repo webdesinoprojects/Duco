@@ -33,7 +33,7 @@ const SearchResults = () => {
       try {
         setLoading(true);
         const res = await axios.get(
-          'https://duco-67o5.onrender.com/products/get'
+          'https://api.ducoart.com/products/get'
         );
 
         const searchLower = query.toLowerCase();

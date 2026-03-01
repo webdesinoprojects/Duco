@@ -72,7 +72,7 @@ const Home = () => {
     
     const fetchBanner = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
         
         // ✅ Fetch landing page data
         console.log('🎨 Fetching landing page data from:', `${apiUrl}/api/landing-page`);

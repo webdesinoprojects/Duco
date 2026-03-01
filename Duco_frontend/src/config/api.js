@@ -1,7 +1,7 @@
 // Centralized API configuration
-// Production backend: https://duco-67o5.onrender.com
+// Production backend: https://api.ducoart.com
 
-const DEFAULT_API_BASE_URL = 'https://duco-67o5.onrender.com';
+const DEFAULT_API_BASE_URL = 'https://api.ducoart.com';
 
 const normalizeApiBaseUrl = (value) => {
     const raw = String(value || '').trim();

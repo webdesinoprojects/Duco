@@ -29,7 +29,7 @@ const AdminCartItem = ({ product }) => {
   const onDeleted = async (id) => {
     try {
       const res = await axios.delete(
-        `https://duco-67o5.onrender.com/products/deleted/${id}`
+        `https://api.ducoart.com/products/deleted/${id}`
       );
       if (res) {
         toast.success("Product Is Deleted");

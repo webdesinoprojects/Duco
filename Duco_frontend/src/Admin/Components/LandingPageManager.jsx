@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import ImageKitUpload from "../../Components/ImageKitUpload";
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://duco-67o5.onrender.com';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
 
 export default function LandingPageManager() {
   const [loading, setLoading] = useState(true);
