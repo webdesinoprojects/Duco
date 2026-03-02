@@ -7,14 +7,9 @@ import BannerHome from "../Components/BannerHome.jsx";
 import axios from "axios";
 import { usePriceContext } from "../ContextAPI/PriceContext.jsx";
 
-const continentMapping = {
-  IN: "Asia",
-  US: "North America",
-  GB: "Europe",
-  AU: "Australia",
-};
-
 const Home = () => {
+  // ✅ REMOVED: Duplicate ipapi.co call that was conflicting with PriceContext
+  // PriceContext already handles geolocation detection properly
   const { setLocation } = usePriceContext();
   const [banner, setBanner] = useState("");
   const [Loading, setLoading] = useState(true);
@@ -28,13 +23,9 @@ const Home = () => {
   ]);
 
   useEffect(() => {
-    axios
-      .get("https://ipapi.co/json/")
-      .then((response) => {
-        const data = response.data;
-        setLocation(continentMapping[data?.country] || "Not available");
-      })
-      .catch(() => setLocation("Asia"));
+    // ✅ REMOVED: This ipapi.co call was mapping continents instead of countries
+    // which interfered with PriceContext's proper geolocation detection
+    // PriceContext.jsx now handles all geolocation - Home.jsx doesn't need to call ipapi.co
 
     const fetchBanner = async () => {
       try {
@@ -50,7 +41,7 @@ const Home = () => {
       }
     };
     fetchBanner();
-  }, [setLocation]);
+  }, []);
 
   return (
     <div className="h-full bg-[#0A0A0A] w-full text-white">

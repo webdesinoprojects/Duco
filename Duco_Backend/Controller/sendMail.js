@@ -1,29 +1,39 @@
 // Controller/sendMail.js
-const { Resend } = require("resend");
+const nodemailer = require("nodemailer");
 require("dotenv").config();
 
-// ✅ Initialize Resend with API key if available
-let resend = null;
-if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== "re_placeholder_add_your_key_here") {
-  resend = new Resend(process.env.RESEND_API_KEY);
+// ✅ Initialize Nodemailer with SMTP credentials
+let transporter = null;
+
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT) || 465,
+    secure: process.env.SMTP_PORT === "465" || process.env.SMTP_PORT === 465, // true for port 465
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+  });
+  console.log("✅ SMTP configured successfully for email: " + process.env.SMTP_USER);
 } else {
-  console.warn("⚠️  RESEND_API_KEY not set. Email sending will be disabled.");
+  console.warn("⚠️  SMTP credentials not configured. Email sending will be disabled.");
 }
 
 async function sendOtpEmail(to, otp) {
-  // ✅ Return mock response if Resend is not configured
-  if (!resend) {
+  // ✅ Return mock response if SMTP is not configured
+  if (!transporter) {
     console.log(`⚠️  Email sending disabled. OTP would be sent to: ${to}, OTP: ${otp}`);
     return {
       id: "mock_" + Date.now(),
-      from: process.env.RESEND_FROM || "Duco <no-reply@ducoart.com>",
+      from: process.env.SMTP_USER,
       to,
       subject: "Your OTP for Login",
       status: "mock_success"
     };
   }
 
-  const from = process.env.RESEND_FROM || "Duco <no-reply@ducoart.com>";
+  const from = process.env.SMTP_USER;
 
   const html = `
     <div style="font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.6">
@@ -34,15 +44,21 @@ async function sendOtpEmail(to, otp) {
     </div>
   `;
 
-  return resend.emails.send({
-    from,         // now your verified domain
-    to,
-    subject: "Your OTP for Login",
-    html,
-    text: `Your OTP is ${otp}. It will expire in 5 minutes.`,
-    // replyTo: "support@ducoart.com", // optional
-    tags: [{ name: "type", value: "otp" }],    // optional but handy
-  });
+  try {
+    const result = await transporter.sendMail({
+      from,
+      to,
+      subject: "Your OTP for Login",
+      html,
+      text: `Your OTP is ${otp}. It will expire in 5 minutes.`,
+    });
+    
+    console.log("✅ OTP email sent successfully to:", to, "MessageId:", result.messageId);
+    return result;
+  } catch (error) {
+    console.error("❌ Error sending OTP email:", error.message);
+    throw error;
+  }
 }
 
 module.exports = sendOtpEmail;

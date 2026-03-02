@@ -262,9 +262,49 @@ export default function OrderSuccess() {
                 sgstAmount: order.sgst || 0,
                 igstAmount: order.igst || 0,
               },
-              // Billing/shipping addresses
-              billTo: order.addresses?.billing || order.address,
-              shipTo: order.addresses?.shipping || order.address,
+              // Billing/shipping addresses - Transform for invoice template
+              billTo: (() => {
+                const addr = order.addresses?.billing || order.address;
+                if (!addr) return { name: 'N/A', address: 'N/A' };
+                
+                // Construct address string from individual fields
+                const addressParts = [
+                  addr.houseNumber,
+                  addr.street,
+                  addr.landmark,
+                  addr.city,
+                  addr.state && addr.pincode ? `${addr.state} - ${addr.pincode}` : addr.state || addr.pincode,
+                  addr.country,
+                ].filter(Boolean);
+                
+                return {
+                  name: addr.fullName || addr.name || 'N/A',
+                  address: addr.address || addressParts.join(', ') || 'N/A',
+                  gstin: addr.gstin || addr.gstNumber || null,
+                };
+              })(),
+              shipTo: (() => {
+                const addr = order.addresses?.shipping || order.address;
+                const billAddr = order.addresses?.billing || order.address;
+                if (!addr && !billAddr) return { name: 'N/A', address: 'N/A' };
+                
+                const useAddr = addr || billAddr;
+                // Construct address string from individual fields
+                const addressParts = [
+                  useAddr.houseNumber,
+                  useAddr.street,
+                  useAddr.landmark,
+                  useAddr.city,
+                  useAddr.state && useAddr.pincode ? `${useAddr.state} - ${useAddr.pincode}` : useAddr.state || useAddr.pincode,
+                  useAddr.country,
+                ].filter(Boolean);
+                
+                return {
+                  name: useAddr.fullName || useAddr.name || 'N/A',
+                  address: useAddr.address || addressParts.join(', ') || 'N/A',
+                  gstin: useAddr.gstin || useAddr.gstNumber || null,
+                };
+              })(),
               // Company info for invoice template
               company: {
                 name: "DUCO ART PRIVATE LIMITED",
@@ -614,6 +654,71 @@ export default function OrderSuccess() {
                     </div>
                   ) : null}
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* BILLING & SHIPPING ADDRESS SECTION */}
+      <div className="mx-auto max-w-5xl mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Billing Address */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Billed Address</h2>
+            <div className="space-y-2 text-gray-700">
+              <p className="font-semibold text-gray-800">
+                {invoiceData.billTo?.fullName || invoiceData.billTo?.name || 'N/A'}
+              </p>
+              <p className="text-sm whitespace-pre-wrap">
+                {invoiceData.billTo?.address || 
+                  [
+                    invoiceData.billTo?.houseNumber,
+                    invoiceData.billTo?.street,
+                    invoiceData.billTo?.landmark,
+                    invoiceData.billTo?.city,
+                    invoiceData.billTo?.state && `${invoiceData.billTo.state} - ${invoiceData.billTo?.pincode}`,
+                    invoiceData.billTo?.country,
+                  ].filter(Boolean).join(', ') || 'N/A'}
+              </p>
+              {(invoiceData.billTo?.gstin || invoiceData.billTo?.gstNumber) && (
+                <p className="text-sm text-gray-600">
+                  GSTIN/UIN: {invoiceData.billTo?.gstin || invoiceData.billTo?.gstNumber}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Shipping Address */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Shipped Address</h2>
+            <div className="space-y-2 text-gray-700">
+              <p className="font-semibold text-gray-800">
+                {invoiceData.shipTo?.fullName || invoiceData.shipTo?.name || invoiceData.billTo?.fullName || invoiceData.billTo?.name || 'N/A'}
+              </p>
+              <p className="text-sm whitespace-pre-wrap">
+                {invoiceData.shipTo?.address || 
+                  [
+                    invoiceData.shipTo?.houseNumber,
+                    invoiceData.shipTo?.street,
+                    invoiceData.shipTo?.landmark,
+                    invoiceData.shipTo?.city,
+                    invoiceData.shipTo?.state && `${invoiceData.shipTo.state} - ${invoiceData.shipTo?.pincode}`,
+                    invoiceData.shipTo?.country,
+                  ].filter(Boolean).join(', ') ||
+                  [
+                    invoiceData.billTo?.houseNumber,
+                    invoiceData.billTo?.street,
+                    invoiceData.billTo?.landmark,
+                    invoiceData.billTo?.city,
+                    invoiceData.billTo?.state && `${invoiceData.billTo.state} - ${invoiceData.billTo?.pincode}`,
+                    invoiceData.billTo?.country,
+                  ].filter(Boolean).join(', ') || 'N/A'}
+              </p>
+              {(invoiceData.shipTo?.gstin || invoiceData.shipTo?.gstNumber) && (
+                <p className="text-sm text-gray-600">
+                  GSTIN/UIN: {invoiceData.shipTo?.gstin || invoiceData.shipTo?.gstNumber}
+                </p>
               )}
             </div>
           </div>

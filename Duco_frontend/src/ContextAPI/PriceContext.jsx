@@ -52,24 +52,29 @@ export const PriceProvider = ({ children }) => {
   const [resolvedLocation, setResolvedLocation] = useState(null);
   const [location, setLocation] = useState(null);
 
-  /* 🌍 Auto-detect location on mount using backend endpoint */
+  /* 🌍 Auto-detect location on mount using FRONTEND IP detection */
+  // ✅ WHY FRONTEND: Frontend calls see user's REAL VPN IP
+  // ❌ Backend would see: Backend server's IP (not useful for VPN detection)
+  // ✅ Result: When user switches VPN to Singapore, frontend detects Singapore correctly
   useEffect(() => {
     const detectLocation = async () => {
       try {
-        // ✅ Use backend endpoint for REAL-TIME IP-based geolocation (works with VPN)
-        console.log("🌍 Detecting location via backend IP detection...");
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.ducoart.com';
-        const response = await axios.get(`${API_BASE}/api/geolocation`, {
+        // ✅ CRITICAL FIX: Use FRONTEND geolocation (detects user's real VPN IP)
+        // NOT backend geolocation (backend sees its own server IP, not user's VPN)
+        console.log("🌍 Detecting location via FRONTEND IP detection (VPN-aware)...");
+        
+        // ✅ Call ipapi.co directly from frontend - this sees the user's real VPN IP
+        const response = await axios.get('https://ipapi.co/json/', {
           timeout: 8000
         });
         const data = response.data;
         
-        console.log("📍 Real-time Geolocation Data:", {
-          country: data.country,
-          countryCode: data.countryCode,
+        console.log("📍 Frontend Geolocation Data (detects real VPN IP):", {
+          country: data.country_name,
+          countryCode: data.country_code,
           city: data.city,
           ip: data.ip,
-          success: data.success
+          via: 'Frontend direct call (VPN-aware)'
         });
 
         // ✅ Map country codes to database location names
@@ -93,18 +98,21 @@ export const PriceProvider = ({ children }) => {
           "SA": "Saudi Arabia",
         };
         
-        const countryCode = data.countryCode || "IN";
-        const mappedLocation = countryToLocationMap[countryCode] || data.country || "India";
+        // ipapi.co returns country_code (with underscore), not countryCode
+        const countryCode = data.country_code || "IN";
+        const mappedLocation = countryToLocationMap[countryCode] || data.country_name || "India";
         
         console.log("✅ Location mapped:", {
           countryCode,
-          country: data.country,
-          mappedTo: mappedLocation
+          country: data.country_name,
+          mappedTo: mappedLocation,
+          detectedIP: data.ip
         });
 
         setLocation(mappedLocation);
       } catch (err) {
-        console.error("❌ Real-time location detection failed:", err.message);
+        console.error("❌ Geolocation detection failed:", err.message);
+        console.warn("⚠️  This might be due to ipapi.co rate limiting or network issues");
         
         // ✅ Fallback 1: Try cached location from localStorage
         const cachedLocation = getFallbackLocation();
